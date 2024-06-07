@@ -1,0 +1,6 @@
+flet==0.22.0
+pillow==10.3.0
+pystray==0.19.5
+wikiquote==1.4.0
+langchain==0.1.16
+beautifulsoup4==4.12.3

@@ -1,0 +1,19 @@
+
+{
+  "sidebar": {
+    "menu": "Menú",
+    "home": "Hogar",
+    "settings": "Configuración",
+    "toggle": "Modo oscuro/claro",
+    "lang": "Idioma",
+    "theme": "Tema"
+  },
+  "contextlist": {
+    "title": "Hilos",
+    "settings": "Configuración",
+    "tray": "Mostrar icono de bandeja (es necesario reiniciar)"
+  },
+  "chatwindow": {
+    "hint": "Escribe un mensaje..."
+  }
+}
