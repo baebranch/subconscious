@@ -2,9 +2,7 @@ import flet as ft
 from math import pi
 import flet.canvas as cv
 
-
-from frontend.components.gui_constants import *
-from frontend.components.data_objects import Message
+from src.components.data_objects import Message
 
 
 class MessageBubble(ft.Row):
@@ -19,33 +17,33 @@ class MessageBubble(ft.Row):
         ft.Stack([
 
           # Corner pointer for the message bubble
-          self.sender_message_pointer() if message.is_sender else self.receiver_message_pointer(),
+          self.sender_message_pointer() if message['is_sender'] else self.receiver_message_pointer(),
 
           # Message bubble
           self.generate_bubble(message),
           
         ], expand_loose=True),
         expand=True,
-        alignment=ft.alignment.top_right if message.is_sender else ft.alignment.top_left,
+        alignment=ft.alignment.top_right if message['is_sender'] else ft.alignment.top_left,
       )
     ]
   
-  def generate_bubble(self, message: Message):
+  def generate_bubble(self, message: dict):
     return ft.Container(
-      bgcolor=sender_message_bubble_bg_colour if message.is_sender else receiver_message_bubble_bg_colour,
+      bgcolor=ft.colors.PRIMARY_CONTAINER if message['is_sender'] else ft.colors.SURFACE_CONTAINER_HIGHEST,
       border_radius = ft.BorderRadius(5, 5, 5, 5),
       padding = ft.padding.only(10, 5, 10, 5),
       content = ft.Column([
         ft.Container(content=ft.Column([
-            ft.Text(message.text, selectable=True, ),
+            ft.Text(message['text'], selectable=True, ),
           ], spacing=0), padding=ft.padding.only(0, 0, 20, 0)),
 
         ft.Container(content=ft.Column([
-            ft.Text(message.datetime.strftime("%H:%M"), color=ft.colors.GREY, size=12),
+            ft.Text(message['created_at'].strftime("%H:%M"), size=12),
           ],spacing=0)),
       ], spacing=0, horizontal_alignment="end"),
 
-      margin=ft.margin.only(right=7) if message.is_sender else ft.margin.only(left=7),
+      margin=ft.margin.only(right=7) if message['is_sender'] else ft.margin.only(left=7),
     )
   
   def receiver_message_pointer(self):
@@ -57,7 +55,7 @@ class MessageBubble(ft.Row):
       alignment=ft.alignment.top_left,
       content = ft.Stack([
         ft.Container(
-          bgcolor=receiver_message_bubble_bg_colour,
+          bgcolor=ft.colors.SURFACE_CONTAINER_HIGHEST,
           width=20,
           height=15,
           border_radius=ft.BorderRadius(2, 2, 2, 2),
@@ -65,7 +63,7 @@ class MessageBubble(ft.Row):
           offset=ft.Offset(0.525, -0.1)
         ),
         ft.Container(
-          bgcolor=receiver_message_bubble_bg_colour,
+          bgcolor=ft.colors.SURFACE_CONTAINER_HIGHEST,
           width=20,
           height=15,
           border_radius=ft.BorderRadius(2, 2, 2, 2),
@@ -84,7 +82,7 @@ class MessageBubble(ft.Row):
       alignment=ft.alignment.top_right,
       content = ft.Stack([
         ft.Container(
-          bgcolor=sender_message_bubble_bg_colour,
+          bgcolor=ft.colors.PRIMARY_CONTAINER,
           width=20,
           height=15,
           border_radius=ft.BorderRadius(2, 2, 2, 2),
@@ -92,7 +90,7 @@ class MessageBubble(ft.Row):
           offset=ft.Offset(-0.525, -0.1)
         ),
         ft.Container(
-          bgcolor=sender_message_bubble_bg_colour,
+          bgcolor=ft.colors.PRIMARY_CONTAINER,
           width=20,
           height=15,
           border_radius=ft.BorderRadius(2, 2, 2, 2),
@@ -107,7 +105,7 @@ class MessageBlock(ft.Container):
   """ A class to represent a message block in the chat.
       A message block is a stack of individual messages and an display icon
   """
-  def __init__(self, message: Message):
+  def __init__(self, message: dict):
     super().__init__()
     self.vertical_alignment="start"
     self.bgcolor=ft.colors.RED

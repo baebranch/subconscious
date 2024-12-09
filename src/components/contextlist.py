@@ -1,9 +1,6 @@
 import flet as ft
 from datetime import datetime, timezone
 
-from frontend.components.gui_constants import *
-from logic.agent import LLMAgent, ChatDataManager, session, select, Settings
-
 
 def on_hover(e):
   if e.data == "true":
@@ -68,16 +65,16 @@ class ThreadItem(ft.TextButton):
     super().__init__()
     self.chat = chat
     self.style = ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=5))
-    self.last_updated = chat.updated_at.astimezone()
+    self.last_updated = chat['updated_at'].astimezone()
     self.on_click = self.highlight
     self.toggle_func = toggle_func
 
     self.content = ft.Column([
       ft.Row([
-        ft.Text(self.chat.title, size=14, weight=ft.FontWeight.W_500, color=ft.colors.WHITE, overflow=ft.TextOverflow.ELLIPSIS, tooltip=self.chat.title, expand=True),
-        ft.Text(self.render_time(), size=12, weight=ft.FontWeight.W_100, color=ft.colors.WHITE, text_align=ft.TextAlign.RIGHT, tooltip=self.render_datetime_tooltip())
+        ft.Text(self.chat['title'], size=14, weight=ft.FontWeight.W_500, overflow=ft.TextOverflow.ELLIPSIS, tooltip=self.chat['title'], expand=True),
+        ft.Text(self.render_time(), size=12, weight=ft.FontWeight.W_100, text_align=ft.TextAlign.RIGHT, tooltip=self.render_datetime_tooltip())
       ], spacing=10),
-      ft.Text(self.chat.description, size=14, color=ft.colors.WHITE, weight=ft.FontWeight.W_100, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS, tooltip=self.chat.description)
+      ft.Text(self.chat['description'], size=14, weight=ft.FontWeight.W_100, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS, tooltip=self.chat['description'])
     ], spacing=5)
   
   def highlight(self, e):
@@ -111,16 +108,17 @@ class ThreadItem(ft.TextButton):
   
 
 class ContextList(ft.Container):
-  def __init__(self, chat, lang, mainwindow):
+  def __init__(self, lang, mainwindow):
     super().__init__()
-    self.chat = chat
     self.l = lang
-    self.mainwindow = mainwindow
-    self.bgcolor = chat_bg_colour
-    self.max_width = 380,
-    self.padding = ft.padding.only(15, 10, 15, 10)
+    self.max_width = 500
+    self.min_width = 200
     self.active_thread = None
     self.active_setting = None
+    self.mainwindow = mainwindow
+    self.bgcolor = ft.colors.BACKGROUND
+    self.padding = ft.padding.only(15, 10, 15, 10)
+    self.border_radius = ft.BorderRadius(10, 0, 0, 0)
     
     self.context_list = ft.ListView(
       spacing=10,
@@ -128,8 +126,8 @@ class ContextList(ft.Container):
     )
 
     # Add the context items to the list view
-    for context in self.chat.chats:
-      self.context_list.controls.append(ThreadItem(context, self.thread_toggle))
+    # for context in self.chat.chats:
+    #   self.context_list.controls.append(ThreadItem(context, self.thread_toggle))
 
     self.threads = ft.Column([
         ft.Row([
@@ -147,11 +145,11 @@ class ContextList(ft.Container):
         ft.Row([
           ft.Text(self.l.contextlist.settings, size=20, weight=ft.FontWeight.BOLD),
         ]),
-        SettingItem(self.chat, self.setting_toggle, {"title": "Models", "main": "models"}),
-        SettingItem(self.chat, self.setting_toggle, {"title": "Workspaces", "main": "workspaces"}),
+        # SettingItem(self.chat, self.setting_toggle, {"title": "Models", "main": "models"}),
+        # SettingItem(self.chat, self.setting_toggle, {"title": "Workspaces", "main": "workspaces"}),
         ft.Checkbox(
           label="Show Tray Icon",
-          value=list(filter(lambda x: x.key == 'tray_icon', self.chat.settings))[0].value.get('show'),
+          # value=list(filter(lambda x: x.key == 'tray_icon', self.chat.settings))[0].value.get('show'),
           on_change=self.toggle_tray_icon,
           shape=ft.RoundedRectangleBorder(radius=3)
         ),
@@ -160,7 +158,32 @@ class ContextList(ft.Container):
       width=380,
     )
 
-    self.content = self.threads
+    # Add the settings items to the list view
+    self.basic = ft.Column([
+        # ft.Row([
+        #   ft.Text(self.l.contextlist.settings, size=20, weight=ft.FontWeight.BOLD),
+        # ]),
+        # # SettingItem(self.chat, self.setting_toggle, {"title": "Models", "main": "models"}),
+        # # SettingItem(self.chat, self.setting_toggle, {"title": "Workspaces", "main": "workspaces"}),
+        # ft.Checkbox(
+        #   label="Show Tray Icon",
+        #   # value=list(filter(lambda x: x.key == 'tray_icon', self.chat.settings))[0].value.get('show'),
+        #   on_change=self.toggle_tray_icon,
+        #   shape=ft.RoundedRectangleBorder(radius=3)
+        # ),
+      ],
+      spacing = 10,
+      width=380,
+    )
+
+    self.content = self.basic
+    # self.content = ft.Column([], spacing=0, width=0)
+
+  def load_contexts(self, chats):
+    """ Load the context items into the context list """
+    self.context_list.controls = []
+    for chat in chats:
+      self.context_list.controls.append(ThreadItem(chat, self.thread_toggle))
 
   def new_chat(self, e):
     print('New chat')
@@ -168,12 +191,12 @@ class ContextList(ft.Container):
   def show_threads(self, e):
     self.content = self.threads
     self.mainwindow.show_thread()
-    self.page.update()
+    # self.page.update()
   
   def show_settings(self, e):
     self.content = self.settings
     self.mainwindow.show_setting()
-    self.page.update()
+    # self.page.update()
   
   def toggle_tray_icon(self, e):
     """ Update the settings for the tray icon """
@@ -187,6 +210,7 @@ class ContextList(ft.Container):
     if self.active_thread:
       self.active_thread.style = ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=5))
     self.active_thread = button
+    self.mainwindow.show_thread(self.active_thread.chat['id'])
     self.page.update()
 
   def setting_toggle(self, button):
