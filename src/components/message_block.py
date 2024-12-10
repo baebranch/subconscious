@@ -12,21 +12,46 @@ class MessageBubble(ft.Row):
   def __init__(self, message: Message):
     super().__init__()
     self.expand = True
+    self.message = message
+    self.message_content = ft.Text(self.message['text'], size=14, color=ft.colors.PRIMARY)
     self.controls = [
       ft.Container(
         ft.Stack([
 
           # Corner pointer for the message bubble
-          self.sender_message_pointer() if message['is_sender'] else self.receiver_message_pointer(),
+          self.sender_message_pointer() if self.message['is_sender'] else self.receiver_message_pointer(),
 
           # Message bubble
-          self.generate_bubble(message),
+          # self.generate_bubble(self.message),
+          ft.Container(
+            bgcolor=ft.colors.PRIMARY_CONTAINER if message['is_sender'] else ft.colors.SURFACE_CONTAINER_HIGHEST,
+            border_radius = ft.BorderRadius(5, 5, 5, 5),
+            padding = ft.padding.only(10, 5, 10, 5),
+            content = ft.Column([
+              ft.Container(content=ft.Column([
+                  self.message_content,
+                ], spacing=0), padding=ft.padding.only(0, 0, 20, 0)),
+
+              ft.Container(content=ft.Column([
+                  ft.Text(message['created_at'].strftime("%H:%M"), size=12),
+                ],spacing=0)),
+            ], spacing=0, horizontal_alignment="end"),
+
+            margin=ft.margin.only(right=7) if message['is_sender'] else ft.margin.only(left=7),
+          )
           
         ], expand_loose=True),
         expand=True,
-        alignment=ft.alignment.top_right if message['is_sender'] else ft.alignment.top_left,
+        alignment=ft.alignment.top_right if self.message['is_sender'] else ft.alignment.top_left,
       )
     ]
+  
+  def update_message(self, message: Message):
+    self.message = message
+    self.controls[0].content = ft.Stack([
+      self.sender_message_pointer() if self.message['is_sender'] else self.receiver_message_pointer(),
+      self.generate_bubble(self.message),
+    ], expand_loose=True)
   
   def generate_bubble(self, message: dict):
     return ft.Container(
@@ -35,7 +60,7 @@ class MessageBubble(ft.Row):
       padding = ft.padding.only(10, 5, 10, 5),
       content = ft.Column([
         ft.Container(content=ft.Column([
-            ft.Text(message['text'], selectable=True, ),
+            self.message_content,
           ], spacing=0), padding=ft.padding.only(0, 0, 20, 0)),
 
         ft.Container(content=ft.Column([

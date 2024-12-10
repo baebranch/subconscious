@@ -1,3 +1,4 @@
+import json
 import flet as ft
 from threading import Thread
 from time import time, monotonic
@@ -34,14 +35,16 @@ class MessageList(ft.ListView):
 
 class MainWindow(ft.Container):
   """ The main window for the UI """
-  def __init__(self, lang):
+  def __init__(self, lang, settings):
     super().__init__()
     self.l = lang
     self.padding = 0
-    self.threads = defaultdict(MessageList)
     self.expand = True
+    self.settings = settings
     self.active_thread = None
+    self.last_ai_message = {}
     self.bgcolor = ft.colors.BACKGROUND
+    self.threads = defaultdict(MessageList)
 
     self.message_form = ft.TextField(
       hint_text=self.l.chatwindow.hint,
@@ -56,16 +59,57 @@ class MainWindow(ft.Container):
       expand=True,
     )
 
+    def handle_change(e: ft.ControlEvent, key, setting):
+      settings = json.load(open('./data/settings.json', 'r'))
+      if type(settings['general'][key]['value']) == bool:
+        settings['general'][key]['value'] = json.loads(e.data)
+      else:
+        settings['general'][key]['value'] = e.data
+      json.dump(settings, open('./data/settings.json', 'w'))
+
+    def render_settings(key, val):
+      if type(val['value']) == bool:
+        return ft.Row([
+          ft.Checkbox(label=val['label'], value=val['value'], on_change=lambda e: handle_change(e, key, val), shape=ft.RoundedRectangleBorder(radius=3))
+        ])
+      elif type(val['value']) == str:
+        return ft.Row([
+          ft.Text(key.capitalize()),
+          ft.TextField(value=val, on_change=lambda e: handle_change(e, key, val))
+        ])
+        
     # Default settings content
     self.default_settings = ft.Column([
+      # Settings Header
       ft.Container(
         content=ft.Row([
-          ft.Icon(ft.icons.SETTINGS, size=20, color=ft.colors.GREY),
-          ft.Text("Settings", size=20, color=ft.colors.GREY),
-        ], alignment="start"),
+          ft.Icon(ft.icons.SETTINGS, size=20, color=ft.colors.PRIMARY),
+          ft.Text("Settings", size=20, color=ft.colors.PRIMARY),
+        ], alignment="center"),
         margin=ft.margin.only(30, 4, 30, 10),
       ),
 
+      # Settings Expansion
+      ft.ExpansionPanelList(
+        expand_icon_color=ft.colors.PRIMARY,
+        elevation=8,
+        divider_color=ft.colors.SECONDARY_CONTAINER,
+        controls=[
+          ft.ExpansionPanel(
+            header=ft.Container(
+              content=ft.Text(title.capitalize(), size=18, color=ft.colors.PRIMARY),
+              padding=ft.padding.only(10, 10, 10, 0)
+            ),
+            content=ft.Column([
+              render_settings(key, val)
+              for key,val in values.items()
+            ], alignment="start"),
+            bgcolor=ft.colors.SURFACE_CONTAINER_HIGHEST,
+            expanded=True,
+          )
+          for title,values in self.settings.items() if title != '_general'
+        ]
+      )
     ], alignment="start")
 
     # Default message content for multiple contexts/threads where no context is selected
@@ -253,6 +297,17 @@ class MainWindow(ft.Container):
   
   def send_response(self, message, thread_id=None):
     self.threads[thread_id].controls.append(MessageBubble(message))
+    self.page.update()
+  
+  def stream_response(self, message, thread_id=None):
+    if thread_id in self.last_ai_message and self.last_ai_message[thread_id].id == message.id:
+      self.last_ai_message[thread_id].text += message.text
+      self.threads[thread_id].controls[-1].message_content.value = self.last_ai_message[thread_id].text
+      self.threads[thread_id].controls[-1].message_content.update()
+      self.threads[thread_id].controls[-1].update()
+    else:
+      self.last_ai_message[thread_id] = message
+      self.threads[thread_id].controls.append(MessageBubble(self.last_ai_message[thread_id]))
     self.page.update()
 
   def show_setting(self, setting_name=None):

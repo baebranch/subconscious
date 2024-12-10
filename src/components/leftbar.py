@@ -1,3 +1,4 @@
+import json
 import flet as ft
 
 
@@ -30,8 +31,8 @@ class PopupLanguageItem(ft.PopupMenuItem):
 
 
 class PopupColorItem(ft.PopupMenuItem):
-  white = ft.ColorScheme(primary=ft.colors.WHITE, secondary=ft.colors.GREY, background=ft.colors.BLACK)
-  black = ft.ColorScheme(primary=ft.colors.BLACK, secondary=ft.colors.GREY, background=ft.colors.WHITE)
+  white = ft.ColorScheme(primary=ft.colors.WHITE, secondary=ft.colors.GREY, background=ft.colors.BLACK87, secondary_container=ft.colors.GREY_800)
+  black = ft.ColorScheme(primary=ft.colors.BLACK, secondary=ft.colors.GREY, background=ft.colors.WHITE, secondary_container=ft.colors.GREY_300)
 
   def __init__(self, colour, name):
     super().__init__()
@@ -47,6 +48,12 @@ class PopupColorItem(ft.PopupMenuItem):
     self.data = colour
 
   def seed_color_changed(self, e):
+    # Update settings
+    settings = json.load(open("./data/settings.json", "r"))
+    settings['_general']['theme'] = self.data
+    json.dump(settings, open("./data/settings.json", "w"))
+
+    # Set the theme to the selected colour
     if self.data in ["black", "white"]:
       self.page.theme = ft.Theme(color_scheme=getattr(self, self.data))
     else:
@@ -86,8 +93,8 @@ class WorksapceButton(ft.Container):
     self.padding = ft.padding.only(4, 0, 3, 4)
 
 
-class Sidebar(ft.Column):
-  def __init__(self, page, lang, context_list, mainwindow, titlebar_theme_changed):
+class Leftbar(ft.Column):
+  def __init__(self, page, lang, context_list, mainwindow, titlebar_theme_changed, settings):
     super().__init__()
     self.l = lang
     self.p = page
@@ -95,8 +102,9 @@ class Sidebar(ft.Column):
     self.width = 48
     self.spacing = 0
     self.alignment = "end"
-    self.context_list = context_list
+    self.settings = settings
     self.mainwindow = mainwindow
+    self.context_list = context_list
     self.titlebar_toggle = titlebar_theme_changed
 
     # Theme colours
@@ -249,10 +257,10 @@ class Sidebar(ft.Column):
   def theme_changed(self, _):
     """ Toggle the theme mode between light and dark """
     if self.page.theme_mode == ft.ThemeMode.LIGHT:
-      self.minimize = ft.Image(src="icons/minimize_light.svg", width=12, height=12)
-      self.maximize = ft.Image(src="icons/maximize_light.svg", width=12, height=12)
-      self.restore = ft.Image(src="icons/restore_light.svg", width=12, height=12)
-      self.close = ft.Image(src="icons/close_light.svg", width=12, height=12)
+      self.minimize = ft.Image(src="./src/assets/icons/minimize_light.svg", width=12, height=12)
+      self.maximize = ft.Image(src="./src/assets/icons/maximize_light.svg", width=12, height=12)
+      self.restore = ft.Image(src="./src/assets/icons/restore_light.svg", width=12, height=12)
+      self.close = ft.Image(src="./src/assets/icons/close_light.svg", width=12, height=12)
       self.dark_light_icon.icon = ft.icons.BRIGHTNESS_HIGH
       self.page.theme_mode = ft.ThemeMode.DARK
       self.colour_theme_menu.items.pop(-1)
@@ -261,13 +269,12 @@ class Sidebar(ft.Column):
       # Update theme if it is white
       if self.page.theme.color_scheme and self.page.theme.color_scheme.primary == "black":
         self.page.theme = ft.Theme(color_scheme=PopupColorItem.white)
-        
 
     elif self.page.theme_mode == ft.ThemeMode.DARK:
-      self.minimize = ft.Image(src="icons/minimize_dark.svg", width=12, height=12)
-      self.maximize = ft.Image(src="icons/maximize_dark.svg", width=12, height=12)
-      self.restore = ft.Image(src="icons/restore_dark.svg", width=12, height=12)
-      self.close = ft.Image(src="icons/close_dark.svg", width=12, height=12)
+      self.minimize = ft.Image(src="./src/assets/icons/minimize_dark.svg", width=12, height=12)
+      self.maximize = ft.Image(src="./src/assets/icons/maximize_dark.svg", width=12, height=12)
+      self.restore = ft.Image(src="./src/assets/icons/restore_dark.svg", width=12, height=12)
+      self.close = ft.Image(src="./src/assets/icons/close_dark.svg", width=12, height=12)
       self.dark_light_icon.icon = ft.icons.BRIGHTNESS_2
       self.page.theme_mode = ft.ThemeMode.LIGHT
       self.colour_theme_menu.items.pop(-1)
@@ -277,8 +284,16 @@ class Sidebar(ft.Column):
       if self.page.theme.color_scheme and self.page.theme.color_scheme.primary == "white":
         self.page.theme = ft.Theme(color_scheme=PopupColorItem.black)
 
+    # Update the theme of the title bar and the page
     self.titlebar_toggle()
     self.page.update()
+
+    # Update the settings
+    settings = json.load(open("./data/settings.json", "r"))
+    settings['_general']['mode'] = self.page.theme_mode.name
+    if settings['_general']['theme'] in ["black", "white"]:
+      settings['_general']['theme'] = "black" if self.page.theme_mode == ft.ThemeMode.LIGHT else "white"
+    json.dump(settings, open("./data/settings.json", "w"))
   
   def show_settings(self, e):
     self.context_list.show_settings(e)

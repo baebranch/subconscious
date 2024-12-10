@@ -20,7 +20,7 @@ class GUI(ft.Container):
             # self.divider() if contextlist else None,
             mainwindow
           ], spacing=0),
-          padding=0, border_radius=ft.BorderRadius(10, 10, 0, 0),
+          padding=0,
           # border=ft.border.only(top=ft.BorderSide(1, ft.colors.PRIMARY), left=ft.BorderSide(1, ft.colors.PRIMARY)),
           bgcolor=self.bgcolor,
           expand=True

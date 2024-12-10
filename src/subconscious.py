@@ -1,3 +1,4 @@
+import os
 import json
 import pystray
 import logging
@@ -11,7 +12,8 @@ from multiprocessing import Process
 
 from src.lang import LangLoader
 from src.components.gui import GUI
-from src.components.leftbar import Sidebar
+from src.utilities.dictobj import DictObj
+from src.components.leftbar import Leftbar
 from src.components.rightbar import Rightbar
 from src.components.titlebar import TitleBar
 from src.components.data_objects import Message
@@ -26,14 +28,38 @@ class Subconscious:
   """ Setup the layout for the subcscious app UI """
   splash = True
 
-  def __init__(self, tray: bool=True, title: str="Subconscious"):
+  def __init__(self, title: str="Subconscious"):
     """ Should only call expand on containers """
     # Load ui settings
-    self.lang = LangLoader("en")
     self.title = title
-    self.tray = tray
+    if os.path.exists("./data/settings.json"):
+      f = open("./data/settings.json", "r")
+      self.settings = json.load(f)
+      f.close()
+    else:
+      logger.debug("Settings file not found, creating new settings file...")
+      self.settings = {
+        "_general": {
+          "mode": "LIGHT", # light or dark
+          "theme": "black", # color scheme
+          "language": "en", # language
+        },
+        "general": {
+          "tray": {
+            "value": True,
+            "label": "Show tray icon",
+          }
+        }
+      }
+      f = open("./data/settings.json", "w")
+      f.write(json.dumps(self.settings, indent=2))
+      f.close()
     
+    # Create settings object
+    self.settings = DictObj(self.settings)
+
     # Initialize the UI
+    self.lang = LangLoader(self.settings._general.language)
     self.__initialize_ui()
   
   # User methods
@@ -41,7 +67,7 @@ class Subconscious:
     """ Main function to initiate subconscious gui """
     def window_resized_handler(e):
       self.__titlebar.theme_changed()
-      self.__sidebar.dynamic_height(e)
+      self.__leftbar.dynamic_height(e)
 
     def main(page: ft.Page):
       # Flet page config
@@ -56,8 +82,13 @@ class Subconscious:
       page.window.width = 500
       page.window.frameless = False
       page.window.title_bar_hidden = True
-      page.theme_mode = ft.ThemeMode.DARK
-      page.theme = ft.Theme(color_scheme=ft.ColorScheme(primary=ft.colors.WHITE, secondary=ft.colors.GREY, background=ft.colors.BLACK))
+      page.theme_mode = getattr(ft.ThemeMode, self.settings._general.mode)
+      if self.settings._general.theme == "white" and self.settings._general.mode == "DARK":
+        page.theme = ft.Theme(color_scheme=ft.ColorScheme(primary=ft.colors.WHITE, secondary=ft.colors.GREY, background=ft.colors.BLACK87, secondary_container=ft.colors.GREY_800))
+      elif self.settings._general.theme == "black" and self.settings._general.mode == "LIGHT":
+        page.theme = ft.Theme(color_scheme=ft.ColorScheme(primary=ft.colors.BLACK, secondary=ft.colors.GREY, background=ft.colors.WHITE, secondary_container=ft.colors.GREY_300))
+      else:
+        page.theme = ft.Theme(color_scheme_seed=self.settings._general.theme)
       page.title = self.title
       page.font = { "calibri": "https://fonts.googleapis.com/css2?family=Calibri:wght@400;700&display=swap" }
       page.on_resized = window_resized_handler
@@ -72,7 +103,8 @@ class Subconscious:
       )
 
       # Initialize the app, tray ion, splash screen
-      self.__initialize_tray_icon()
+      if self.settings.general.tray.value:
+        self.__initialize_tray_icon()
 
       if self.splash: page.overlay.append(self.splash_screen())
       page.add(self.__titlebar)
@@ -104,16 +136,23 @@ class Subconscious:
   def send_response(self, message: dict):
     """ Send a response message """
     self.__mainwindow.send_response(Message(**message))
+  
+  def stream_response(self, response: dict):
+    """ Stream a response message """
+    self.__mainwindow.stream_response(Message(**response))
 
   # Internal methods
   def __initialize_ui(self):
     """ Initialize the UI components """
     self.__titlebar = TitleBar(Page)
-    self.__mainwindow = MainWindow(self.lang)
+    self.__mainwindow = MainWindow(self.lang, self.settings)
     self.__contextlist = ContextList(self.lang, self.__mainwindow)
-    self.__sidebar = Sidebar(Page, self.lang, self.__contextlist, self.__mainwindow, self.__titlebar.theme_changed)
+    self.__leftbar = Leftbar(Page, self.lang, self.__contextlist, self.__mainwindow, self.__titlebar.theme_changed, self.settings)
     self.__rightbar = Rightbar(Page, self.__mainwindow.show_about)
-    self.__content = GUI(self.__sidebar, self.__mainwindow, self.__contextlist, self.__rightbar)
+    self.__content = GUI(self.__leftbar, self.__mainwindow, self.__contextlist, self.__rightbar)
+
+    # Set color scheme on load
+    # self.__leftbar.init_theme_mode(Page)
 
   def __initialize_tray_icon(self):
     self.page.window.prevent_close = True # Tray icon persistance
@@ -141,7 +180,7 @@ class Subconscious:
     self.page.window_destroy()
   
   def __on_window_event(self, e):
-    if e.data == "close" and self.tray:
+    if e.data == "close" and self.settings.general.tray.value:
       self.page.window.skip_task_bar = True
       self.page.window.minimized = True
       self.page.update()
@@ -157,3 +196,9 @@ class Subconscious:
       ], alignment="center", vertical_alignment="center", spacing=0, expand=True),
       bgcolor=ft.colors.BACKGROUND
     )
+
+  def update_Settings(self):
+    """ Update the settings file """
+    f = open("./data/settings.json", "w")
+    f.write(json.dumps(self.settings, indent=2))
+    f.close()
