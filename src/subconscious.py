@@ -44,10 +44,36 @@ class Subconscious:
           "theme": "black", # color scheme
           "language": "en", # language
         },
-        "general": {
+        "General": {
           "tray": {
             "value": True,
             "label": "Show tray icon",
+          }
+        },
+        "OpenAI": {
+          "api_key": {
+            "value": "",
+            "label": "API Key"
+          }
+          # "engine": "davinci",
+          # "max_tokens": 100,
+          # "temperature": 0.7,
+          # "top_p": 1.0,
+          # "frequency_penalty": 0.0,
+          # "presence_penalty": 0.0,
+          # "best_of": 1,
+          # "stop": ["\n", "Human:", "AI:"]
+        },
+        "Anthropic": {
+          "api_key": {
+            "value": "",
+            "label": "API Key"
+          }
+        },
+        "Google": {
+          "api_key": {
+            "value": "",
+            "label": "API Key"
           }
         }
       }

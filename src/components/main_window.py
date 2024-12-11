@@ -4,6 +4,7 @@ from threading import Thread
 from time import time, monotonic
 from collections import defaultdict
 
+from src.utilities.filechange import FileChange
 from src.components.data_objects import Message
 from src.components.message_block import MessageBlock, MessageBubble
 
@@ -59,24 +60,69 @@ class MainWindow(ft.Container):
       expand=True,
     )
 
-    def handle_change(e: ft.ControlEvent, key, setting):
-      settings = json.load(open('./data/settings.json', 'r'))
-      if type(settings['general'][key]['value']) == bool:
-        settings['general'][key]['value'] = json.loads(e.data)
-      else:
-        settings['general'][key]['value'] = e.data
-      json.dump(settings, open('./data/settings.json', 'w'))
+    def handle_change(e: ft.ControlEvent, title, key, setting):
+      def make_change(settings, e, title, key, setting):
+        if type(settings[title][key]['value']) == bool:
+          settings['general'][key]['value'] = json.loads(e.data)
+        else:
+          settings[title][key]['value'] = e.data
+        return settings
+      
+      FileChange(make_change, e, title, key, setting)
 
-    def render_settings(key, val):
+    def render_settings(title, key, val):
       if type(val['value']) == bool:
         return ft.Row([
-          ft.Checkbox(label=val['label'], value=val['value'], on_change=lambda e: handle_change(e, key, val), shape=ft.RoundedRectangleBorder(radius=3))
+          ft.Checkbox(label=val['label'], value=val['value'], on_change=lambda e: handle_change(e, title, key, val), shape=ft.RoundedRectangleBorder(radius=3))
         ])
+      elif type(val['value']) == str and "key" in key:
+        return ft.Container(content=
+          ft.Row([
+            ft.Container(content=
+              ft.Text(f"{key.replace('_', ' ').title()}  ", size=15),
+              padding=ft.padding.only(0, 0, 0, 1),
+            ),
+            ft.Container(content=
+              ft.TextField(
+                value=val['value'], on_change=lambda e: handle_change(e, title, key, val),
+                border=ft.InputBorder.NONE, border_color=ft.colors.TRANSPARENT,
+                bgcolor=ft.colors.TRANSPARENT, border_radius=5, multiline=False, 
+                clip_behavior=ft.ClipBehavior.HARD_EDGE, 
+                content_padding=ft.padding.only(2, -14, 2, 2),
+                dense=True, password=True
+              ),
+              border=ft.border.all(1, ft.colors.PRIMARY), border_radius=5,
+              padding=ft.padding.only(0, 0, 0, 0), margin=ft.margin.all(0), bgcolor=ft.colors.BACKGROUND, expand=True,
+              clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            ),
+
+          ], spacing=0, expand=True),
+          padding=ft.padding.only(10, 0, 20, 15),
+        )
       elif type(val['value']) == str:
-        return ft.Row([
-          ft.Text(key.capitalize()),
-          ft.TextField(value=val, on_change=lambda e: handle_change(e, key, val))
-        ])
+        return ft.Container(content=
+          ft.Row([
+            ft.Container(content=
+              ft.Text(f"{key.replace('_', ' ').title()}  ", size=15),
+              padding=ft.padding.only(0, 0, 0, 1),
+            ),
+            ft.Container(content=
+              ft.TextField(
+                value=val['value'], on_change=lambda e: handle_change(e, title, key, val),
+                border=ft.InputBorder.NONE, border_color=ft.colors.TRANSPARENT,
+                bgcolor=ft.colors.TRANSPARENT, border_radius=5, multiline=False, 
+                clip_behavior=ft.ClipBehavior.HARD_EDGE, 
+                content_padding=ft.padding.only(2, -14, 2, 2),
+                dense=True
+              ),
+              border=ft.border.all(1, ft.colors.PRIMARY), border_radius=5,
+              padding=ft.padding.only(0, 0, 0, 0), margin=ft.margin.all(0), bgcolor=ft.colors.BACKGROUND, expand=True,
+              clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            ),
+
+          ], spacing=0, expand=True),
+          padding=ft.padding.only(10, 0, 20, 15),
+        )
         
     # Default settings content
     self.default_settings = ft.Column([
@@ -94,6 +140,7 @@ class MainWindow(ft.Container):
         expand_icon_color=ft.colors.PRIMARY,
         elevation=8,
         divider_color=ft.colors.SECONDARY_CONTAINER,
+        expanded_header_padding=ft.padding.all(0),
         controls=[
           ft.ExpansionPanel(
             header=ft.Container(
@@ -101,11 +148,11 @@ class MainWindow(ft.Container):
               padding=ft.padding.only(10, 10, 10, 0)
             ),
             content=ft.Column([
-              render_settings(key, val)
+              render_settings(title, key, val)
               for key,val in values.items()
             ], alignment="start"),
             bgcolor=ft.colors.SURFACE_CONTAINER_HIGHEST,
-            expanded=True,
+            expanded=False, can_tap_header=True,
           )
           for title,values in self.settings.items() if title != '_general'
         ]
