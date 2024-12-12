@@ -36,7 +36,7 @@ class MessageList(ft.ListView):
 
 class MainWindow(ft.Container):
   """ The main window for the UI """
-  def __init__(self, lang, settings):
+  def __init__(self, lang, settings, update_llms):
     super().__init__()
     self.l = lang
     self.padding = 0
@@ -44,6 +44,7 @@ class MainWindow(ft.Container):
     self.settings = settings
     self.active_thread = None
     self.last_ai_message = {}
+    self.update_llms = update_llms
     self.bgcolor = ft.colors.BACKGROUND
     self.threads = defaultdict(MessageList)
 
@@ -62,13 +63,17 @@ class MainWindow(ft.Container):
 
     def handle_change(e: ft.ControlEvent, title, key, setting):
       def make_change(settings, e, title, key, setting):
-        if type(settings[title][key]['value']) == bool:
-          settings['general'][key]['value'] = json.loads(e.data)
+        if type(self.settings[title][key]['value']) == bool:
+          self.settings[title][key]['value'] = json.loads(e.data)
         else:
-          settings[title][key]['value'] = e.data
-        return settings
+          self.settings[title][key]['value'] = e.data
+        return self.settings
       
       FileChange(make_change, e, title, key, setting)
+
+      # Update LLM list
+      self.update_llms()
+
 
     def render_settings(title, key, val):
       if type(val['value']) == bool:

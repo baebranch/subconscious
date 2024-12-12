@@ -43,6 +43,7 @@ class Subconscious:
           "mode": "LIGHT", # light or dark
           "theme": "black", # color scheme
           "language": "en", # language
+          "llm": "OpenAI" # default llm
         },
         "General": {
           "tray": {
@@ -71,6 +72,12 @@ class Subconscious:
           }
         },
         "Google": {
+          "api_key": {
+            "value": "",
+            "label": "API Key"
+          }
+        },
+        "Ollama": {
           "api_key": {
             "value": "",
             "label": "API Key"
@@ -159,6 +166,10 @@ class Subconscious:
     """ Set the new user message callback """
     self.__mainwindow.set_new_user_message_callback(callback)
   
+  def set_llm_switcher(self, switcher):
+    """ Set the LLM switcher """
+    self.__switcher = switcher
+  
   def send_response(self, message: dict):
     """ Send a response message """
     self.__mainwindow.send_response(Message(**message))
@@ -171,14 +182,19 @@ class Subconscious:
   def __initialize_ui(self):
     """ Initialize the UI components """
     self.__titlebar = TitleBar(Page)
-    self.__mainwindow = MainWindow(self.lang, self.settings)
+    self.__mainwindow = MainWindow(self.lang, self.settings, self.__update_llms)
+    self.__rightbar = Rightbar(Page, self.__mainwindow.show_about, self.settings, self.switch_llm)
     self.__contextlist = ContextList(self.lang, self.__mainwindow)
     self.__leftbar = Leftbar(Page, self.lang, self.__contextlist, self.__mainwindow, self.__titlebar.theme_changed, self.settings)
-    self.__rightbar = Rightbar(Page, self.__mainwindow.show_about)
     self.__content = GUI(self.__leftbar, self.__mainwindow, self.__contextlist, self.__rightbar)
 
-    # Set color scheme on load
-    # self.__leftbar.init_theme_mode(Page)
+  def __update_llms(self):
+    """ Update the LLMs menu """
+    self.__rightbar.update_llms()
+  
+  def switch_llm(self, e):
+    """ Calls an external function to switch the LLM model """
+    self.__switcher(e)
 
   def __initialize_tray_icon(self):
     self.page.window.prevent_close = True # Tray icon persistance
