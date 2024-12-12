@@ -16,7 +16,7 @@ class MessageList(ft.ListView):
     self.on_scroll = self.on_scroll_handler
     self.expand = 1
     self.spacing = 10
-    self.padding = 0
+    self.padding = ft.padding.only(0, 0, 0, 115)
     self.cache_extent = 1000
     self.semantic_child_count = 10000
     self.loaded = False

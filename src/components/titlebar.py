@@ -11,7 +11,7 @@ class TitleBar(ft.Row):
     self.res_max_button = ft.FilledButton(
         content=ft.Row([self.res_max]),
         on_click=lambda _: self.toggle(_),
-        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=0), bgcolor=ft.colors.BACKGROUND, padding=ft.padding.only(14, 14, 14, 14)),
+        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=0), bgcolor=ft.colors.BACKGROUND, padding=ft.padding.only(14, 14, 14, 14), overlay_color=ft.colors.SECONDARY_CONTAINER), 
         width=40, height=40, tooltip="Maximize"
       )
     self.controls = [
@@ -29,7 +29,7 @@ class TitleBar(ft.Row):
       ft.FilledButton(
         content=ft.Row([self.mini]),
         on_click=lambda _: self.minimize(_),
-        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=0), bgcolor=ft.colors.BACKGROUND, padding=ft.padding.only(14, 14, 14, 14)),
+        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=0), bgcolor=ft.colors.BACKGROUND, padding=ft.padding.only(14, 14, 14, 14), overlay_color=ft.colors.SECONDARY_CONTAINER),
         width=40, height=40, tooltip="Minimize"
       ),
       self.res_max_button,
