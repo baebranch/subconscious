@@ -6,9 +6,11 @@ from src.subconscious import Subconscious
 from typing import Annotated
 from typing_extensions import TypedDict
 from langchain_openai import ChatOpenAI
+from langchain_ollama import ChatOllama
 from langchain_anthropic import ChatAnthropic
 from langgraph.graph.message import add_messages
 from langgraph.graph import StateGraph, START, END
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 
 msg_id = 0
@@ -24,21 +26,24 @@ class State(TypedDict):
 graph_builder = StateGraph(State)
 
 class LLM:
-  OpenAI="OPENAI_API_KEY"
-  Anthropic="ANTHROPIC_API_KEY"
-  Google="GOOGLE_API_KEY"
-  Ollama="OLLAMA_API_KEY"
+  """ Language model manager for switching between different LLMs """
 
   model_config = {
     "Anthropic": {
-      "api_key_env": "ANTHROPIC_API_KEY",
       "chat": ChatAnthropic,
       "model": "claude-3-5-sonnet-20240620"
     },
     "OpenAI": {
-      "api_key_env": "OPENAI_API_KEY",
       "chat": ChatOpenAI,
       "model": "gpt-3.5-turbo"
+    },
+    "Ollama": {
+      "chat": ChatOllama,
+      "model": "phi3"
+    },
+    "Google": {
+      "chat": ChatGoogleGenerativeAI,
+      "model": "gemini-1.5-pro"
     }
   }
 
@@ -57,7 +62,7 @@ class LLM:
 
     # Configure the new model
     self.model = self.model_config[self.settings["_general"]["llm"]]["chat"](
-      api_key = self.settings[self.settings["_general"]["llm"]]["api_key"]["value"],
+      api_key = self.settings[self.settings["_general"]["llm"]]["api_key"]["value"] if "api_key" in self.settings[self.settings["_general"]["llm"]] else None,
       model = self.model_config[self.settings["_general"]["llm"]]["model"]
     )
   
@@ -67,7 +72,7 @@ class LLM:
 
     # Conifgure the model
     self.model = self.model_config[self.settings["_general"]["llm"]]["chat"](
-      api_key = self.settings[self.settings["_general"]["llm"]]["api_key"]["value"],
+      api_key = self.settings[self.settings["_general"]["llm"]]["api_key"]["value"] if "api_key" in self.settings[self.settings["_general"]["llm"]] else None,
       model = self.model_config[self.settings["_general"]["llm"]]["model"]
     )
 

@@ -3,3 +3,7 @@ pillow==10.3.0
 pystray==0.19.5
 wikiquote==1.4.0
 beautifulsoup4==4.12.3
+langchain-ollama==0.2.1
+langchain-openai==0.2.9
+langchain_anthropic==0.3.0
+langchain-google-genai==2.0.7

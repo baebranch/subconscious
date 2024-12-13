@@ -52,6 +52,7 @@ class Subconscious:
           }
         },
         "OpenAI": {
+          "_type": "remote",
           "api_key": {
             "value": "",
             "label": "API Key"
@@ -66,21 +67,24 @@ class Subconscious:
           # "stop": ["\n", "Human:", "AI:"]
         },
         "Anthropic": {
+          "_type": "remote",
           "api_key": {
             "value": "",
             "label": "API Key"
           }
         },
         "Google": {
+          "_type": "remote",
           "api_key": {
             "value": "",
             "label": "API Key"
           }
         },
         "Ollama": {
-          "api_key": {
-            "value": "",
-            "label": "API Key"
+          "_type": "local",
+          "enabled": {
+            "value": False,
+            "label": "Enable Ollama\n(Ollama must be installed and running on your device)"
           }
         }
       }

@@ -12,27 +12,18 @@ from src.components.message_block import MessageBlock, MessageBubble
 class MessageList(ft.ListView):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    self.on_scroll_interval = 1000
-    self.on_scroll = self.on_scroll_handler
     self.expand = 1
     self.spacing = 10
-    self.padding = ft.padding.only(0, 0, 0, 115)
-    self.cache_extent = 1000
-    self.semantic_child_count = 10000
     self.loaded = False
     self.active = False
     self.auto_scroll = True
     self.last = monotonic()
+    self.cache_extent = 1000
     self.velocity = monotonic()
+    self.on_scroll_interval = 2000
+    self.semantic_child_count = 10000
+    self.padding = ft.padding.only(0, 0, 0, 115)
 
-  def on_scroll_handler(self, _):
-    print('Scrolling')
-    if _.event_type == 'start':
-      self.velocity = monotonic()
-    if _.event_type == 'user':
-      now = monotonic()
-      self.velocity = now
-  
 
 class MainWindow(ft.Container):
   """ The main window for the UI """
@@ -78,8 +69,12 @@ class MainWindow(ft.Container):
     def render_settings(title, key, val):
       if type(val['value']) == bool:
         return ft.Row([
-          ft.Checkbox(label=val['label'], value=val['value'], on_change=lambda e: handle_change(e, title, key, val), shape=ft.RoundedRectangleBorder(radius=3))
-        ])
+          ft.Checkbox(
+            label=val['label'],
+            value=val['value'], on_change=lambda e: handle_change(e, title, key, val), shape=ft.RoundedRectangleBorder(radius=3),
+            label_style=ft.TextStyle(size=15, overflow=ft.TextOverflow.CLIP), tooltip=val['label'], expand_loose=True
+          ),
+        ], spacing=0, wrap=True)
       elif type(val['value']) == str and "key" in key:
         return ft.Container(content=
           ft.Row([
@@ -154,12 +149,12 @@ class MainWindow(ft.Container):
             ),
             content=ft.Column([
               render_settings(title, key, val)
-              for key,val in values.items()
+              for key,val in values.items() if key[0] != "_"
             ], alignment="start"),
             bgcolor=ft.colors.SURFACE_CONTAINER_HIGHEST,
             expanded=False, can_tap_header=True,
           )
-          for title,values in self.settings.items() if title != '_general'
+          for title,values in self.settings.items() if title[0] != "_"
         ]
       )
     ], alignment="start")

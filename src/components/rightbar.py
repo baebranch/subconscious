@@ -57,7 +57,8 @@ class Rightbar(ft.Column):
       items=[
         LLMItem(name=provider, switch_llm=self.switch_llm)
         for provider in ["OpenAI", "Anthropic", "Google", "Ollama"]
-        if self.settings[provider]['api_key']['value'] != ""
+        if self.settings[provider]["_type"] == "remote" and self.settings[provider]['api_key']['value'] != "" or
+          self.settings[provider]["_type"] == "local" and self.settings[provider]['enabled']['value'] == True
       ],
     )
 
@@ -96,6 +97,7 @@ class Rightbar(ft.Column):
     self.llm_menu.items = [
        LLMItem(name=provider, switch_llm=self.switch_llm)
       for provider in ["OpenAI", "Anthropic", "Google", "Ollama"]
-      if self.settings[provider]['api_key']['value'] != ""
+      if self.settings[provider]["_type"] == "remote" and self.settings[provider]['api_key']['value'] != "" or
+        self.settings[provider]["_type"] == "local" and self.settings[provider]['enabled']['value'] == True
     ]
     self.page.update()
