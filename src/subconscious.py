@@ -40,10 +40,10 @@ class Subconscious:
       logger.debug("Settings file not found, creating new settings file...")
       self.settings = {
         "_general": {
-          "mode": "LIGHT", # light or dark
+          "mode": "light", # light or dark
           "theme": "black", # color scheme
           "language": "en", # language
-          "llm": "OpenAI" # default llm
+          "llm": "" # No default llm is configured
         },
         "General": {
           "tray": {
@@ -57,14 +57,6 @@ class Subconscious:
             "value": "",
             "label": "API Key"
           }
-          # "engine": "davinci",
-          # "max_tokens": 100,
-          # "temperature": 0.7,
-          # "top_p": 1.0,
-          # "frequency_penalty": 0.0,
-          # "presence_penalty": 0.0,
-          # "best_of": 1,
-          # "stop": ["\n", "Human:", "AI:"]
         },
         "Anthropic": {
           "_type": "remote",
@@ -82,9 +74,9 @@ class Subconscious:
         },
         "Ollama": {
           "_type": "local",
-          "enabled": {
-            "value": False,
-            "label": "Enable Ollama\n(Ollama must be installed and running on your device)"
+          "model": {
+            "value": "",
+            "label": "Set the name of the Ollama model in use"
           }
         }
       }
@@ -108,7 +100,7 @@ class Subconscious:
 
     def main(page: ft.Page):
       # Flet page config
-      # page.window.center() # loads in the wrong position then shifts to the centre
+      page.window.center() # loads in the wrong position then shifts to the centre
       self.page = page
       page.padding = 0
       page.spacing = 0
@@ -119,10 +111,10 @@ class Subconscious:
       page.window.width = 500
       page.window.frameless = False
       page.window.title_bar_hidden = True
-      page.theme_mode = getattr(ft.ThemeMode, self.settings._general.mode)
-      if self.settings._general.theme == "white" and self.settings._general.mode == "DARK":
+      page.theme_mode = getattr(ft.ThemeMode, self.settings._general.mode.upper())
+      if self.settings._general.theme == "white" and self.settings._general.mode == "dark":
         page.theme = ft.Theme(color_scheme=ft.ColorScheme(primary=ft.colors.WHITE, secondary=ft.colors.GREY, background=ft.colors.BLACK87, secondary_container=ft.colors.GREY_800))
-      elif self.settings._general.theme == "black" and self.settings._general.mode == "LIGHT":
+      elif self.settings._general.theme == "black" and self.settings._general.mode == "light":
         page.theme = ft.Theme(color_scheme=ft.ColorScheme(primary=ft.colors.BLACK, secondary=ft.colors.GREY, background=ft.colors.WHITE, secondary_container=ft.colors.GREY_300))
       else:
         page.theme = ft.Theme(color_scheme_seed=self.settings._general.theme)
@@ -140,7 +132,7 @@ class Subconscious:
       )
 
       # Initialize the app, tray ion, splash screen
-      if self.settings.general.tray.value:
+      if self.settings.General.tray.value:
         self.__initialize_tray_icon()
 
       if self.splash: page.overlay.append(self.splash_screen())
@@ -150,7 +142,10 @@ class Subconscious:
       if self.splash:
         sleep(3) # Do some loading if needed
         page.overlay.pop(0)
-        page.update()
+
+      # Update the pages
+      page.update()
+      self.__mainwindow.page.update()
   
     # Load the subconscious app
     if view == 'web':
@@ -174,19 +169,23 @@ class Subconscious:
     """ Set the LLM switcher """
     self.__switcher = switcher
   
-  def send_response(self, message: dict):
-    """ Send a response message """
-    self.__mainwindow.send_response(Message(**message))
+  def set_active_thread(self, thread_id):
+    """ Set the active thread """
+    self.__mainwindow.set_active_thread(thread_id)
   
-  def stream_response(self, response: dict):
+  def send_response(self, message, thread_id):
+    """ Send a response message """
+    self.__mainwindow.send_response(message, thread_id)
+  
+  def stream_response(self, message, thread_id):
     """ Stream a response message """
-    self.__mainwindow.stream_response(Message(**response))
+    self.__mainwindow.stream_response(message, thread_id)
 
   # Internal methods
   def __initialize_ui(self):
     """ Initialize the UI components """
     self.__titlebar = TitleBar(Page)
-    self.__mainwindow = MainWindow(self.lang, self.settings, self.__update_llms)
+    self.__mainwindow = MainWindow(self.lang, self.settings, self.__update_llms, self.__llm_configured)
     self.__rightbar = Rightbar(Page, self.__mainwindow.show_about, self.settings, self.switch_llm)
     self.__contextlist = ContextList(self.lang, self.__mainwindow)
     self.__leftbar = Leftbar(Page, self.lang, self.__contextlist, self.__mainwindow, self.__titlebar.theme_changed, self.settings)
@@ -196,9 +195,13 @@ class Subconscious:
     """ Update the LLMs menu """
     self.__rightbar.update_llms()
   
+  def __llm_configured(self):
+    """ Check if a LLM is configured """
+    return self.__rightbar.llm_configured()
+  
   def switch_llm(self, e):
     """ Calls an external function to switch the LLM model """
-    self.__switcher(e)
+    return self.__switcher(e)
 
   def __initialize_tray_icon(self):
     self.page.window.prevent_close = True # Tray icon persistance
@@ -226,7 +229,7 @@ class Subconscious:
     self.page.window_destroy()
   
   def __on_window_event(self, e):
-    if e.data == "close" and self.settings.general.tray.value:
+    if e.data == "close" and self.settings.General.tray.value:
       self.page.window.skip_task_bar = True
       self.page.window.minimized = True
       self.page.update()

@@ -6,9 +6,8 @@ def FileChange(func, *args, **kwargs):
   with open('./data/settings.json', 'r+') as file:
     try:
       msvcrt.locking(file.fileno(), msvcrt.LK_LOCK, 1)
-      settings = json.load(file)
 
-      settings = func(settings, *args, **kwargs)
+      settings = func(*args, **kwargs)
 
       file.seek(0)
       file.write(json.dumps(settings, indent=2))

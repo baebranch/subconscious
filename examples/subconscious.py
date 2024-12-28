@@ -1,19 +1,26 @@
 """ Langgraph implementation using the subconscious UI """
-from time import sleep
-from datetime import datetime
-from src.subconscious import Subconscious
-
+import sqlite3
+import logging
+from time import sleep, time
 from typing import Annotated
+import pydantic.deprecated.decorator
+from datetime import datetime, timezone
 from typing_extensions import TypedDict
 from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
 from langchain_anthropic import ChatAnthropic
 from langgraph.graph.message import add_messages
-from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.graph import StateGraph, START, END, MessagesState
 
+from src.subconscious import Subconscious
+from src.components.data_objects import HumanMessage
 
-msg_id = 0
+# DB connection and conversation config
+conn = sqlite3.connect("./data/memory.db", check_same_thread=False)
+memory = SqliteSaver(conn)
+config = {"configurable": {"thread_id": "19"}}
 
 
 class State(TypedDict):
@@ -49,7 +56,6 @@ class LLM:
 
   def __init__(self):
     """ Initialize the LLM model """
-    # self.model = model
 
   def invoke(self, messages):
     return self.model.invoke(messages)
@@ -61,24 +67,27 @@ class LLM:
     print(f"Switching to {self.settings['_general']['llm']}")
 
     # Configure the new model
-    self.model = self.model_config[self.settings["_general"]["llm"]]["chat"](
-      api_key = self.settings[self.settings["_general"]["llm"]]["api_key"]["value"] if "api_key" in self.settings[self.settings["_general"]["llm"]] else None,
-      model = self.model_config[self.settings["_general"]["llm"]]["model"]
-    )
+    if self.settings["_general"]["llm"] in self.model_config:
+      self.model = self.model_config[self.settings["_general"]["llm"]]["chat"](
+        api_key = self.settings[self.settings["_general"]["llm"]]["api_key"]["value"] if "api_key" in self.settings[self.settings["_general"]["llm"]] else None,
+        model = self.model_config[self.settings["_general"]["llm"]]["model"]
+      )
+
+    return self.settings
   
   def set_settings(self, settings):
     """ Set the LLM settings and configure the initial model """
     self.settings = settings
 
     # Conifgure the model
-    self.model = self.model_config[self.settings["_general"]["llm"]]["chat"](
-      api_key = self.settings[self.settings["_general"]["llm"]]["api_key"]["value"] if "api_key" in self.settings[self.settings["_general"]["llm"]] else None,
-      model = self.model_config[self.settings["_general"]["llm"]]["model"]
-    )
+    if self.settings["_general"]["llm"] in self.model_config:
+      self.model = self.model_config[self.settings["_general"]["llm"]]["chat"](
+        api_key = self.settings[self.settings["_general"]["llm"]]["api_key"]["value"] if "api_key" in self.settings[self.settings["_general"]["llm"]] else None,
+        model = self.model_config[self.settings["_general"]["llm"]]["model"]
+      )
 
 
 llm = LLM()
-# llm = ChatAnthropic(model="claude-3-5-sonnet-20240620")
 
 
 def chatbot(state: State):
@@ -88,28 +97,17 @@ def chatbot(state: State):
 graph_builder.add_node("chatbot", chatbot)
 graph_builder.add_edge(START, "chatbot")
 graph_builder.add_edge("chatbot", END)
-graph = graph_builder.compile()
-
-def message_template():
-  return {
-      "id": None,
-      "thread": None,
-      "text": "",
-      "is_sender": False,
-      "created_at": datetime.now(),
-    }
+graph = graph_builder.compile(checkpointer=memory)
 
 
-def stream_graph_updates(user_input: str):
-  global msg_id
-  msg_id += 1 
-  llm_input = message_template()
-  llm_input['id'] = msg_id
-  for event in graph.stream({"messages": [("user", user_input)]}):
+def stream_graph_updates(message: str):
+  for event in graph.stream({"messages": [message]}, config=config):
     for value in event.values():
-      llm_input['text'] = value["messages"][-1].content
-      echo.stream_response(llm_input)
-      print("LLM:", value["messages"][-1].content)
+      with_ts = value['messages'][0]
+      setattr(with_ts, "timestamp", datetime.now(timezone.utc).astimezone())
+      graph.update_state(config, {"messages": [with_ts]})
+      print("LLM:", value['messages'])
+      echo.send_response(with_ts, config['configurable']['thread_id'])
 
 
 # Demo conversation threads
@@ -137,64 +135,26 @@ conversation_threads = [
 # Thread history loader
 def conversation_history_loader(thread):
   """ History is rendered in the order received """
-  return [] # Debug
-  return [
-    {
-      "id": 1,
-      "thread_id": "general",
-      "text": "Hello",
-      "is_sender": True,
-      "created_at": datetime.now(),
-    },
-    {
-      "id": 2,
-      "thread_id": "general",
-      "text": "Hi",
-      "is_sender": False,
-      "created_at": datetime.now(),
-    },
-    {
-      "id": 3,
-      "thread_id": "general",
-      "text": "How are you?",
-      "is_sender": True,
-      "created_at": datetime.now(),
-    },
-    {
-      "id": 4,
-      "thread_id": "general",
-      "text": "I'm good, thanks",
-      "is_sender": False,
-      "created_at": datetime.now(),
-    },
-    {
-      "id": 5,
-      "thread_id": "general",
-      "text": "What are you up to?",
-      "is_sender": True,
-      "created_at": datetime.now(),
-    },
-    {
-      "id": 6,
-      "thread_id": "general",
-      "text": "Testing the echo example",
-      "is_sender": False,
-      "created_at": datetime.now(),
-    }
-  ]
+  messages = []
+  count = 0
+  history = graph.get_state_history(config)
+  for event in history:
+    print("EVENT: ", event.values['messages'])
+    return event.values['messages']
+  return messages
+
 
 # Initialize and configure UI
 echo = Subconscious()
-echo.load_threads(conversation_threads) # Loads the conversation threads into the UI
+echo.load_threads(conversation_threads) # Loads the conversation threads into the UI context view
 echo.set_thread_history_loader(conversation_history_loader) # Sets the conversation history loader
+echo.set_active_thread(config['configurable']['thread_id']) # Sets the active thread
 llm.set_settings(echo.settings) # Sets the LLM settings
 echo.set_llm_switcher(llm.switch) # Sets the LLM switcher
-echo.splash = False
+# echo.splash = False
 
 def new_user_message(message):
-  # stream_graph_updates(message)
-  stream_graph_updates(message['text'])
+  stream_graph_updates(message)
 
 echo.set_new_user_message_callback(new_user_message) # Called when a new user message is sent
-# echo.send_response(response) # Called when a new receiver message is sent
 echo.load(view="app")

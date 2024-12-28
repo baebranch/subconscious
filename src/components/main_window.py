@@ -3,6 +3,7 @@ import flet as ft
 from threading import Thread
 from time import time, monotonic
 from collections import defaultdict
+from src.components.data_objects import HumanMessage
 
 from src.utilities.filechange import FileChange
 from src.components.data_objects import Message
@@ -27,7 +28,7 @@ class MessageList(ft.ListView):
 
 class MainWindow(ft.Container):
   """ The main window for the UI """
-  def __init__(self, lang, settings, update_llms):
+  def __init__(self, lang, settings, update_llms, llm_configured):
     super().__init__()
     self.l = lang
     self.padding = 0
@@ -37,6 +38,7 @@ class MainWindow(ft.Container):
     self.last_ai_message = {}
     self.update_llms = update_llms
     self.bgcolor = ft.colors.BACKGROUND
+    self.llm_configured = llm_configured
     self.threads = defaultdict(MessageList)
 
     self.message_form = ft.TextField(
@@ -52,8 +54,17 @@ class MainWindow(ft.Container):
       expand=True,
     )
 
+    self.message_controls = ft.Container(content=
+        ft.IconButton(
+          icon=ft.icons.SEND_ROUNDED,
+          tooltip="Send message",
+          style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=3)),
+          on_click=self.send_message,
+        ), padding=ft.padding.only(0, 0, 0, 4), margin=0
+      )
+
     def handle_change(e: ft.ControlEvent, title, key, setting):
-      def make_change(settings, e, title, key, setting):
+      def make_change(e, title, key, setting):
         if type(self.settings[title][key]['value']) == bool:
           self.settings[title][key]['value'] = json.loads(e.data)
         else:
@@ -159,11 +170,16 @@ class MainWindow(ft.Container):
       )
     ], alignment="start")
 
-    # Default message content for multiple contexts/threads where no context is selected
+    # Default message content for when there are no messages
     self.default = ft.Container(
       content=ft.Column([
-      # ft.Icon(ft.icons.CHAT_OUTLINED, size=100, color=ft.colors.GREY),
       ft.Text("To get started introduce your self, say what you would like to do, ask about features or how sbuconscious can help by typing in the chatbox below...", size=20, color=ft.colors.GREY, text_align=ft.TextAlign.CENTER),
+    ], alignment="center", horizontal_alignment="center", spacing=0, expand=True), expand=True, padding=ft.padding.only(0,0,0,150), alignment=ft.alignment.center)
+
+    # Configuration required for LLM default message
+    self.configure = ft.Container(
+      content=ft.Column([
+      ft.Text("To begin using this Chat Interface, an LLM API key or Source (Ollama) must be configured in the settings for one of the supported LLMs.", size=20, color=ft.colors.GREY, text_align=ft.TextAlign.CENTER),
     ], alignment="center", horizontal_alignment="center", spacing=0, expand=True), expand=True, padding=ft.padding.only(0,0,0,150), alignment=ft.alignment.center)
 
     # About content
@@ -207,8 +223,6 @@ class MainWindow(ft.Container):
     ], alignment="center", horizontal_alignment="center", spacing=0)
 
     self.content = self.default
-    # self.content = self.default_settings
-    # self.show_thread()
 
   def highlight_link(self, e):
     e.control.style.color = ft.Colors.BLUE
@@ -219,9 +233,18 @@ class MainWindow(ft.Container):
     e.control.update()
 
   def chatwindow(self):
+    # Determines if the chatbox is visible
+    if self.llm_configured():
+      self.message_form.visible = True
+      self.message_controls.visible = True
+    else:
+      self.message_form.visible = False
+      self.message_controls.visible = False
+
+    # Returns the chat window content
     return ft.Stack([
         ft.Container(
-          content=self.threads[self.active_thread] if self.threads[self.active_thread].active else self.default,
+          content=(self.threads[self.active_thread] if self.threads[self.active_thread].active else self.default) if self.llm_configured() else self.configure,
           padding=0,
           expand=True,
         ),
@@ -238,14 +261,7 @@ class MainWindow(ft.Container):
                     content=ft.Column(
                       [
                         self.message_form,
-                        ft.Container(content=
-                          ft.IconButton(
-                            icon=ft.icons.SEND_ROUNDED,
-                            tooltip="Send message",
-                            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=3)),
-                            on_click=self.send_message,
-                          ), padding=ft.padding.only(0, 0, 0, 4), margin=0
-                        )
+                        self.message_controls
                       ],
                       alignment="center",
                       horizontal_alignment="end", spacing=0,
@@ -268,13 +284,14 @@ class MainWindow(ft.Container):
     )
 
   def send_message(self, e):
+    """ Send the user message """
     # Prepare the message to be sent and prevent empty messages
     text = self.message_form.value.strip()
     if len(text) == 0:
       return
         
     # Update the chat window with the new user's message
-    message = Message(user_name='User', text=text)
+    message = HumanMessage(content=text)
     self.message_form.value = ""
 
     # Add the message to the active thread and shows the thread if not already shown
@@ -285,7 +302,7 @@ class MainWindow(ft.Container):
     self.page.update()
     
     # Call the new user message callback
-    self.new_user_message_callback(message.to_dict())
+    self.new_user_message_callback(message)
   
   def render_history(self, messages):
     """ messages: Loads the message history chat bubbles into the chat window 
@@ -293,40 +310,15 @@ class MainWindow(ft.Container):
     message_list = MessageList()
     for message in messages:
       message_list.controls.append(MessageBubble(message))
+      message_list.active = True
     return message_list
   
-  def show_thread(self, thread_id=None):
-    """ Show the thread content """
-    # Show default or current thread content
-    # if thread_id is None:
-    #   if self.active_thread is None:
-    #     self.content = self.default
-    #     return
-    #   elif self.active_thread:
-    #     self.content = self.chatwindow()
-
-    # # Else show/load the thread content
-    # elif thread_id:
-    #   self.active_thread = thread_id
-    
-    #   # Check if the thread is already loaded
-    #   thread = self.threads.get(self.active_thread, None)
-
-    #   if thread:
-    #     # Show the thread content
-    #     self.message_list = thread
-    #     self.content = self.chatwindow()
-    #   else:
-    #     # Load the thread and render content
-    #     messages = self.load_thread_history(self.active_thread)
-    #     self.threads[self.active_thread] = self.render_history(messages)
-    #     self.message_list = self.threads[self.active_thread]
-    #     self.content = self.chatwindow()
-
-    # Load the thread and render content
+  def show_thread(self):
+    """ Load thread history if not loaded and show the thread content """
     if not self.threads[self.active_thread].loaded:
-      messages = self.load_thread_history(self.active_thread)
-      self.threads[self.active_thread] = self.render_history(messages)
+      self.threads[self.active_thread] = self.render_history(
+        self.load_thread_history(self.active_thread)
+      )
       self.threads[self.active_thread].loaded = True
     self.content = self.chatwindow()
 
@@ -335,9 +327,6 @@ class MainWindow(ft.Container):
 
   def set_thread_history_loader(self, loader):
     self.load_thread_history = loader
-
-    # Load the thread history immediately
-    self.show_thread()
   
   def set_new_user_message_callback(self, callback):
     self.new_user_message_callback = callback
@@ -366,4 +355,9 @@ class MainWindow(ft.Container):
     """ Show the about content """
     self.content = self.about
     self.page.update()
+  
+  def set_active_thread(self, thread_id):
+    """ Set the active thread """
+    self.active_thread = thread_id
+    self.show_thread()
     

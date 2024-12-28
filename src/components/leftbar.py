@@ -1,5 +1,6 @@
 import json
 import flet as ft
+from src.utilities.filechange import FileChange
 
 
 class PopupLanguageItem(ft.PopupMenuItem):
@@ -17,25 +18,28 @@ class PopupLanguageItem(ft.PopupMenuItem):
     self.language = lang
 
   def language_changed(self, e):
+    # TODO: Update to use settings json file
     self.page.locale_configuration.current_locale = ft.Locale(self.lang, self.loc)
     self.translation.load_lang(self.lang)
-    self.content.controls[0].value = 'updated'
-    # Insert language and locale setting into the database
-    locale = session.scalars(select(Settings).filter_by(key='locale')).first()
-    if locale:
-      locale.value = {'lang': self.lang, 'loc': self.loc}
-    else:
-      session.add(Settings(key='locale', value={'lang': self.lang, 'loc': self.loc}))
-    session.commit()
-    self.page.update()
+    # self.content.controls[0].value = 'updated'
+    # # Insert language and locale setting into the database
+    # locale = session.scalars(select(Settings).filter_by(key='locale')).first()
+    # if locale:
+    #   locale.value = {'lang': self.lang, 'loc': self.loc}
+    # else:
+    #   session.add(Settings(key='locale', value={'lang': self.lang, 'loc': self.loc}))
+    # session.commit()
+    # self.page.update()
+    pass
 
 
 class PopupColorItem(ft.PopupMenuItem):
   white = ft.ColorScheme(primary=ft.colors.WHITE, secondary=ft.colors.GREY, background=ft.colors.BLACK87, secondary_container=ft.colors.GREY_800)
   black = ft.ColorScheme(primary=ft.colors.BLACK, secondary=ft.colors.GREY, background=ft.colors.WHITE, secondary_container=ft.colors.GREY_300)
 
-  def __init__(self, colour, name):
+  def __init__(self, colour, name, settings):
     super().__init__()
+    self.settings = settings
     self.content = ft.Row(
       controls=[
         ft.Icon(
@@ -49,9 +53,10 @@ class PopupColorItem(ft.PopupMenuItem):
 
   def seed_color_changed(self, e):
     # Update settings
-    settings = json.load(open("./data/settings.json", "r"))
-    settings['_general']['theme'] = self.data
-    json.dump(settings, open("./data/settings.json", "w"))
+    def update_settings():
+      self.settings['_general']['theme'] = self.data
+      return self.settings
+    FileChange(update_settings)
 
     # Set the theme to the selected colour
     if self.data in ["black", "white"]:
@@ -69,7 +74,8 @@ class WorkspaceIcon(ft.Container):
       ft.icons.CHAT_OUTLINED,
       on_click=lambda _: show_threads(self.workspace['id']),
       padding=0,
-      style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=3))
+      style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=3)),
+      tooltip=self.workspace['name']
     )
     self.padding = ft.padding.only(4, 0, 4, 4)
 
@@ -108,8 +114,8 @@ class Leftbar(ft.Column):
     self.titlebar_toggle = titlebar_theme_changed
 
     # Theme colours
-    self.black_item = PopupColorItem(colour="black", name="Black")
-    self.white_item = PopupColorItem(colour="white", name="White")
+    self.black_item = PopupColorItem(colour="black", name="Black", settings=self.settings)
+    self.white_item = PopupColorItem(colour="white", name="White", settings=self.settings)
 
     self._button_padding = ft.padding.only(4, 0, 4, 4)
 
@@ -129,17 +135,17 @@ class Leftbar(ft.Column):
       
       tooltip="Theme",
       items=[
-        PopupColorItem(colour="deeppurple", name="Deep purple"),
-        PopupColorItem(colour="indigo", name="Indigo"),
-        PopupColorItem(colour="blue", name="Blue (default)"),
-        PopupColorItem(colour="teal", name="Teal"),
-        PopupColorItem(colour="green", name="Green"),
-        PopupColorItem(colour="yellow", name="Yellow"),
-        PopupColorItem(colour="orange", name="Orange"),
-        PopupColorItem(colour="deeporange", name="Deep orange"),
-        PopupColorItem(colour="pink", name="Pink"),
-        PopupColorItem(colour="red", name="Red"),
-        self.black_item if page.theme_mode == ft.ThemeMode.LIGHT else self.white_item
+        PopupColorItem(colour="deeppurple", name="Deep purple", settings=self.settings),
+        PopupColorItem(colour="indigo", name="Indigo", settings=self.settings),
+        PopupColorItem(colour="blue", name="Blue (default)", settings=self.settings),
+        PopupColorItem(colour="teal", name="Teal", settings=self.settings),
+        PopupColorItem(colour="green", name="Green", settings=self.settings),
+        PopupColorItem(colour="yellow", name="Yellow", settings=self.settings),
+        PopupColorItem(colour="orange", name="Orange", settings=self.settings),
+        PopupColorItem(colour="deeporange", name="Deep orange", settings=self.settings),
+        PopupColorItem(colour="pink", name="Pink", settings=self.settings),
+        PopupColorItem(colour="red", name="Red", settings=self.settings),
+        self.black_item if self.settings._general.mode == ft.ThemeMode.LIGHT.value else self.white_item
       ],
     )
 
@@ -168,7 +174,7 @@ class Leftbar(ft.Column):
     # Add the workspace icons to the sidebar
     # for workspace in self.chat.workspaces:
     self.workspaces.controls.append(
-      WorkspaceIcon({"name": "main", "id": 1}, self.show_threads)
+      WorkspaceIcon({"name": "Chat", "id": 1}, self.show_threads)
     )
 
     self.controls = [
@@ -182,7 +188,7 @@ class Leftbar(ft.Column):
       # ),
 
       # Show settings
-      ft.Container(content=ft.IconButton(ft.icons.SETTINGS, on_click=self.show_settings, padding=0, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=3))), padding=self._button_padding),
+      ft.Container(content=ft.IconButton(ft.icons.SETTINGS, on_click=self.show_settings, padding=0, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=3)), tooltip="Settings"), padding=self._button_padding),
 
       # Dark/Light theme toggle
       ft.Container(content=
@@ -289,11 +295,13 @@ class Leftbar(ft.Column):
     self.page.update()
 
     # Update the settings
-    settings = json.load(open("./data/settings.json", "r"))
-    settings['_general']['mode'] = self.page.theme_mode.name
-    if settings['_general']['theme'] in ["black", "white"]:
-      settings['_general']['theme'] = "black" if self.page.theme_mode == ft.ThemeMode.LIGHT else "white"
-    json.dump(settings, open("./data/settings.json", "w"))
+    def update_theme():
+      self.settings['_general']['mode'] = self.page.theme_mode.value
+      if self.settings['_general']['theme'] in ["black", "white"]:
+        self.settings['_general']['theme'] = "black" if self.page.theme_mode == ft.ThemeMode.LIGHT else "white"
+      return self.settings
+
+    FileChange(update_theme)
   
   def show_settings(self, e):
     self.context_list.show_settings(e)

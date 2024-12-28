@@ -21,7 +21,6 @@ class TitleBar(ft.Row):
             "Subconscious"
           ),
           bgcolor=ft.colors.BACKGROUND,
-          # bgcolor=ft.colors.SECONDARY_CONTAINER,
           padding=ft.padding.only(10, 10, 10, 10),
         ),
         expand=True,

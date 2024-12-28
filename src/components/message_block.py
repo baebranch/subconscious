@@ -1,30 +1,31 @@
 import flet as ft
 from math import pi
 import flet.canvas as cv
+from datetime import datetime
 
-from src.components.data_objects import Message
+from src.components.data_objects import HumanMessage
 
 
 class MessageBubble(ft.Row):
   """ A class to represent a message bubble in the chat.
       A message bubble is a single message displaying text
   """
-  def __init__(self, message: Message):
+  def __init__(self, message):
     super().__init__()
     self.expand = True
     self.message = message
-    self.message_content = ft.Text(self.message['text'], size=14, color=ft.colors.PRIMARY)
+    self.message_content = ft.Text(self.message.content, size=14, color=ft.colors.PRIMARY)
     self.controls = [
       ft.Container(
         ft.Stack([
 
           # Corner pointer for the message bubble
-          self.sender_message_pointer() if self.message['is_sender'] else self.receiver_message_pointer(),
+          self.sender_message_pointer() if self.message.type == 'human' else self.receiver_message_pointer(),
 
           # Message bubble
-          # self.generate_bubble(self.message),
+          # self.generate_bubble(),
           ft.Container(
-            bgcolor=ft.colors.PRIMARY_CONTAINER if message['is_sender'] else ft.colors.SURFACE_CONTAINER_HIGHEST,
+            bgcolor=ft.colors.PRIMARY_CONTAINER if self.message.type == 'human' else ft.colors.SURFACE_CONTAINER_HIGHEST,
             border_radius = ft.BorderRadius(5, 5, 5, 5),
             padding = ft.padding.only(10, 5, 10, 5),
             content = ft.Column([
@@ -33,29 +34,29 @@ class MessageBubble(ft.Row):
                 ], spacing=0), padding=ft.padding.only(0, 0, 20, 0)),
 
               ft.Container(content=ft.Column([
-                  ft.Text(message['created_at'].strftime("%H:%M"), size=12),
+                  ft.Text(self.message.timestamp.strftime("%H:%M"), size=12),
                 ],spacing=0)),
             ], spacing=0, horizontal_alignment="end"),
 
-            margin=ft.margin.only(right=7) if message['is_sender'] else ft.margin.only(left=7),
+            margin=ft.margin.only(right=7) if self.message.type == 'human' else ft.margin.only(left=7),
           )
           
         ], expand_loose=True),
         expand=True,
-        alignment=ft.alignment.top_right if self.message['is_sender'] else ft.alignment.top_left,
+        alignment=ft.alignment.top_right if self.message.type == 'human' else ft.alignment.top_left,
       )
     ]
   
-  def update_message(self, message: Message):
+  def update_message(self, message):
     self.message = message
     self.controls[0].content = ft.Stack([
-      self.sender_message_pointer() if self.message['is_sender'] else self.receiver_message_pointer(),
+      self.sender_message_pointer() if self.message.type == 'human' else self.receiver_message_pointer(),
       self.generate_bubble(self.message),
     ], expand_loose=True)
   
-  def generate_bubble(self, message: dict):
+  def generate_bubble(self):
     return ft.Container(
-      bgcolor=ft.colors.PRIMARY_CONTAINER if message['is_sender'] else ft.colors.SURFACE_CONTAINER_HIGHEST,
+      bgcolor=ft.colors.PRIMARY_CONTAINER if self.message.type == 'human' else ft.colors.SURFACE_CONTAINER_HIGHEST,
       border_radius = ft.BorderRadius(5, 5, 5, 5),
       padding = ft.padding.only(10, 5, 10, 5),
       content = ft.Column([
@@ -64,11 +65,11 @@ class MessageBubble(ft.Row):
           ], spacing=0), padding=ft.padding.only(0, 0, 20, 0)),
 
         ft.Container(content=ft.Column([
-            ft.Text(message['created_at'].strftime("%H:%M"), size=12),
+            ft.Text(self.message.timestamp.strftime("%H:%M"), size=12),
           ],spacing=0)),
       ], spacing=0, horizontal_alignment="end"),
 
-      margin=ft.margin.only(right=7) if message['is_sender'] else ft.margin.only(left=7),
+      margin=ft.margin.only(right=7) if self.message.type == 'human' else ft.margin.only(left=7),
     )
   
   def receiver_message_pointer(self):
