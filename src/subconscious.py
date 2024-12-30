@@ -214,7 +214,7 @@ class Subconscious:
     return ft.Container(
       content=ft.Row([
         ft.Column([
-          ft.Image(src="./src/assets/logo.png", width=100, height=100),
+          ft.Image(src="./src/assets/logo.svg", width=100, height=100),
           ft.Text("Subconscious", size=25, color=ft.colors.PRIMARY),
         ], alignment="center", horizontal_alignment="center", spacing=0, expand=True),
       ], alignment="center", vertical_alignment="center", spacing=0, expand=True),

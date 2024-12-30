@@ -1,0 +1,55 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Subconscious",
+      "type": "shell",
+      "command": "conda activate langchain && pyinstaller",
+      "args": [
+        "--onefile",
+        "--noconsole",
+        "--icon=src\\assets\\logo.svg",
+        "subconscious.pyw"
+      ],
+      "problemMatcher": [],
+      "dependsOn": [
+        "Clean Build Dir",
+        "Copy Assets"
+      ],
+      "dependsOrder": "sequence"
+    },
+    {
+      "label": "Clean Build Dir",
+      "type": "shell",
+      "command": "rmdir",
+      "args": [
+        "/s",
+        "/q",
+        "dist",
+        "build"
+      ],
+      "problemMatcher": [],
+    },
+    {
+      "label": "Copy Assets",
+      "type": "shell",
+      "command": "mkdir",
+      "args": [
+        "dist",
+        "&&",
+        "xcopy",
+        "src\\assets",
+        "dist\\assets",
+        "/q",
+        "/e",
+        "/i",
+        "&&",
+        "mkdir",
+        "dist\\data",
+      ],
+      "problemMatcher": [],
+    }
+  ]
+}
