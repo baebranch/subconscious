@@ -234,7 +234,7 @@ class MainWindow(ft.Container):
 
     # About content
     self.about = ft.Column([
-      ft.Image(src="./src/assets/icons/logo.png", width=100, height=100),
+      ft.Image(src="./src/assets/logo.png", width=100, height=100),
       ft.Row([
         ft.Icon(ft.icons.INFO_OUTLINE, size=20, color=ft.colors.GREY),
         ft.Text("About", size=20, color=ft.colors.GREY),

@@ -88,9 +88,9 @@ class Subconscious:
       page.window.title_bar_hidden = True
       page.theme_mode = getattr(ft.ThemeMode, self.settings._general.mode.upper())
       if self.settings._general.theme == "white" and self.settings._general.mode == "dark":
-        page.theme = ft.Theme(color_scheme=ft.ColorScheme(primary=ft.colors.WHITE, secondary=ft.colors.GREY, background=ft.colors.BLACK87, secondary_container=ft.colors.GREY_800))
+        page.theme = ft.Theme(color_scheme=ft.ColorScheme(primary=ft.colors.WHITE, secondary=ft.colors.GREY, background=ft.colors.BLACK87, secondary_container=ft.colors.GREY_800, primary_container=ft.colors.GREY_800))
       elif self.settings._general.theme == "black" and self.settings._general.mode == "light":
-        page.theme = ft.Theme(color_scheme=ft.ColorScheme(primary=ft.colors.BLACK, secondary=ft.colors.GREY, background=ft.colors.WHITE, secondary_container=ft.colors.GREY_300))
+        page.theme = ft.Theme(color_scheme=ft.ColorScheme(primary=ft.colors.BLACK, secondary=ft.colors.GREY, background=ft.colors.WHITE, secondary_container=ft.colors.GREY_300, primary_container=ft.colors.GREY_300))
       else:
         page.theme = ft.Theme(color_scheme_seed=self.settings._general.theme)
       page.title = self.title
@@ -184,7 +184,7 @@ class Subconscious:
 
     self.__tray_icon = pystray.Icon(
       name="Subconscious",
-      icon=Image.open("./src/assets/icons/logo.png"),
+      icon=Image.open("./src/assets/logo.png"),
       title="Subconscious",
       menu=pystray.Menu(
         pystray.MenuItem("Open Subconscious", self.__default_tray_option, default=True),
@@ -214,7 +214,7 @@ class Subconscious:
     return ft.Container(
       content=ft.Row([
         ft.Column([
-          ft.Image(src="./src/assets/icons/logo.png", width=100, height=100),
+          ft.Image(src="./src/assets/logo.png", width=100, height=100),
           ft.Text("Subconscious", size=25, color=ft.colors.PRIMARY),
         ], alignment="center", horizontal_alignment="center", spacing=0, expand=True),
       ], alignment="center", vertical_alignment="center", spacing=0, expand=True),

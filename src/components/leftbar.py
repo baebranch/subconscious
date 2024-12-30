@@ -34,8 +34,8 @@ class PopupLanguageItem(ft.PopupMenuItem):
 
 
 class PopupColorItem(ft.PopupMenuItem):
-  white = ft.ColorScheme(primary=ft.colors.WHITE, secondary=ft.colors.GREY, background=ft.colors.BLACK87, secondary_container=ft.colors.GREY_800)
-  black = ft.ColorScheme(primary=ft.colors.BLACK, secondary=ft.colors.GREY, background=ft.colors.WHITE, secondary_container=ft.colors.GREY_300)
+  white = ft.ColorScheme(primary=ft.colors.WHITE, secondary=ft.colors.GREY, background=ft.colors.BLACK87, secondary_container=ft.colors.GREY_800, primary_container=ft.colors.GREY_800)
+  black = ft.ColorScheme(primary=ft.colors.BLACK, secondary=ft.colors.GREY, background=ft.colors.WHITE, secondary_container=ft.colors.GREY_300, primary_container=ft.colors.GREY_300)
 
   def __init__(self, colour, name, settings):
     super().__init__()
@@ -263,10 +263,10 @@ class Leftbar(ft.Column):
   def theme_changed(self, _):
     """ Toggle the theme mode between light and dark """
     if self.page.theme_mode == ft.ThemeMode.LIGHT:
-      self.minimize = ft.Image(src="./src/assets/icons/minimize_light.svg", width=12, height=12)
-      self.maximize = ft.Image(src="./src/assets/icons/maximize_light.svg", width=12, height=12)
-      self.restore = ft.Image(src="./src/assets/icons/restore_light.svg", width=12, height=12)
-      self.close = ft.Image(src="./src/assets/icons/close_light.svg", width=12, height=12)
+      self.minimize = ft.Image(src="./src/assets/minimize_light.svg", width=12, height=12)
+      self.maximize = ft.Image(src="./src/assets/maximize_light.svg", width=12, height=12)
+      self.restore = ft.Image(src="./src/assets/restore_light.svg", width=12, height=12)
+      self.close = ft.Image(src="./src/assets/close_light.svg", width=12, height=12)
       self.dark_light_icon.icon = ft.icons.BRIGHTNESS_HIGH
       self.page.theme_mode = ft.ThemeMode.DARK
       self.colour_theme_menu.items.pop(-1)
@@ -277,10 +277,10 @@ class Leftbar(ft.Column):
         self.page.theme = ft.Theme(color_scheme=PopupColorItem.white)
 
     elif self.page.theme_mode == ft.ThemeMode.DARK:
-      self.minimize = ft.Image(src="./src/assets/icons/minimize_dark.svg", width=12, height=12)
-      self.maximize = ft.Image(src="./src/assets/icons/maximize_dark.svg", width=12, height=12)
-      self.restore = ft.Image(src="./src/assets/icons/restore_dark.svg", width=12, height=12)
-      self.close = ft.Image(src="./src/assets/icons/close_dark.svg", width=12, height=12)
+      self.minimize = ft.Image(src="./src/assets/minimize_dark.svg", width=12, height=12)
+      self.maximize = ft.Image(src="./src/assets/maximize_dark.svg", width=12, height=12)
+      self.restore = ft.Image(src="./src/assets/restore_dark.svg", width=12, height=12)
+      self.close = ft.Image(src="./src/assets/close_dark.svg", width=12, height=12)
       self.dark_light_icon.icon = ft.icons.BRIGHTNESS_2
       self.page.theme_mode = ft.ThemeMode.LIGHT
       self.colour_theme_menu.items.pop(-1)

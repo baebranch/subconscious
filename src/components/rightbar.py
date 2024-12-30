@@ -70,7 +70,7 @@ class Rightbar(ft.Column):
         ft.Container(
           content=ft.Stack([
               ft.Image(
-                src="./src/assets/icons/ai_sparkle.svg",
+                src="./src/assets/ai_sparkle.svg",
                 width=30, height=30,
                 top=5, left=5,
                 color=ft.colors.PRIMARY
