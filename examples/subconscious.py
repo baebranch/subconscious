@@ -10,6 +10,7 @@ from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
 from langchain_anthropic import ChatAnthropic
 from langgraph.graph.message import add_messages
+from langchain_huggingface import ChatHuggingFace
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, START, END, MessagesState
@@ -17,45 +18,29 @@ from langgraph.graph import StateGraph, START, END, MessagesState
 from src.subconscious import Subconscious
 from src.components.data_objects import HumanMessage
 
+
 # DB connection and conversation config
 conn = sqlite3.connect("./data/memory.db", check_same_thread=False)
 memory = SqliteSaver(conn)
 config = {"configurable": {"thread_id": "19"}}
 
 
+# State graph and state definition
 class State(TypedDict):
-  # Messages have the type "list". The `add_messages` function
-  # in the annotation defines how this state key should be updated
-  # (in this case, it appends messages to the list, rather than overwriting them)
   messages: Annotated[list, add_messages]
-
 
 graph_builder = StateGraph(State)
 
+
 class LLM:
-  """ Language model manager for switching between different LLMs """
-
+  """ Language model manager for switching between different Models """
   model_config = {
-    "Anthropic": {
-      "chat": ChatAnthropic,
-      "model": "claude-3-5-sonnet-20240620"
-    },
-    "OpenAI": {
-      "chat": ChatOpenAI,
-      "model": "gpt-3.5-turbo"
-    },
-    "Ollama": {
-      "chat": ChatOllama,
-      "model": "phi3"
-    },
-    "Google": {
-      "chat": ChatGoogleGenerativeAI,
-      "model": "gemini-1.5-pro"
-    }
+    "Anthropic": ChatAnthropic,
+    "OpenAI": ChatOpenAI,
+    "Ollama": ChatOllama,
+    "Google": ChatGoogleGenerativeAI,
+    "Hugging Face": ChatHuggingFace,
   }
-
-  def __init__(self):
-    """ Initialize the LLM model """
 
   def invoke(self, messages):
     return self.model.invoke(messages)
@@ -64,27 +49,32 @@ class LLM:
     """ Switch the model """
     # Update the settings
     self.settings["_general"]["llm"] = e.data
-    print(f"Switching to {self.settings['_general']['llm']}")
+    print(f"Switching to {e.data}")
 
     # Configure the new model
-    if self.settings["_general"]["llm"] in self.model_config:
-      self.model = self.model_config[self.settings["_general"]["llm"]]["chat"](
-        api_key = self.settings[self.settings["_general"]["llm"]]["api_key"]["value"] if "api_key" in self.settings[self.settings["_general"]["llm"]] else None,
-        model = self.model_config[self.settings["_general"]["llm"]]["model"]
+    try:
+      self.model = self.model_config[self.settings["_models"][e.data]["provider"]](
+        api_key = self.settings["_models"][e.data]["api_key"],
+        model = self.settings["_models"][e.data]["model"]
       )
+    except Exception as e:
+      print(f"Error switching model: {e}")
 
     return self.settings
   
   def set_settings(self, settings):
-    """ Set the LLM settings and configure the initial model """
+    """ Set the LLM settings and configure the initial saved model """
     self.settings = settings
 
     # Conifgure the model
-    if self.settings["_general"]["llm"] in self.model_config:
-      self.model = self.model_config[self.settings["_general"]["llm"]]["chat"](
-        api_key = self.settings[self.settings["_general"]["llm"]]["api_key"]["value"] if "api_key" in self.settings[self.settings["_general"]["llm"]] else None,
-        model = self.model_config[self.settings["_general"]["llm"]]["model"]
-      )
+    if self.settings["_general"]["llm"]:
+      try:
+        self.model = self.model_config[self.settings["_models"][self.settings["_general"]["llm"]]["provider"]](
+          api_key = self.settings["_models"][self.settings["_general"]["llm"]]["api_key"],
+          model = self.settings["_models"][self.settings["_general"]["llm"]]["model"]
+        )
+      except Exception as e:
+        print(f"Error configuring model: {e}")
 
 
 llm = LLM()
@@ -110,28 +100,6 @@ def stream_graph_updates(message: str):
       echo.send_response(with_ts, config['configurable']['thread_id'])
 
 
-# Demo conversation threads
-conversation_threads = [
-  {
-    "id": "general",
-    "title": "General",
-    "description": "General thread for miscellaneous messages",
-    "updated_at": datetime.now(),
-  },
-  {
-    "id": "feedback",
-    "title": "Feedback",
-    "description": "Thread for feedback messages",
-    "updated_at": datetime.now(),
-  },
-  {
-    "id": "support",
-    "title": "Support",
-    "description": "Thread for support messages",
-    "updated_at": datetime.now(),
-  }
-]
-
 # Thread history loader
 def conversation_history_loader(thread):
   """ History is rendered in the order received """
@@ -146,12 +114,11 @@ def conversation_history_loader(thread):
 
 # Initialize and configure UI
 echo = Subconscious()
-echo.load_threads(conversation_threads) # Loads the conversation threads into the UI context view
 echo.set_thread_history_loader(conversation_history_loader) # Sets the conversation history loader
 echo.set_active_thread(config['configurable']['thread_id']) # Sets the active thread
 llm.set_settings(echo.settings) # Sets the LLM settings
 echo.set_llm_switcher(llm.switch) # Sets the LLM switcher
-# echo.splash = False
+echo.splash = False
 
 def new_user_message(message):
   stream_graph_updates(message)

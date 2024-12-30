@@ -18,7 +18,7 @@ class NavIcon(ft.Container):
 
 
 class LLMItem(ft.PopupMenuItem):
-  def __init__(self, name, switch_llm):
+  def __init__(self, name, switch_llm, slug):
     super().__init__()
     self.switch_llm = switch_llm
     self.content = ft.Row(
@@ -29,7 +29,7 @@ class LLMItem(ft.PopupMenuItem):
         ft.Text(name),
       ],
     )
-    self.data = name
+    self.data = slug
     self.on_click = self.update_settings
   
   def update_settings(self, event):
@@ -59,10 +59,9 @@ class Rightbar(ft.Column):
       width=80, height=80, left=-20, top=-20, splash_radius=35,
       icon_size=0, tooltip="LLM",
       items=[
-        LLMItem(name=provider, switch_llm=self.switch_llm)
-        for provider in ["OpenAI", "Anthropic", "Google", "Ollama"]
-        if self.settings[provider]["_type"] == "remote" and self.settings[provider]['api_key']['value'] != "" or
-          self.settings[provider]["_type"] == "local" and self.settings[provider]['enabled']['value'] == True
+        LLMItem(name=self.llm_config_name(config), switch_llm=self.switch_llm, slug=slug)
+        for slug,config in reversed(list(self.settings['_models'].items()))
+        if config['model'] and config['provider']
       ],
     )
 
@@ -105,10 +104,9 @@ class Rightbar(ft.Column):
 
     # Update the LLM menu and make the button visible
     self.llm_menu.items = [
-      LLMItem(name=provider, switch_llm=self.switch_llm)
-      for provider in ["OpenAI", "Anthropic", "Google", "Ollama"]
-      if self.settings[provider]["_type"] == "remote" and self.settings[provider]['api_key']['value'] != "" or
-        self.settings[provider]["_type"] == "local" and self.settings[provider]['enabled']['value'] == True
+      LLMItem(name=self.llm_config_name(config), switch_llm=self.switch_llm, slug=slug)
+      for slug,config in reversed(list(self.settings['_models'].items()))
+      if config['model'] and config['provider']
     ]
     self.llm_menu_container.visible = True if len(self.llm_menu.items) > 0 else False
 
@@ -137,3 +135,11 @@ class Rightbar(ft.Column):
   
   def llm_configured(self):
     return self.llm_menu_container.visible
+  
+  def llm_config_name(self, config):
+    if config['alias']:
+      return config['alias']
+    elif config['model'] or config['provider']:
+      return f"{config['provider']}-{config['model']}"
+    else:
+      return "Provider-Model"

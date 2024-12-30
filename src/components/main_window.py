@@ -1,12 +1,13 @@
 import json
 import flet as ft
+from uuid import uuid4
 from threading import Thread
 from time import time, monotonic
 from collections import defaultdict
 from src.components.data_objects import HumanMessage
 
 from src.utilities.filechange import FileChange
-from src.components.data_objects import Message
+from src.components.data_objects import Message, ExpansionPanelSlug
 from src.components.message_block import MessageBlock, MessageBubble
 
 
@@ -36,6 +37,7 @@ class MainWindow(ft.Container):
     self.settings = settings
     self.active_thread = None
     self.last_ai_message = {}
+    self.model_config_titles = {}
     self.update_llms = update_llms
     self.bgcolor = ft.colors.BACKGROUND
     self.llm_configured = llm_configured
@@ -73,12 +75,9 @@ class MainWindow(ft.Container):
       
       FileChange(make_change, e, title, key, setting)
 
-      # Update LLM list
-      self.update_llms()
-
-
     def render_settings(title, key, val):
-      if type(val['value']) == bool:
+      if title == "General": pass
+      elif type(val['value']) == bool:
         return ft.Row([
           ft.Checkbox(
             label=val['label'],
@@ -134,41 +133,92 @@ class MainWindow(ft.Container):
           ], spacing=0, expand=True),
           padding=ft.padding.only(10, 0, 20, 15),
         )
+
+    # Models settings config
+    self.models_config = ft.ExpansionPanelList(
+      expand_icon_color=ft.colors.PRIMARY,
+      elevation=8,
+      divider_color=ft.colors.SECONDARY_CONTAINER,
+      expanded_header_padding=ft.padding.all(0),
+      controls=[
+        self.new_llm_config(None, slug, **config)
+        for slug,config in reversed(list(self.settings['_models'].items()))
+      ]
+    )
         
     # Default settings content
-    self.default_settings = ft.Column([
-      # Settings Header
-      ft.Container(
-        content=ft.Row([
-          ft.Icon(ft.icons.SETTINGS, size=20, color=ft.colors.PRIMARY),
-          ft.Text("Settings", size=20, color=ft.colors.PRIMARY),
-        ], alignment="center"),
-        margin=ft.margin.only(30, 4, 30, 10),
-      ),
+    self.default_settings = ft.ListView([
+        # Settings Header
+        ft.Container(
+          content=ft.Row([
+            ft.Icon(ft.icons.SETTINGS, size=20, color=ft.colors.PRIMARY),
+            ft.Text("Settings", size=20, color=ft.colors.PRIMARY),
+          ], alignment="center"),
+          margin=ft.margin.only(30, 4, 30, 10),
+        ),
 
-      # Settings Expansion
-      ft.ExpansionPanelList(
-        expand_icon_color=ft.colors.PRIMARY,
-        elevation=8,
-        divider_color=ft.colors.SECONDARY_CONTAINER,
-        expanded_header_padding=ft.padding.all(0),
-        controls=[
-          ft.ExpansionPanel(
-            header=ft.Container(
-              content=ft.Text(title.capitalize(), size=18, color=ft.colors.PRIMARY),
-              padding=ft.padding.only(10, 10, 10, 0)
+        # General Settings Expansion Panel List
+        ft.ExpansionPanelList(
+          expand_icon_color=ft.colors.PRIMARY,
+          elevation=8,
+          divider_color=ft.colors.SECONDARY_CONTAINER,
+          expanded_header_padding=ft.padding.all(0),
+          controls=[
+            # General settings panel
+            ft.ExpansionPanel(
+              header=ft.Container(
+                content=ft.Text("General", size=18, color=ft.colors.PRIMARY),
+                padding=ft.padding.only(10, 10, 10, 0)
+              ),
+              content=ft.Column([
+                ft.Row([
+                  ft.Checkbox(
+                    label=self.settings['General']['tray']['label'],
+                    value=self.settings['General']['tray']['value'], on_change=lambda e: handle_change(e, "General", "tray", self.settings['General']), shape=ft.RoundedRectangleBorder(radius=3),
+                    label_style=ft.TextStyle(size=15, overflow=ft.TextOverflow.CLIP), tooltip=self.settings['General']['tray']['label'], expand_loose=True
+                  ),
+                ], spacing=0, wrap=True),
+              ], alignment="start"),
+              bgcolor=ft.colors.SURFACE_CONTAINER_HIGHEST,
+              expanded=False, can_tap_header=True,
+            )
+          ]
+        ),
+
+        # Horizontal divider
+        ft.Container(
+          content=ft.Divider(height=1, color=ft.colors.SECONDARY_CONTAINER),
+          padding=ft.padding.only(6, 0, 5, 0)
+        ),
+
+        # Models Sub-Header and Button
+        ft.Container(content=
+          ft.Row([
+            ft.Container(
+              content=ft.Row([
+                ft.Text("Models", size=18, color=ft.colors.PRIMARY),
+              ], expand=True),
+              margin=ft.margin.only(10, 4, 30, 0), expand=True
             ),
-            content=ft.Column([
-              render_settings(title, key, val)
-              for key,val in values.items() if key[0] != "_"
-            ], alignment="start"),
-            bgcolor=ft.colors.SURFACE_CONTAINER_HIGHEST,
-            expanded=False, can_tap_header=True,
-          )
-          for title,values in self.settings.items() if title[0] != "_"
-        ]
-      )
-    ], alignment="start")
+            ft.TextButton(
+              text="New Model Config",
+              icon=ft.icons.ADD,
+              style=ft.ButtonStyle(
+                  shape=ft.RoundedRectangleBorder(radius=3),
+                  padding=ft.padding.only(5,5,10,0),
+                  alignment=ft.alignment.center,
+                  text_style=ft.TextStyle(size=15, color=ft.colors.PRIMARY, weight=ft.FontWeight.NORMAL),
+                  icon_size=18
+                ),
+              on_click=self.new_llm_config,
+            )
+          ], spacing=0),
+          padding=ft.padding.only(0, 0, 0, 0),
+        ),
+
+        # Models Settings Expansion Panel List
+        self.models_config,
+      ], spacing=10, padding=ft.padding.only(0, 0, 0, 20))
 
     # Default message content for when there are no messages
     self.default = ft.Container(
@@ -189,22 +239,22 @@ class MainWindow(ft.Container):
         ft.Icon(ft.icons.INFO_OUTLINE, size=20, color=ft.colors.GREY),
         ft.Text("About", size=20, color=ft.colors.GREY),
       ], alignment="center"),
-      ft.Text("Subconscious is a simple desktop open sourced GUI for LLM and Agent use.", size=15, color=ft.colors.GREY, text_align=ft.TextAlign.CENTER),
+      ft.Text("Subconscious is a simple desktop open sourced UI for LLM and Agent interaction.", size=15, color=ft.colors.GREY, text_align=ft.TextAlign.CENTER),
       ft.Text(spans=[
         ft.TextSpan("Visit us at: "),
         ft.TextSpan(
             "subconscious.chat",
             ft.TextStyle(decoration=ft.TextDecoration.UNDERLINE),
-            url="https://subconscious.chat/terms",
+            url="https://subconscious.chat/",
             on_enter=self.highlight_link,
             on_exit=self.unhighlight_link,
           ),
       ], size=15),
       ft.Text(spans=[
         ft.TextSpan(
-            "Terms of Use",
+            "License",
             ft.TextStyle(decoration=ft.TextDecoration.UNDERLINE),
-            url="https://subconscious.chat/terms",
+            url="https://github.com/baebranch/subconscious/blob/main/LICENSE",
             on_enter=self.highlight_link,
             on_exit=self.unhighlight_link,
           ),
@@ -227,6 +277,227 @@ class MainWindow(ft.Container):
   def highlight_link(self, e):
     e.control.style.color = ft.Colors.BLUE
     e.control.update()
+  
+  def handle_model_change(self, e: ft.ControlEvent, slug, key):
+    """ Handle changes to the model configurations """
+    # Update the settings
+    def make_change(e, slug, key):
+      if key == 'delete':
+        del self.settings['_models'][slug]
+      else:
+        self.settings['_models'][slug][key] = e.data
+      return self.settings
+
+    FileChange(make_change, e, slug, key)
+
+    # Update titles
+    if key in ['alias', 'model', 'provider']:
+      if key == 'alias' and e.data == "":
+        if self.settings['_models'][slug]['model'] == "" and self.settings['_models'][slug]['provider'] == "": 
+          self.model_config_titles[slug].value = "Provider-Model"
+        else:
+          self.model_config_titles[slug].value = f"{self.settings['_models'][slug]['provider']}-{self.settings['_models'][slug]['model']}"
+      elif key == 'alias':
+        self.model_config_titles[slug].value = e.data
+      elif self.settings['_models'][slug]['alias'] == "":
+        if self.settings['_models'][slug]['model'] == "" and self.settings['_models'][slug]['provider'] == "": 
+          self.model_config_titles[slug].value = "Provider-Model"
+        else:
+          self.model_config_titles[slug].value = f"{self.settings['_models'][slug]['provider']}-{self.settings['_models'][slug]['model']}"
+      self.page.update()
+    elif key == 'delete':
+      for control in self.models_config.controls:
+        if control.slug == slug:
+          self.models_config.controls.remove(control)
+      self.page.update()
+
+    # Update LLM list
+    self.update_llms()
+  
+  def new_llm_config(self, event, slug=str(uuid4()), provider=None, model=None, api_key=None, alias=None):
+    """ Calls an external function to switch the LLM model """
+    if event:
+      text = "Provider-Model"
+    else:
+      text = alias if alias else (f"{self.settings['_models'][slug]['provider']}-{self.settings['_models'][slug]['model']}" if self.settings['_models'][slug]['model'] or self.settings['_models'][slug]['provider'] else "Provider-Model")
+
+    title = ft.Text(text, size=18, color=ft.colors.PRIMARY)
+    self.model_config_titles[slug] = title
+    panel = ExpansionPanelSlug(
+      slug=slug,
+      header=ft.Container(
+        content=title,
+        padding=ft.padding.only(10, 10, 10, 0)
+      ),
+      content=ft.Column([
+        # Provider
+        ft.Container(content=
+          ft.Row([
+            ft.Container(content=
+              ft.Text("Provider  ", size=15),
+              padding=ft.padding.only(10, 0, -1, 0),
+            ),
+            ft.Container(content=
+              ft.Dropdown(
+                value=provider if provider else None,
+                width=250,
+                border=None,
+                hint_content=ft.Text("Select a provider", weight=ft.FontWeight.NORMAL), # This is the text that shows when no option is selected
+                border_color=ft.colors.TRANSPARENT,
+                content_padding=ft.padding.only(10,2,2,2),
+                expand=True,
+                dense=True,
+                on_change=lambda e: self.handle_model_change(e, slug, "provider"),
+                options=[
+                  ft.dropdown.Option(key="OpenAI", content=ft.Text("OpenAI", weight=ft.FontWeight.NORMAL)),
+                  ft.dropdown.Option(key="Anthropic", content=ft.Text("Anthropic", weight=ft.FontWeight.NORMAL)),
+                  ft.dropdown.Option(key="Google", content=ft.Text("Google", weight=ft.FontWeight.NORMAL)),
+                  ft.dropdown.Option(key="Ollama", content=ft.Text("Ollama", weight=ft.FontWeight.NORMAL)),
+                  ft.dropdown.Option(key="Hugging Face", content=ft.Text("Hugging Face", weight=ft.FontWeight.NORMAL)),
+                ],
+              ), expand=True, border=ft.border.all(1, ft.colors.PRIMARY), border_radius=5,
+            ), 
+          ], alignment=ft.alignment.center, spacing=0, expand=True),
+          padding=ft.padding.only(0, 10, 15, 0), expand=True
+        ),
+
+        # LLM Name Field
+        ft.Container(content=
+          ft.Row([
+            ft.Container(content=
+              ft.Text("Model     ", size=15),
+              padding=ft.padding.only(0, 0, 0, 1),
+            ),
+            ft.Container(content=
+              ft.TextField(
+                value=model if model else None,
+                on_change=lambda e: self.handle_model_change(e, slug, "model"),
+                border=ft.InputBorder.NONE, border_color=ft.colors.TRANSPARENT,
+                bgcolor=ft.colors.TRANSPARENT, border_radius=5, multiline=False, 
+                clip_behavior=ft.ClipBehavior.HARD_EDGE, 
+                content_padding=ft.padding.only(10, -14, 2, 2),
+                dense=True, hint_text="Enter the LLM model name",
+                hint_style=ft.TextStyle(color=ft.colors.SECONDARY, weight=ft.FontWeight.NORMAL),
+              ),
+              border=ft.border.all(1, ft.colors.PRIMARY), border_radius=5,
+              padding=ft.padding.only(0, 0, 0, 0), margin=ft.margin.all(0), bgcolor=ft.colors.BACKGROUND, expand=True,
+              clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            ),
+
+          ], spacing=0, expand=True),
+          padding=ft.padding.only(10, 0, 15, 0)
+        ),
+
+        # Api Key Field
+        ft.Container(content=
+          ft.Row([
+            ft.Container(content=
+              ft.Text("API Key   ", size=15),
+              padding=ft.padding.only(0, 0, 0, 1),
+            ),
+            ft.Container(content=
+              ft.TextField(
+                value=api_key if api_key else None,
+                on_change=lambda e: self.handle_model_change(e, slug, "api_key"),
+                border=ft.InputBorder.NONE, border_color=ft.colors.TRANSPARENT,
+                bgcolor=ft.colors.TRANSPARENT, border_radius=5, multiline=False, 
+                clip_behavior=ft.ClipBehavior.HARD_EDGE, 
+                content_padding=ft.padding.only(10, -14, 2, 2),
+                dense=True, password=True, hint_text="Enter the LLM API key if required",
+                hint_style=ft.TextStyle(color=ft.colors.SECONDARY, weight=ft.FontWeight.NORMAL)
+              ),
+              border=ft.border.all(1, ft.colors.PRIMARY), border_radius=5,
+              padding=ft.padding.only(0, 0, 0, 0), margin=ft.margin.all(0), bgcolor=ft.colors.BACKGROUND, expand=True,
+              clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            ),
+
+          ], spacing=0, expand=True),
+          padding=ft.padding.only(10, 0, 15, 0)
+        ),
+
+        # Alias Field
+        ft.Container(content=
+          ft.Stack([
+            ft.Icon(ft.icons.MORE_HORIZ, size=25),
+            ft.ExpansionTile(
+              title=ft.Stack([], height=7),
+              tile_padding=ft.padding.only(0, 0, 0, 0),
+              min_tile_height=7,
+              dense=True,
+              visual_density=ft.VisualDensity.COMPACT,
+              show_trailing_icon=False,
+              clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+              maintain_state=True,
+              collapsed_text_color=ft.Colors.PRIMARY,
+              text_color=ft.Colors.PRIMARY,
+              expand=False,
+              shape=ft.RoundedRectangleBorder(radius=0),
+              controls=[
+                # Alias field
+                ft.Container(content=
+                  ft.Row([
+                    ft.Container(content=
+                      ft.Text("Alias        ", size=15),
+                      padding=ft.padding.only(0, 0, 0, 1),
+                    ),
+                    ft.Container(content=
+                      ft.TextField(
+                        value=alias if alias else None,
+                        on_change=lambda e: self.handle_model_change(e, slug, "alias"),
+                        border=ft.InputBorder.NONE, border_color=ft.colors.TRANSPARENT,
+                        bgcolor=ft.colors.TRANSPARENT, border_radius=5, multiline=False, 
+                        clip_behavior=ft.ClipBehavior.HARD_EDGE, 
+                        content_padding=ft.padding.only(10, -14, 2, 2),
+                        dense=True, hint_text="Alias for this model configuration",
+                        hint_style=ft.TextStyle(color=ft.colors.SECONDARY, weight=ft.FontWeight.NORMAL),
+                      ),
+                      border=ft.border.all(1, ft.colors.PRIMARY), border_radius=5,
+                      padding=ft.padding.only(0, 0, 0, 0), margin=ft.margin.all(0), bgcolor=ft.colors.BACKGROUND, expand=True,
+                      clip_behavior=ft.ClipBehavior.HARD_EDGE,
+                    ),
+                  ], spacing=0, expand=True),
+                  padding=ft.padding.only(11, 10, 15, 0)
+                ),
+
+                # Delete Button
+                ft.Container(content=
+                  ft.Row([
+                    ft.Container(content=
+                      ft.IconButton(
+                        icon=ft.icons.DELETE,
+                        tooltip="Delete model configuration",
+                        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=3)),
+                        on_click=lambda e: self.handle_model_change(e, slug, "delete"),
+                      )
+                    ),
+                  ], spacing=0, expand=True),
+                  padding=ft.padding.only(10, 10, 15, 0)
+                ),
+              ],
+            ),
+          ], expand=True, alignment=ft.alignment.top_center,
+          ), padding=ft.padding.only(0, 0, 0, 10)
+        ),
+      ], alignment=ft.alignment.center, spacing=10),
+      bgcolor=ft.colors.SURFACE_CONTAINER_HIGHEST,
+      expanded=True, can_tap_header=True,
+    )
+
+    if event:
+      self.models_config.controls.insert(0, panel)
+      def new_blank(slug):
+        self.settings['_models'][slug] = {
+          "provider": "",
+          "model": "",
+          "api_key": "",
+          "alias": ""
+        }
+        self.model_config_titles[slug] = title
+        return self.settings
+      FileChange(new_blank, slug)
+      self.page.update()
+    else:
+      return panel
 
   def unhighlight_link(self, e):
     e.control.style.color = None

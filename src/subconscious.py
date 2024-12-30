@@ -51,34 +51,9 @@ class Subconscious:
             "label": "Show tray icon",
           }
         },
-        "OpenAI": {
-          "_type": "remote",
-          "api_key": {
-            "value": "",
-            "label": "API Key"
-          }
-        },
-        "Anthropic": {
-          "_type": "remote",
-          "api_key": {
-            "value": "",
-            "label": "API Key"
-          }
-        },
-        "Google": {
-          "_type": "remote",
-          "api_key": {
-            "value": "",
-            "label": "API Key"
-          }
-        },
-        "Ollama": {
-          "_type": "local",
-          "model": {
-            "value": "",
-            "label": "Set the name of the Ollama model in use"
-          }
-        }
+        "_models": [
+
+        ],
       }
       f = open("./data/settings.json", "w")
       f.write(json.dumps(self.settings, indent=2))
@@ -100,7 +75,7 @@ class Subconscious:
 
     def main(page: ft.Page):
       # Flet page config
-      page.window.center() # loads in the wrong position then shifts to the centre
+      page.window.center()
       self.page = page
       page.padding = 0
       page.spacing = 0
