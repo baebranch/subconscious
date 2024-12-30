@@ -5,10 +5,20 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Subconscious Module Debugger",
+      "name": "Subconscious Debugger",
       "type": "debugpy",
       "request": "launch",
-      "module": "frontend.subconscious"
+      "module": "examples.subconscious",
+      "justMyCode": false,
+      "console": "internalConsole",
+    },
+    {
+      "name": "Echo Debugger",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "examples.echo",
+      "justMyCode": false,
+      "console": "internalConsole"
     },
     {
       "name": "Python Debugger: Current File",
