@@ -9,7 +9,15 @@
       "type": "debugpy",
       "request": "launch",
       "module": "examples.subconscious",
-      "justMyCode": false,
+      "justMyCode": true,
+      "console": "internalConsole",
+    },
+    {
+      "name": "Subconscious Installer Debugger",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "installer.installer",
+      "justMyCode": true,
       "console": "internalConsole",
     },
     {
@@ -17,7 +25,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "examples.echo",
-      "justMyCode": false,
+      "justMyCode": true,
       "console": "internalConsole"
     },
     {

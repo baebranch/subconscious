@@ -10,15 +10,28 @@
       "args": [
         "--onefile",
         "--noconsole",
-        "--icon=src\\assets\\logo.svg",
+        "--icon=src\\assets\\favicon.ico",
         "subconscious.pyw"
       ],
       "problemMatcher": [],
       "dependsOn": [
         "Clean Build Dir",
-        "Copy Assets"
+        "Copy Assets",
+        "Build Subconscious Installer"
       ],
       "dependsOrder": "sequence"
+    },
+    {
+      "label": "Build Subconscious Installer",
+      "type": "shell",
+      "command": "conda activate langchain && pyinstaller",
+      "args": [
+        "--onefile",
+        "--noconsole",
+        "--icon=src\\assets\\favicon.ico",
+        "installer\\installer.pyw"
+      ],
+      "problemMatcher": [],
     },
     {
       "label": "Clean Build Dir",
@@ -28,7 +41,10 @@
         "/s",
         "/q",
         "dist",
-        "build"
+        "build",
+        "||",
+        "exit",
+        "0"
       ],
       "problemMatcher": [],
     },
@@ -39,9 +55,19 @@
       "args": [
         "dist",
         "&&",
+        "mkdir",
+        "dist\\src",
+        "&&",
         "xcopy",
         "src\\assets",
-        "dist\\assets",
+        "dist\\src\\assets",
+        "/q",
+        "/e",
+        "/i",
+        "&&",
+        "xcopy",
+        "src\\lang",
+        "dist\\src\\lang",
         "/q",
         "/e",
         "/i",

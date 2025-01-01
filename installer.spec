@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['subconscious.pyw'],
+    ['installer\\installer.pyw'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='subconscious',
+    name='installer',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
