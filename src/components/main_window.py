@@ -3,6 +3,7 @@ import flet as ft
 from uuid import uuid4
 from threading import Thread
 from time import time, monotonic
+from src.utilities import VERSION
 from collections import defaultdict
 from src.components.data_objects import HumanMessage
 
@@ -55,6 +56,8 @@ class MainWindow(ft.Container):
       border_radius=0,
       expand=True,
     )
+
+    self.model_in_use = ft.Text("", size=12, color=ft.Colors.PRIMARY, text_align="center")
 
     self.message_controls = ft.Container(content=
         ft.IconButton(
@@ -234,7 +237,7 @@ class MainWindow(ft.Container):
 
     # About content
     self.about = ft.Column([
-      ft.Image(src="./src/assets/logo.svg", width=100, height=100),
+      ft.Image(src="./src/assets/logo.png", width=100, height=100),
       ft.Row([
         ft.Icon(ft.icons.INFO_OUTLINE, size=20, color=ft.colors.GREY),
         ft.Text("About", size=20, color=ft.colors.GREY),
@@ -259,20 +262,32 @@ class MainWindow(ft.Container):
             on_exit=self.unhighlight_link,
           ),
       ], size=15),
-      ft.Text(spans=[
-        ft.TextSpan(
-            "Privacy Policy",
-            ft.TextStyle(decoration=ft.TextDecoration.UNDERLINE),
-            url="https://subconscious.chat/privacy",
-            on_enter=self.highlight_link,
-            on_exit=self.unhighlight_link,
-          ),
-      ], size=15),
-      ft.Text("Version: 0.1.0", size=15, color=ft.colors.GREY),
+      ft.Text(f"Version:{VERSION}", size=15, color=ft.colors.GREY),
       ft.Text("© 2024 Subconscious", size=15, color=ft.colors.GREY),
     ], alignment="center", horizontal_alignment="center", spacing=0)
 
     self.content = self.default
+
+  def show_banner(self, error):
+    self.page.overlay.append(
+      ft.Container(content=
+        ft.Row([
+          ft.Icon(ft.icons.ERROR_OUTLINE, size=25, color=ft.colors.RED),
+          ft.Row([
+            ft.Text(f"Error: {str(error)}", size=15, color=ft.colors.RED, width=350),
+          ], width=350),
+          ft.IconButton(ft.icons.CLOSE, on_click=self.close_banner, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=3))),
+        ], expand_loose=True, alignment="center", vertical_alignment="center", spacing=10),
+        bgcolor=ft.Colors.AMBER_100,
+        padding=ft.padding.only(20, 10, 20, 10),
+        margin=ft.margin.only(0, 40, 0, 0)
+      )
+    )
+    self.page.update()
+  
+  def close_banner(self, e):
+    self.page.overlay.pop(0)
+    self.page.update()
 
   def highlight_link(self, e):
     e.control.style.color = ft.Colors.BLUE
@@ -314,8 +329,9 @@ class MainWindow(ft.Container):
     # Update LLM list
     self.update_llms()
   
-  def new_llm_config(self, event, slug=str(uuid4()), provider=None, model=None, api_key=None, alias=None):
+  def new_llm_config(self, event, slug=None, provider=None, model=None, api_key=None, alias=None):
     """ Calls an external function to switch the LLM model """
+    if not slug: slug = str(uuid4())
     if event:
       text = "Provider-Model"
     else:
@@ -480,7 +496,7 @@ class MainWindow(ft.Container):
         ),
       ], alignment=ft.alignment.center, spacing=10),
       bgcolor=ft.colors.SURFACE_CONTAINER_HIGHEST,
-      expanded=True, can_tap_header=True,
+      expanded=True if event else False, can_tap_header=True,
     )
 
     if event:
@@ -527,17 +543,18 @@ class MainWindow(ft.Container):
                   ft.Container(
                     border_radius=ft.BorderRadius(5, 5, 5, 5),
                     padding=ft.padding.only(4, -15, 4, 0),
-                    margin=ft.margin.only(0, 0, 0, 15),
+                    margin=ft.margin.only(0, 0, 0, 0),
                     bgcolor=ft.colors.SECONDARY_CONTAINER,
                     content=ft.Column(
                       [
                         self.message_form,
-                        self.message_controls
+                        self.message_controls,
                       ],
                       alignment="center",
                       horizontal_alignment="end", spacing=0,
                     ),
-                  )
+                  ),
+                  self.model_in_use,
                   ], alignment="end", horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0,
                 ),
                 width=500, 
@@ -631,4 +648,8 @@ class MainWindow(ft.Container):
     """ Set the active thread """
     self.active_thread = thread_id
     self.show_thread()
+  
+  def set_current_model(self, model):
+    self.model_in_use.value = model
+    if self.page: self.page.update()
     

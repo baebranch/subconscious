@@ -10,13 +10,13 @@ from typing import Literal
 from threading import Thread
 from multiprocessing import Process
 
-from src.lang import LangLoader
 from src.components.gui import GUI
 from src.utilities.dictobj import DictObj
 from src.components.leftbar import Leftbar
 from src.components.rightbar import Rightbar
 from src.components.titlebar import TitleBar
 from src.components.data_objects import Message
+from src.utilities.lang_loader import LangLoader
 from src.components.main_window import MainWindow
 from src.components.contextlist import ContextList
 
@@ -51,9 +51,7 @@ class Subconscious:
             "label": "Show tray icon",
           }
         },
-        "_models": [
-
-        ],
+        "_models": {}
       }
       f = open("./data/settings.json", "w")
       f.write(json.dumps(self.settings, indent=2))
@@ -161,7 +159,7 @@ class Subconscious:
     """ Initialize the UI components """
     self.__titlebar = TitleBar(Page)
     self.__mainwindow = MainWindow(self.lang, self.settings, self.__update_llms, self.__llm_configured)
-    self.__rightbar = Rightbar(Page, self.__mainwindow.show_about, self.settings, self.switch_llm)
+    self.__rightbar = Rightbar(Page, self.__mainwindow.show_about, self.settings, self.switch_llm, self.__safe_exit, self.__mainwindow.set_current_model)
     self.__contextlist = ContextList(self.lang, self.__mainwindow)
     self.__leftbar = Leftbar(Page, self.lang, self.__contextlist, self.__mainwindow, self.__titlebar.theme_changed, self.settings)
     self.__content = GUI(self.__leftbar, self.__mainwindow, self.__contextlist, self.__rightbar)
@@ -177,6 +175,10 @@ class Subconscious:
   def switch_llm(self, e):
     """ Calls an external function to switch the LLM model """
     return self.__switcher(e)
+
+  def show_banner(self, error):
+    """ Show the banner """
+    self.__mainwindow.show_banner(error)
 
   def __initialize_tray_icon(self):
     self.page.window.prevent_close = True # Tray icon persistance
@@ -203,6 +205,11 @@ class Subconscious:
     icon.stop()
     self.page.window_destroy()
   
+  def __safe_exit(self):
+    if self.settings.General.tray.value:
+      self.__tray_icon.stop()
+    self.page.window_destroy()
+  
   def __on_window_event(self, e):
     if e.data == "close" and self.settings.General.tray.value:
       self.page.window.skip_task_bar = True
@@ -214,7 +221,7 @@ class Subconscious:
     return ft.Container(
       content=ft.Row([
         ft.Column([
-          ft.Image(src="./src/assets/logo.svg", width=100, height=100),
+          ft.Image(src="./src/assets/logo.png", width=100, height=100),
           ft.Text("Subconscious", size=25, color=ft.colors.PRIMARY),
         ], alignment="center", horizontal_alignment="center", spacing=0, expand=True),
       ], alignment="center", vertical_alignment="center", spacing=0, expand=True),
