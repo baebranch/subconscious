@@ -16,9 +16,10 @@
       "name": "Subconscious Installer Debugger",
       "type": "debugpy",
       "request": "launch",
-      "module": "installer.installer",
+      "module": "main",
       "justMyCode": true,
       "console": "internalConsole",
+      "cwd": "${workspaceFolder}/installer/src"
     },
     {
       "name": "Echo Debugger",
