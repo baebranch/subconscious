@@ -3,3 +3,5 @@ data*
 *.log
 dist/*
 build/*
+installer/src/build/*
+/src/build/*
