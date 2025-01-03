@@ -2,7 +2,7 @@ import flet as ft
 
 
 class TitleBar(ft.Row):
-  def __init__(self, page, buttons=None):
+  def __init__(self, page, title=None, buttons=None):
     super().__init__()
     # TODO: Add no-connection icon
     self.spacing = 0
@@ -16,12 +16,23 @@ class TitleBar(ft.Row):
       )
     self.controls = [
       ft.WindowDragArea(
-        ft.Container(
-          ft.Text(
-            "Subconscious"
-          ),
+        ft.Container(content=
+          ft.Row([
+            ft.Image(
+              src="./src/assets/icon.png",
+              width=20, height=20,
+              color=ft.colors.PRIMARY,
+            ),
+            ft.Container(content=
+              ft.Text(
+                "Subconscious" if title is None else title,
+                size=13, color=ft.colors.PRIMARY
+              ),
+              padding=ft.padding.only(14, -4, 0, 0)
+            ),
+          ], alignment="left", spacing=0, expand=True),
           bgcolor=ft.colors.BACKGROUND,
-          padding=ft.padding.only(10, 10, 10, 10),
+          padding=ft.padding.only(14, 10, 10, 10),
         ),
         expand=True,
       ),
@@ -67,7 +78,7 @@ class TitleBar(ft.Row):
     """ Change the theme of the title bar buttons """
     if page.theme_mode == ft.ThemeMode.LIGHT:
       self.close = ft.Image(src="./src/assets/close_dark.svg", width=12, height=12)
-      self.min = ft.Image(src="./src/assets/minimize_dark.svg", width=12, height=12)
+      self.mini = ft.Image(src="./src/assets/minimize_dark.svg", width=12, height=12)
       if page.window_maximized:
         self.res_max = ft.Image(src="./src/assets/restore_dark.svg", width=12, height=12)
       else:

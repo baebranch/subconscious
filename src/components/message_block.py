@@ -30,7 +30,13 @@ class MessageBubble(ft.Row):
             padding = ft.padding.only(10, 5, 10, 5),
             content = ft.Column([
               ft.Container(content=ft.Column([
-                  self.message_content,
+                  ft.Markdown(
+                    self.message.content,
+                    selectable=True,
+                    extension_set="gitHubWeb",
+                    code_theme="atom-one-dark",
+                    code_style=ft.TextStyle(font_family="Roboto Mono"),
+                  ),
                 ], spacing=0), padding=ft.padding.only(0, 0, 20, 0)),
 
               ft.Container(content=ft.Column([
