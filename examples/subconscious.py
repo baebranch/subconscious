@@ -46,7 +46,7 @@ class Runner:
     # DB connection and conversation config
     self.conn = sqlite3.connect("./data/memory.db", check_same_thread=False)
     self.memory = SqliteSaver(self.conn)
-    self.config = {"configurable": {"thread_id": "general"}}
+    self.config = {"configurable": {"thread_id": "main"}}
 
   def invoke(self, messages):
     return self.model.invoke(messages)

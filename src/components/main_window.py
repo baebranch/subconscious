@@ -16,6 +16,7 @@ class MessageList(ft.ListView):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.expand = 1
+    self.width = 750
     self.spacing = 10
     self.loaded = False
     self.active = False
@@ -232,7 +233,7 @@ class MainWindow(ft.Container):
     # Configuration required for LLM default message
     self.configure = ft.Container(
       content=ft.Column([
-      ft.Text("To begin using this Chat Interface, an LLM API key or Source (Ollama) must be configured in the settings for one of the supported LLMs.", size=20, color=ft.colors.GREY, text_align=ft.TextAlign.CENTER),
+      ft.Text("To begin using this Chat Interface, a LLM API key or local source (Ollama) must be configured in the settings for one of the supported LLM providers.", size=20, color=ft.colors.GREY, text_align=ft.TextAlign.CENTER),
     ], alignment="center", horizontal_alignment="center", spacing=0, expand=True), expand=True, padding=ft.padding.only(0,0,0,150), alignment=ft.alignment.center)
 
     # About content
@@ -534,6 +535,7 @@ class MainWindow(ft.Container):
           content=(self.threads[self.active_thread] if self.threads[self.active_thread].active else self.default) if self.llm_configured() else self.configure,
           padding=0,
           expand=True,
+          alignment=ft.alignment.top_center
         ),
         ft.Row([
           ft.Stack([
@@ -567,7 +569,7 @@ class MainWindow(ft.Container):
             expand=True,
             clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
           )
-        ], expand=True, alignment=ft.alignment.bottom_center, spacing=0  ),
+        ], expand=True, alignment=ft.alignment.bottom_center, spacing=0),
       ],
     )
 
