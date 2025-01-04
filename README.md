@@ -6,7 +6,7 @@
 
 ## Download & Installation
 
-The windows application installer can be downloaded from the [Subconscious website](https://subconscious.chat). The application is available for Windows only. Also, the source and build for the latest release can be downloaded from the [releases page](https://github.com/baebranch/subconscious/releases).
+The windows application installer can be downloaded from the [Subconscious website](https://subconscious.chat). The application is available for Windows only. Also, the source and build for the latest release can be downloaded from the [releases page](https://github.com/baebranch/subconscious/releases) and extracted into the install folder.
 
 ## Usage & Configuration
 
