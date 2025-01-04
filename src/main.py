@@ -1,4 +1,7 @@
-""" Langgraph implementation using the subconscious UI """
+# Author: Brian Branch
+# © 2025 Brian Branch - subconscious.chat
+# All rights reserved.
+""" Main entry point for the application """
 import sqlite3
 import logging
 import win32gui
