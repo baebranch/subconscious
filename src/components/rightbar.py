@@ -4,8 +4,8 @@ import subprocess
 import flet as ft
 from types import SimpleNamespace
 
-from src.utilities import VERSION
-from src.utilities.filechange import FileChange
+from utilities import VERSION
+from utilities.filechange import FileChange
 
 
 class NavIcon(ft.Container):
@@ -77,7 +77,7 @@ class Rightbar(ft.Column):
         ft.Container(
           content=ft.Stack([
               ft.Image(
-                src="./src/assets/ai_sparkle.svg",
+                src="./assets/ai_sparkle.svg",
                 width=30, height=30,
                 top=5, left=5,
                 color=ft.colors.PRIMARY

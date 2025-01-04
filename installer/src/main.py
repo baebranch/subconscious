@@ -6,6 +6,8 @@ import ctypes
 import zipfile
 import requests
 import tempfile
+import win32gui
+import win32con
 import flet as ft
 
 from titlebar import TitleBar
@@ -16,6 +18,30 @@ def is_admin():
     return ctypes.windll.shell32.IsUserAnAdmin()
   except:
     return False
+
+
+def set_app_icon(hwnd, icon_path):
+  hicon = win32gui.LoadImage(None, icon_path, win32con.IMAGE_ICON, 0, 0, win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE)
+  win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_SMALL, hicon)
+  win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_BIG, hicon)
+
+
+def create_shortcut(target, shortcut_name):
+  """ Create a startmenu shortcut for the Subconscious app """
+  # Get the startmenu directory
+  startmenu_dir = os.path.join(os.environ['APPDATA'], 'Microsoft', 'Windows', 'Start Menu', 'Programs')
+  
+  # Create a shortcut file
+  shortcut_path = os.path.join(startmenu_dir, f"{shortcut_name}.lnk")
+  shell = ctypes.windll.Dispatch("WScript.Shell")
+  shortcut = shell.CreateShortCut(shortcut_path)
+  shortcut.Targetpath = target
+  shortcut.WorkingDirectory = os.path.dirname(target)
+  shortcut.Description = "Subconscious"
+  shortcut.IconLocation = target
+  shortcut.save()
+  return shortcut_path
+
 
 def download_latest_release(download_dir, pb):
   """ Download the latest release of the Subconscious app """
@@ -56,8 +82,17 @@ def extract_to_program_files(zip_path, program_files_dir):
 
 def main(page: ft.Page):
   """ Main function to initiate the installer UI """
-  # Window size
-  page.visible = False
+  # Configure the app icons
+  myappid = u'chat.subconscious.installer'
+  ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+  # Set custom icon for the window and taskbar
+  icon_path = 'assets\\favicon.ico'  # Replace with the path to your custom icon
+  hwnd = win32gui.GetForegroundWindow()
+  set_app_icon(hwnd, icon_path)
+  
+  # Window Config
+  page.window.center()
   page.window.width = page.window.min_width = page.window.max_width = 450
   page.window.height = page.window.min_height = page.window.max_height = 250
   page.window.center()
@@ -78,7 +113,7 @@ def main(page: ft.Page):
     ft.Column(
     [
       ft.Row([
-        ft.Text("Subconscious", size=25, color=ft.Colors.PRIMARY),
+        ft.Text("Installing Subconscious", size=25, color=ft.Colors.PRIMARY),
       ], alignment="left", spacing=0),
       step,
       pb,
@@ -90,8 +125,8 @@ def main(page: ft.Page):
   ),
   padding=ft.padding.only(20, 20, 20, 20))
   )
-  page.visible = True
   page.update()
+  set_app_icon(hwnd, icon_path)
 
   try:
     # Create a temporary directory
@@ -109,13 +144,14 @@ def main(page: ft.Page):
       page.update()
       
       # Ensure the Program Files directory exists
-      os.makedirs(program_files_dir, exist_ok=True)
-      
       # Extract the downloaded zip file to the Program Files directory
+      os.makedirs(program_files_dir, exist_ok=True)
       step.value = "Extracting files..."
       pb.value = 0.75
       page.update()
+
       extract_to_program_files(zip_path, program_files_dir)
+      create_shortcut(os.path.join(program_files_dir, "subconscious.exe"), "Subconscious")
       done.visible = True
       step.value = "Installation completed successfully!"
       pb.value = 1.0

@@ -2,10 +2,14 @@ flet==0.25.1
 pillow==10.3.0
 pystray==0.19.5
 requests==2.32.3
+langchain==0.3.7
 pydantic==2.10.4
+langgraph==0.2.52
 pyinstaller==6.11.1
+langchain-core==0.3.29
 langchain-ollama==0.2.1
 langchain-openai==0.2.9
-langchain_anthropic==0.3.0
+langchain-anthropic==0.3.0
+langchain-huggingface==0.1.2
 langchain-google-genai==2.0.7
 langgraph-checkpoint-sqlite==2.0.1

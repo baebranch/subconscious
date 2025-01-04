@@ -2,6 +2,8 @@ import os
 import json
 import pystray
 import logging
+import win32gui
+import win32con
 import flet as ft
 from flet import Page
 from PIL import Image
@@ -10,15 +12,15 @@ from typing import Literal
 from threading import Thread
 from multiprocessing import Process
 
-from src.components.gui import GUI
-from src.utilities.dictobj import DictObj
-from src.components.leftbar import Leftbar
-from src.components.rightbar import Rightbar
-from src.components.titlebar import TitleBar
-from src.components.data_objects import Message
-from src.utilities.lang_loader import LangLoader
-from src.components.main_window import MainWindow
-from src.components.contextlist import ContextList
+from components.gui import GUI
+from utilities.dictobj import DictObj
+from components.leftbar import Leftbar
+from components.rightbar import Rightbar
+from components.titlebar import TitleBar
+from components.data_objects import Message
+from utilities.lang_loader import LangLoader
+from components.main_window import MainWindow
+from components.contextlist import ContextList
 
 
 logger = logging.getLogger("subconscious")
@@ -73,6 +75,7 @@ class Subconscious:
 
     def main(page: ft.Page):
       # Flet page config
+      self.__set_app_icon()
       page.window.center()
       self.page = page
       page.padding = 0
@@ -108,7 +111,7 @@ class Subconscious:
       if self.settings.General.tray.value:
         self.__initialize_tray_icon()
 
-      if self.splash: page.overlay.append(self.splash_screen())
+      if self.splash: page.overlay.append(self.__splash_screen())
       page.add(self.__titlebar)
       page.add(self.__content)
       page.on_error = lambda e: logger.debug("Page error: %s", e.data)
@@ -117,14 +120,16 @@ class Subconscious:
         page.overlay.pop(0)
 
       # Update the pages
+      self.__set_app_icon()
       page.update()
       self.__mainwindow.page.update()
+      self.__set_app_icon()
   
     # Load the subconscious app
     if view == 'web':
-      ft.app(target=main, view=ft.AppView.FLET_APP_WEB, assets_dir="src/assets")
+      ft.app(target=main, view=ft.AppView.FLET_APP_WEB, assets_dir="assets")
     elif view == 'app':
-      ft.app(target=main, assets_dir="src/assets")
+      ft.app(target=main, assets_dir="assets")
 
   def load_threads(self, threads):
     """ Load the threads into the context list """
@@ -154,6 +159,20 @@ class Subconscious:
     """ Stream a response message """
     self.__mainwindow.stream_response(message, thread_id)
 
+  def switch_llm(self, e):
+    """ Calls an external function to switch the LLM model """
+    return self.__switcher(e)
+
+  def show_banner(self, error):
+    """ Show the banner """
+    self.__mainwindow.show_banner(error)
+  
+  def update_Settings(self):
+    """ Update the settings file """
+    f = open("./data/settings.json", "w")
+    f.write(json.dumps(self.settings, indent=2))
+    f.close()
+  
   # Internal methods
   def __initialize_ui(self):
     """ Initialize the UI components """
@@ -172,21 +191,13 @@ class Subconscious:
     """ Check if a LLM is configured """
     return self.__rightbar.llm_configured()
   
-  def switch_llm(self, e):
-    """ Calls an external function to switch the LLM model """
-    return self.__switcher(e)
-
-  def show_banner(self, error):
-    """ Show the banner """
-    self.__mainwindow.show_banner(error)
-
   def __initialize_tray_icon(self):
     self.page.window.prevent_close = True # Tray icon persistance
     self.page.window.on_event = self.__on_window_event
 
     self.__tray_icon = pystray.Icon(
       name="Subconscious",
-      icon=Image.open("./src/assets/logo.png"),
+      icon=Image.open("./assets/logo.png"),
       title="Subconscious",
       menu=pystray.Menu(
         pystray.MenuItem("Open Subconscious", self.__default_tray_option, default=True),
@@ -216,20 +227,22 @@ class Subconscious:
       self.page.window.minimized = True
       self.page.update()
 
-  def splash_screen(self):
+  def __splash_screen(self):
     """ Show the splash screen """
     return ft.Container(
       content=ft.Row([
         ft.Column([
-          ft.Image(src="./src/assets/logo.png", width=100, height=100, color=ft.colors.PRIMARY),
+          ft.Image(src="./assets/logo.png", width=100, height=100, color=ft.colors.PRIMARY),
           ft.Text("Subconscious", size=25, color=ft.colors.PRIMARY),
         ], alignment="center", horizontal_alignment="center", spacing=0, expand=True),
       ], alignment="center", vertical_alignment="center", spacing=0, expand=True),
       bgcolor=ft.colors.BACKGROUND
     )
+  
+  def __set_app_icon(self, icon_path = "assets\\favicon.ico"):
+    """ Override the default icon used by flet, the config that replaces it is broken """
+    hwnd = win32gui.GetForegroundWindow()
+    hicon = win32gui.LoadImage(None, icon_path, win32con.IMAGE_ICON, 0, 0, win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE)
+    win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_SMALL, hicon)
+    win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_BIG, hicon)
 
-  def update_Settings(self):
-    """ Update the settings file """
-    f = open("./data/settings.json", "w")
-    f.write(json.dumps(self.settings, indent=2))
-    f.close()

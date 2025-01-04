@@ -59,37 +59,37 @@ class TitleBar(ft.Row):
   def theme_changed(self):
     """ Change the theme of the title bar buttons """
     if self.page.theme_mode == ft.ThemeMode.LIGHT:
-      self.close.src = "./src/assets/close_dark.svg"
-      self.mini.src = "./src/assets/minimize_dark.svg"
+      self.close.src = "./assets/close_dark.svg"
+      self.mini.src = "./assets/minimize_dark.svg"
       if self.page.window.maximized:
-        self.res_max.src = "./src/assets/restore_dark.svg"
+        self.res_max.src = "./assets/restore_dark.svg"
       else:
-        self.res_max.src = "./src/assets/maximize_dark.svg"
+        self.res_max.src = "./assets/maximize_dark.svg"
     else:
-      self.close.src = "./src/assets/close_light.svg"
-      self.mini.src = "./src/assets/minimize_light.svg"
+      self.close.src = "./assets/close_light.svg"
+      self.mini.src = "./assets/minimize_light.svg"
       if self.page.window.maximized:
-        self.res_max.src = "./src/assets/restore_light.svg"
+        self.res_max.src = "./assets/restore_light.svg"
       else:
-        self.res_max.src = "./src/assets/maximize_light.svg"
+        self.res_max.src = "./assets/maximize_light.svg"
     self.page.update()
   
   def theme_init(self, page):
     """ Change the theme of the title bar buttons """
     if page.theme_mode == ft.ThemeMode.LIGHT:
-      self.close = ft.Image(src="./src/assets/close_dark.svg", width=12, height=12)
-      self.mini = ft.Image(src="./src/assets/minimize_dark.svg", width=12, height=12)
+      self.close = ft.Image(src="./assets/close_dark.svg", width=12, height=12)
+      self.mini = ft.Image(src="./assets/minimize_dark.svg", width=12, height=12)
       if page.window_maximized:
-        self.res_max = ft.Image(src="./src/assets/restore_dark.svg", width=12, height=12)
+        self.res_max = ft.Image(src="./assets/restore_dark.svg", width=12, height=12)
       else:
-        self.res_max = ft.Image(src="./src/assets/maximize_dark.svg", width=12, height=12)
+        self.res_max = ft.Image(src="./assets/maximize_dark.svg", width=12, height=12)
     else:
-      self.close = ft.Image(src="./src/assets/close_light.svg", width=12, height=12)
-      self.mini = ft.Image(src="./src/assets/minimize_light.svg", width=12, height=12)
+      self.close = ft.Image(src="./assets/close_light.svg", width=12, height=12)
+      self.mini = ft.Image(src="./assets/minimize_light.svg", width=12, height=12)
       if page.window_maximized:
-        self.res_max = ft.Image(src="./src/assets/restore_light.svg", width=12, height=12)
+        self.res_max = ft.Image(src="./assets/restore_light.svg", width=12, height=12)
       else:
-        self.res_max = ft.Image(src="./src/assets/maximize_light.svg", width=12, height=12)
+        self.res_max = ft.Image(src="./assets/maximize_light.svg", width=12, height=12)
   
   def toggle(self, _):
     """ Toggle between maximized and window mode """
@@ -97,15 +97,15 @@ class TitleBar(ft.Row):
       self.res_max_button.tooltip = "Maximize"
       self.page.window.maximized = False
       if self.page.theme_mode == ft.ThemeMode.LIGHT:
-        self.res_max.src = "./src/assets/maximize_dark.svg"
+        self.res_max.src = "./assets/maximize_dark.svg"
       else:
-        self.res_max.src = "./src/assets/maximize_light.svg"
+        self.res_max.src = "./assets/maximize_light.svg"
     else:
       self.res_max_button.tooltip = "Restore"
       self.page.window.maximized = True
       if self.page.theme_mode == ft.ThemeMode.LIGHT:
-        self.res_max.src = "./src/assets/restore_dark.svg"
+        self.res_max.src = "./assets/restore_dark.svg"
       else:
-        self.res_max.src = "./src/assets/restore_light.svg"
+        self.res_max.src = "./assets/restore_light.svg"
     self.page.update()
   

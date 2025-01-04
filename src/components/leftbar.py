@@ -1,6 +1,6 @@
 import json
 import flet as ft
-from src.utilities.filechange import FileChange
+from utilities.filechange import FileChange
 
 
 class PopupLanguageItem(ft.PopupMenuItem):
@@ -263,10 +263,10 @@ class Leftbar(ft.Column):
   def theme_changed(self, _):
     """ Toggle the theme mode between light and dark """
     if self.page.theme_mode == ft.ThemeMode.LIGHT:
-      self.minimize = ft.Image(src="./src/assets/minimize_light.svg", width=12, height=12)
-      self.maximize = ft.Image(src="./src/assets/maximize_light.svg", width=12, height=12)
-      self.restore = ft.Image(src="./src/assets/restore_light.svg", width=12, height=12)
-      self.close = ft.Image(src="./src/assets/close_light.svg", width=12, height=12)
+      self.minimize = ft.Image(src="./assets/minimize_light.svg", width=12, height=12)
+      self.maximize = ft.Image(src="./assets/maximize_light.svg", width=12, height=12)
+      self.restore = ft.Image(src="./assets/restore_light.svg", width=12, height=12)
+      self.close = ft.Image(src="./assets/close_light.svg", width=12, height=12)
       self.dark_light_icon.icon = ft.icons.BRIGHTNESS_HIGH
       self.page.theme_mode = ft.ThemeMode.DARK
       self.colour_theme_menu.items.pop(-1)
@@ -277,10 +277,10 @@ class Leftbar(ft.Column):
         self.page.theme = ft.Theme(color_scheme=PopupColorItem.white)
 
     elif self.page.theme_mode == ft.ThemeMode.DARK:
-      self.minimize = ft.Image(src="./src/assets/minimize_dark.svg", width=12, height=12)
-      self.maximize = ft.Image(src="./src/assets/maximize_dark.svg", width=12, height=12)
-      self.restore = ft.Image(src="./src/assets/restore_dark.svg", width=12, height=12)
-      self.close = ft.Image(src="./src/assets/close_dark.svg", width=12, height=12)
+      self.minimize = ft.Image(src="./assets/minimize_dark.svg", width=12, height=12)
+      self.maximize = ft.Image(src="./assets/maximize_dark.svg", width=12, height=12)
+      self.restore = ft.Image(src="./assets/restore_dark.svg", width=12, height=12)
+      self.close = ft.Image(src="./assets/close_dark.svg", width=12, height=12)
       self.dark_light_icon.icon = ft.icons.BRIGHTNESS_2
       self.page.theme_mode = ft.ThemeMode.LIGHT
       self.colour_theme_menu.items.pop(-1)

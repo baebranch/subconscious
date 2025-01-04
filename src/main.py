@@ -1,6 +1,8 @@
 """ Langgraph implementation using the subconscious UI """
 import sqlite3
 import logging
+import win32gui
+import win32con
 from time import sleep, time
 from typing import Annotated
 import pydantic.deprecated.decorator
@@ -15,12 +17,12 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, START, END, MessagesState
 from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 
-from src.subconscious import Subconscious
-from src.components.data_objects import HumanMessage
+from subconscious import Subconscious
 
 
 # Logging config
 logger = logging.getLogger("subconscious")
+logger.setLevel(logging.DEBUG)
 
 
 class State(TypedDict):
@@ -46,7 +48,7 @@ class Runner:
     # DB connection and conversation config
     self.conn = sqlite3.connect("./data/memory.db", check_same_thread=False)
     self.memory = SqliteSaver(self.conn)
-    self.config = {"configurable": {"thread_id": "main"}}
+    self.config = {"configurable": {"thread_id": "general"}}
 
   def invoke(self, messages):
     return self.model.invoke(messages)
@@ -123,6 +125,13 @@ class Runner:
   
   def set_banner(self, banner):
     self.show_banner = banner
+  
+  def set_app_icon(self, icon_path = "assets\\favicon.ico"):
+    """ Override the default icon used by flet, the config that replaces it is broken """
+    hwnd = win32gui.GetForegroundWindow()
+    hicon = win32gui.LoadImage(None, icon_path, win32con.IMAGE_ICON, 0, 0, win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE)
+    win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_SMALL, hicon)
+    win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_BIG, hicon)
 
 
 # Initialize and configure UI
@@ -130,6 +139,7 @@ echo = Subconscious()
 
 # Initialize the LLM runner and configure
 llm = Runner()
+llm.set_app_icon()
 llm.compile_graph()
 llm.set_banner(echo.show_banner) # Sets the banner
 

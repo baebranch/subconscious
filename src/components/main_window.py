@@ -3,13 +3,13 @@ import flet as ft
 from uuid import uuid4
 from threading import Thread
 from time import time, monotonic
-from src.utilities import VERSION
+from utilities import VERSION
 from collections import defaultdict
-from src.components.data_objects import HumanMessage
+from components.data_objects import HumanMessage
 
-from src.utilities.filechange import FileChange
-from src.components.data_objects import Message, ExpansionPanelSlug
-from src.components.message_block import MessageBlock, MessageBubble
+from utilities.filechange import FileChange
+from components.data_objects import Message, ExpansionPanelSlug
+from components.message_block import MessageBlock, MessageBubble
 
 
 class MessageList(ft.ListView):
@@ -238,7 +238,7 @@ class MainWindow(ft.Container):
 
     # About content
     self.about = ft.Column([
-      ft.Image(src="./src/assets/logo.png", width=100, height=100),
+      ft.Image(src="./assets/logo.png", width=100, height=100),
       ft.Row([
         ft.Icon(ft.icons.INFO_OUTLINE, size=20, color=ft.colors.GREY),
         ft.Text("About", size=20, color=ft.colors.GREY),
@@ -599,8 +599,9 @@ class MainWindow(ft.Container):
     """
     message_list = MessageList()
     for message in messages:
-      message_list.controls.append(MessageBubble(message))
-      message_list.active = True
+      if message:
+        message_list.controls.append(MessageBubble(message))
+        message_list.active = True
     return message_list
   
   def show_thread(self):

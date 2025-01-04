@@ -1,6 +1,6 @@
 import json
 
-from src.utilities.dictobj import DictObj
+from utilities.dictobj import DictObj
 
 
 class LangLoader(DictObj):
@@ -10,13 +10,13 @@ class LangLoader(DictObj):
   """
   def __init__(self, lang: str, loc: str=None) -> None:
     """ Load the language file """
-    with open(f'./src/lang/{lang}.json', 'r', encoding='utf-8') as f:
+    with open(f'./lang/{lang}.json', 'r', encoding='utf-8') as f:
       super().__init__(DictObj(json.load(f)))
 
   def load_lang(self, lang: str, loc: str=None) -> None:
     # TODO: Add support for locations
     # Load the language file
-    with open(f'./src/lang/{lang}.json', 'r', encoding='utf-8') as f:
+    with open(f'./lang/{lang}.json', 'r', encoding='utf-8') as f:
       super().__init__(DictObj(json.load(f)))
     
     # Reload the UI with the new language

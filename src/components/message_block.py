@@ -3,7 +3,7 @@ from math import pi
 import flet.canvas as cv
 from datetime import datetime
 
-from src.components.data_objects import HumanMessage
+from components.data_objects import HumanMessage
 
 
 class MessageBubble(ft.Row):
