@@ -6,32 +6,87 @@
     {
       "label": "Build Subconscious",
       "type": "shell",
-      "command": "conda activate langchain && pyinstaller",
+      "command": "echo",
       "args": [
-        "--onefile",
-        "--noconsole",
-        "--icon=src\\assets\\favicon.ico",
-        "subconscious.pyw"
+        "Complete!!!"
       ],
       "problemMatcher": [],
       "dependsOn": [
         "Clean Build Dir",
+        "Build Subconscious UI",
         "Copy Assets",
-        "Build Subconscious Installer"
+        "Build Subconscious Installer",
+        "Copy Installer"
       ],
       "dependsOrder": "sequence"
     },
     {
-      "label": "Build Subconscious Installer",
+      "label": "Build Subconscious UI",
       "type": "shell",
-      "command": "conda activate langchain && pyinstaller",
+      "command": "conda", 
       "args": [
-        "--onefile",
-        "--noconsole",
-        "--icon=src\\assets\\favicon.ico",
-        "installer\\installer.pyw"
+        "activate",
+        "langchain",
+        "&&",
+        "flet",
+        "pack",
+        // "pyinstaller",
+        // "--onefile",
+        // "--windowed",
+        // "--noconsole",
+        "--name",
+        "subconscious",
+        "--icon=assets\\favicon.ico",
+        "--product-name",
+        "Subconscious",
+        "--product-version",
+        "v0.1.0",
+        "--file-version",
+        "0.1.0",
+        "--file-description",
+        "Subconscious UI for LLM use",
+        "--copyright",
+        "Copyright (C) 2024 by Subconscious.chat",
+        "main.py",
       ],
       "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/src"
+      }
+    },
+    {
+      "label": "Build Subconscious Installer",
+      "type": "shell",
+      // "command": "conda activate langchain && pyinstaller",
+      "command": "conda",
+      "args": [
+        "activate",
+        "langchain",
+        "&&",
+        "flet",
+        "pack",
+        // "--onefile",
+        // "--windowed",
+        // "--noconsole",
+        "--name",
+        "installer",
+        "--icon=assets\\favicon.ico",
+        "--product-name",
+        "Subconscious Installer",
+        "--product-version",
+        "v0.1.0",
+        "--file-version",
+        "0.1.0",
+        "--file-description",
+        "Subconscious UI for LLM use",
+        "--copyright",
+        "Copyright (C) 2024 by Subconscious.chat",
+        "main.py"
+      ],
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/installer/src"
+      }
     },
     {
       "label": "Clean Build Dir",
@@ -40,40 +95,49 @@
       "args": [
         "/s",
         "/q",
-        "dist",
-        "build",
+        "src\\dist",
+        "src\\build",
         "||",
         "exit",
         "0"
       ],
       "problemMatcher": [],
+      // "options": {
+      //   "cwd": "${workspaceFolder}/src"
+      // }
     },
     {
       "label": "Copy Assets",
       "type": "shell",
       "command": "mkdir",
       "args": [
-        "dist",
-        "&&",
-        "mkdir",
-        "dist\\src",
+        "src\\dist\\data",
         "&&",
         "xcopy",
         "src\\assets",
-        "dist\\src\\assets",
+        "src\\dist\\assets",
         "/q",
         "/e",
         "/i",
         "&&",
         "xcopy",
         "src\\lang",
-        "dist\\src\\lang",
+        "src\\dist\\lang",
         "/q",
         "/e",
         "/i",
-        "&&",
-        "mkdir",
-        "dist\\data",
+      ],
+      "problemMatcher": [],
+    },
+    {
+      "label": "Copy Installer",
+      "type": "shell",
+      "command": "xcopy",
+      "args": [
+        "installer\\src\\dist\\installer.exe",
+        "src\\dist",
+        "/i",
+        "/y",
       ],
       "problemMatcher": [],
     }

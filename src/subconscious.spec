@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['installer\\installer.pyw'],
+    ['main.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='installer',
+    name='subconscious',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -35,5 +35,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['src\\assets\\favicon.ico'],
+    version='C:\\Users\\brian\\AppData\\Local\\Temp\\1d84a19d-0a5b-4b9a-ae31-36b8743ac365',
+    icon=['assets\\favicon.ico'],
 )

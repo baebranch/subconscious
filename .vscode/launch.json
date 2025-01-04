@@ -8,9 +8,10 @@
       "name": "Subconscious Debugger",
       "type": "debugpy",
       "request": "launch",
-      "module": "examples.subconscious",
+      "module": "main",
       "justMyCode": true,
       "console": "internalConsole",
+      "cwd": "${workspaceFolder}/src"
     },
     {
       "name": "Subconscious Installer Debugger",
