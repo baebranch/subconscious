@@ -71,6 +71,8 @@ def download_latest_release(download_dir, pb):
     for chunk in download_response.iter_content(chunk_size=8192):
       file.write(chunk)
       downloaded_size += len(chunk)
+      pb.value = (downloaded_size / total_size)/2
+      pb.update()
   return file_path
 
 
@@ -95,6 +97,7 @@ def main(page: ft.Page):
 
   # UI Config
   done = ft.TextButton("Done", on_click=lambda _: page.window.close(), style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=5)), visible=False)
+  cancel = ft.TextButton("Cancel", on_click=lambda _: page.window.close(), style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=5)), visible=True)
   step = ft.Text("Downloading...", size=15)
   pb = ft.ProgressBar(width=430, bar_height=5, height=5)
 
@@ -108,6 +111,7 @@ def main(page: ft.Page):
       step,
       pb,
       ft.Row([
+        cancel,
         done
       ], expand=True)
     ],
@@ -124,12 +128,12 @@ def main(page: ft.Page):
       step.value = "Downloading..."
       pb.value = 0.0
       page.update()
-      zip_path = download_latest_release(temp_dir, pb, step)
+      zip_path = download_latest_release(temp_dir, pb)
       
       # Define the Program Files directory
       # program_files_dir = os.path.join(os.environ['ProgramFiles'], 'Subconscious')
       program_files_dir = "./"
-      step.value = f"Installing to {program_files_dir}..."
+      step.value = f"Installing to {os.path.abspath(program_files_dir)}..."
       pb.value = 0.50
       page.update()
       
@@ -143,6 +147,7 @@ def main(page: ft.Page):
       extract_to_program_files(zip_path, program_files_dir)
       # create_shortcut(os.path.join(program_files_dir, "subconscious.exe"), "Subconscious")
       done.visible = True
+      cancel.visible = False
       step.value = "Installation completed successfully!"
       pb.value = 1.0
       page.update()

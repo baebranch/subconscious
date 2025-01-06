@@ -77,6 +77,7 @@ class Subconscious:
       self.page = page
       page.padding = 0
       page.spacing = 0
+      page.title = "Subconscious"
       page.locale_configuration
       page.window.min_width = 500
       page.bgcolor = ft.colors.BACKGROUND
@@ -189,7 +190,7 @@ class Subconscious:
 
     self.__tray_icon = pystray.Icon(
       name="Subconscious",
-      icon=Image.open("./assets/logo.png"),
+      icon=Image.open("./assets/favicon.ico"),
       title="Subconscious",
       menu=pystray.Menu(
         pystray.MenuItem("Open Subconscious", self.__default_tray_option, default=True),

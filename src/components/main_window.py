@@ -47,6 +47,7 @@ class MainWindow(ft.Container):
 
     self.message_form = ft.TextField(
       hint_text=self.l.chatwindow.hint,
+      hint_style=ft.TextStyle(weight=ft.FontWeight.NORMAL),
       autofocus=True,
       shift_enter=True,
       min_lines=1,
@@ -247,7 +248,7 @@ class MainWindow(ft.Container):
       ft.Text(spans=[
         ft.TextSpan("Visit us at: "),
         ft.TextSpan(
-            "subconscious.chat",
+            "Subconscious.chat",
             ft.TextStyle(decoration=ft.TextDecoration.UNDERLINE),
             url="https://subconscious.chat/",
             on_enter=self.highlight_link,
@@ -392,7 +393,7 @@ class MainWindow(ft.Container):
                 border=ft.InputBorder.NONE, border_color=ft.colors.TRANSPARENT,
                 bgcolor=ft.colors.TRANSPARENT, border_radius=5, multiline=False, 
                 clip_behavior=ft.ClipBehavior.HARD_EDGE, 
-                content_padding=ft.padding.only(10, -14, 2, 2),
+                content_padding=ft.padding.only(10, 0, 2, 2),
                 dense=True, hint_text="Enter the LLM model name",
                 hint_style=ft.TextStyle(color=ft.colors.SECONDARY, weight=ft.FontWeight.NORMAL),
               ),
@@ -419,7 +420,7 @@ class MainWindow(ft.Container):
                 border=ft.InputBorder.NONE, border_color=ft.colors.TRANSPARENT,
                 bgcolor=ft.colors.TRANSPARENT, border_radius=5, multiline=False, 
                 clip_behavior=ft.ClipBehavior.HARD_EDGE, 
-                content_padding=ft.padding.only(10, -14, 2, 2),
+                content_padding=ft.padding.only(10, 0, 2, 2),
                 dense=True, password=True, hint_text="Enter the LLM API key if required",
                 hint_style=ft.TextStyle(color=ft.colors.SECONDARY, weight=ft.FontWeight.NORMAL)
               ),
@@ -464,7 +465,7 @@ class MainWindow(ft.Container):
                         border=ft.InputBorder.NONE, border_color=ft.colors.TRANSPARENT,
                         bgcolor=ft.colors.TRANSPARENT, border_radius=5, multiline=False, 
                         clip_behavior=ft.ClipBehavior.HARD_EDGE, 
-                        content_padding=ft.padding.only(10, -14, 2, 2),
+                        content_padding=ft.padding.only(10, 0, 2, 2),
                         dense=True, hint_text="Alias for this model configuration",
                         hint_style=ft.TextStyle(color=ft.colors.SECONDARY, weight=ft.FontWeight.NORMAL),
                       ),
@@ -544,7 +545,7 @@ class MainWindow(ft.Container):
                 content=ft.Column([
                   ft.Container(
                     border_radius=ft.BorderRadius(5, 5, 5, 5),
-                    padding=ft.padding.only(4, -15, 4, 0),
+                    padding=ft.padding.only(4, -5, 4, 0),
                     margin=ft.margin.only(0, 0, 0, 0),
                     bgcolor=ft.colors.SECONDARY_CONTAINER,
                     content=ft.Column(
