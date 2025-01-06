@@ -26,9 +26,10 @@ Implement local storage for the chat history
 ~~Implement some popular LLM APIs~~
 
 - ~~OpenAI~~
-- ~~Gemini~~
+- ~~Google~~
 - ~~Ollama~~
-- ~~Claude~~
+- ~~Anthropic~~
+- ~~Hugging Face~~
 
 The application Should be easy to install for non-technical users.
 
@@ -58,7 +59,6 @@ Cool features to add:
 - A voice input button option and accompanying output and animation
 - Use mkdocs for documentation
 - A copy button for LLM responses
-- If no api key is configured, hide the llm selection button
 - On deletion of an API key for an active LLM, another configured LLM should be auto-selected
 - On clicking the lower area of the chatbox, the chatbox should be focused
 - Scroll position memory for chat history and settings panel (scroll_to method)

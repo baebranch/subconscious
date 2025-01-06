@@ -47,7 +47,7 @@
         "Subconscious UI for LLM use",
         "--copyright",
         "Copyright (C) 2024 by Subconscious.chat",
-        "main.py",
+        "app.py",
       ],
       "problemMatcher": [],
       "options": {

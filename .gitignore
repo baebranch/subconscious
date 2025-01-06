@@ -7,3 +7,5 @@ installer/src/build/*
 installer/src/dist/*
 /src/build/*
 /src/dist/*
+temp/*
+source/*
