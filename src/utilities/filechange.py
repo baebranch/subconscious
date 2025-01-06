@@ -3,7 +3,7 @@ import msvcrt
 
 def FileChange(func, *args, **kwargs):
   """ Locks a file and performs operations on it """
-  with open('./data/settings.json', 'r+') as file:
+  with open('./resource/settings.json', 'r+') as file:
     try:
       msvcrt.locking(file.fileno(), msvcrt.LK_LOCK, 1)
 

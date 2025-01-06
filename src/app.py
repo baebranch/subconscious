@@ -4,8 +4,6 @@
 """ Main entry point for the application """
 import sqlite3
 import logging
-import win32gui
-import win32con
 from time import sleep, time
 from typing import Annotated
 import pydantic.deprecated.decorator
@@ -49,7 +47,7 @@ class Runner:
 
   def __init__(self):
     # DB connection and conversation config
-    self.conn = sqlite3.connect("./data/memory.db", check_same_thread=False)
+    self.conn = sqlite3.connect("./resource/memory.db", check_same_thread=False)
     self.memory = SqliteSaver(self.conn)
     self.config = {"configurable": {"thread_id": "general"}}
 
@@ -129,20 +127,12 @@ class Runner:
   def set_banner(self, banner):
     self.show_banner = banner
   
-  def set_app_icon(self, icon_path = "assets\\favicon.ico"):
-    """ Override the default icon used by flet, the config that replaces it is broken """
-    hwnd = win32gui.GetForegroundWindow()
-    hicon = win32gui.LoadImage(None, icon_path, win32con.IMAGE_ICON, 0, 0, win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE)
-    win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_SMALL, hicon)
-    win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_BIG, hicon)
-
 
 # Initialize and configure UI
 echo = Subconscious()
 
 # Initialize the LLM runner and configure
 llm = Runner()
-llm.set_app_icon()
 llm.compile_graph()
 llm.set_banner(echo.show_banner) # Sets the banner
 
@@ -151,6 +141,6 @@ echo.set_thread_history_loader(llm.conversation_history_loader) # Sets the conve
 echo.set_active_thread(llm.config['configurable']['thread_id']) # Sets the active thread
 llm.set_settings(echo.settings) # Sets the LLM settings
 echo.set_llm_switcher(llm.switch) # Sets the LLM switcher
-echo.splash = True
+echo.splash = False
 echo.set_new_user_message_callback(llm.stream_graph_updates) # Called when a new user message is sent
 echo.load(view="app")

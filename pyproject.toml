@@ -1,0 +1,30 @@
+[project]
+name = "subconscious"
+version = "v0.1.0"
+description = "A simple UI for interacting with LLMs on desktop"
+readme = "README.md"
+requires-python = ">=3.11.10"
+
+
+[tool.flet]
+# org name in reverse domain name notation, e.g. "com.mycompany".
+# Combined with project.name to build bundle ID for iOS and Android apps
+org = "chat.subconscious"
+app.path = "src"
+app.module = "app"
+compile.app = true # --compile-app
+compile.packages = true # --compile-packages
+compile.cleanup = true # --cleanup-on-compile
+
+[tool.flet.windows]
+module = "app"
+
+# project display name that is used as an app title on Android and iOS home screens,
+# shown in window titles and about app dialogs on desktop.
+product = "Subconscious"
+
+# company name to display in about app dialogs
+company = "Subconscious.chat"
+
+# copyright text to display in about app dialogs
+copyright = "Copyright (C) 2025 by Subconscious.chat"

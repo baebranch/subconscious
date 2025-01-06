@@ -2,15 +2,10 @@
 import os
 import sys
 import shutil
-import ctypes
 import zipfile
 import requests
 import tempfile
-import win32gui
-import win32con
 import flet as ft
-
-from titlebar import TitleBar
 
 
 def is_admin():
@@ -18,12 +13,6 @@ def is_admin():
     return ctypes.windll.shell32.IsUserAnAdmin()
   except:
     return False
-
-
-def set_app_icon(hwnd, icon_path):
-  hicon = win32gui.LoadImage(None, icon_path, win32con.IMAGE_ICON, 0, 0, win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE)
-  win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_SMALL, hicon)
-  win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_BIG, hicon)
 
 
 def create_shortcut(target, shortcut_name):
@@ -46,6 +35,7 @@ def create_shortcut(target, shortcut_name):
 def download_latest_release(download_dir, pb):
   """ Download the latest release of the Subconscious app """
   # GitHub API URL for the latest release
+  chunks = 0
   url = "https://api.github.com/repos/baebranch/subconscious/releases/latest"
   
   # Send a GET request to the GitHub API
@@ -64,13 +54,23 @@ def download_latest_release(download_dir, pb):
   # Download the asset
   download_response = requests.get(download_url, stream=True)
   download_response.raise_for_status()
+
+  # Check if the 'Content-Length' header is present in the response
+  if 'Content-Length' in download_response.headers:
+    total_size = int(download_response.headers['Content-Length'])
+    print(f"Total size of the download: {total_size} bytes")
+  else:
+    total_size = 1000000
+    print("Content-Length header is not present in the response")
+
   
   # Save the asset to the specified directory
   file_path = os.path.join(download_dir, asset_name)
+  downloaded_size = 0
   with open(file_path, 'wb') as file:
     for chunk in download_response.iter_content(chunk_size=8192):
       file.write(chunk)
-
+      downloaded_size += len(chunk)
   return file_path
 
 
@@ -82,15 +82,6 @@ def extract_to_program_files(zip_path, program_files_dir):
 
 def main(page: ft.Page):
   """ Main function to initiate the installer UI """
-  # Configure the app icons
-  myappid = u'chat.subconscious.installer'
-  ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-
-  # Set custom icon for the window and taskbar
-  icon_path = 'assets\\favicon.ico'  # Replace with the path to your custom icon
-  hwnd = win32gui.GetForegroundWindow()
-  set_app_icon(hwnd, icon_path)
-  
   # Window Config
   page.window.center()
   page.window.width = page.window.min_width = page.window.max_width = 450
@@ -99,16 +90,15 @@ def main(page: ft.Page):
   page.padding = 0
   page.spacing = 0
   page.window.frameless = False
-  page.window.title_bar_hidden = True
+  page.title = "Subconscious Installer"
   page.theme_mode = ft.ThemeMode.SYSTEM
 
   # UI Config
   done = ft.TextButton("Done", on_click=lambda _: page.window.close(), style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=5)), visible=False)
-  step = ft.Text("Installing...", size=15)
+  step = ft.Text("Downloading...", size=15)
   pb = ft.ProgressBar(width=430, bar_height=5, height=5)
 
   # Layout
-  page.add(TitleBar(page, title="Subconscious Installer"))
   page.add(ft.Container(content=
     ft.Column(
     [
@@ -126,7 +116,6 @@ def main(page: ft.Page):
   padding=ft.padding.only(20, 20, 20, 20))
   )
   page.update()
-  set_app_icon(hwnd, icon_path)
 
   try:
     # Create a temporary directory
@@ -135,10 +124,11 @@ def main(page: ft.Page):
       step.value = "Downloading..."
       pb.value = 0.0
       page.update()
-      zip_path = download_latest_release(temp_dir, pb)
+      zip_path = download_latest_release(temp_dir, pb, step)
       
       # Define the Program Files directory
-      program_files_dir = os.path.join(os.environ['ProgramFiles'], 'Subconscious')
+      # program_files_dir = os.path.join(os.environ['ProgramFiles'], 'Subconscious')
+      program_files_dir = "./"
       step.value = f"Installing to {program_files_dir}..."
       pb.value = 0.50
       page.update()
@@ -151,13 +141,12 @@ def main(page: ft.Page):
       page.update()
 
       extract_to_program_files(zip_path, program_files_dir)
-      create_shortcut(os.path.join(program_files_dir, "subconscious.exe"), "Subconscious")
+      # create_shortcut(os.path.join(program_files_dir, "subconscious.exe"), "Subconscious")
       done.visible = True
       step.value = "Installation completed successfully!"
       pb.value = 1.0
       page.update()
   except Exception as e:
-    pb.value = 0
     done.visible = True
     step.value = "An error occurred, could not install"
     page.update()
@@ -165,9 +154,9 @@ def main(page: ft.Page):
   
   
 if __name__ == "__main__":
-  if is_admin():
-    print("Already running as administrator.")
-    ft.app(target=main)
-  else:
-    print("Attempting to run as administrator...")
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+  ft.app(target=main)
+  # if is_admin():
+  #   print("Already running as administrator.")
+  # else:
+  #   print("Attempting to run as administrator...")
+  #   ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)

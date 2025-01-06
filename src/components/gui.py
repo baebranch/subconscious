@@ -9,7 +9,6 @@ class GUI(ft.Container):
 
     self.padding = 0
     self.bgcolor = ft.colors.BACKGROUND
-    # self.bgcolor = ft.colors.SECONDARY_CONTAINER
     self.expand = True
     self.content = ft.Row(
       [
@@ -21,7 +20,6 @@ class GUI(ft.Container):
             mainwindow
           ], spacing=0),
           padding=0,
-          # border=ft.border.only(top=ft.BorderSide(1, ft.colors.PRIMARY), left=ft.BorderSide(1, ft.colors.PRIMARY)),
           bgcolor=self.bgcolor,
           expand=True
         ),

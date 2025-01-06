@@ -2,8 +2,6 @@ import os
 import json
 import pystray
 import logging
-import win32gui
-import win32con
 import flet as ft
 from flet import Page
 from PIL import Image
@@ -34,8 +32,8 @@ class Subconscious:
     """ Should only call expand on containers """
     # Load ui settings
     self.title = title
-    if os.path.exists("./data/settings.json"):
-      f = open("./data/settings.json", "r")
+    if os.path.exists("./resource/settings.json"):
+      f = open("./resource/settings.json", "r")
       self.settings = json.load(f)
       f.close()
     else:
@@ -55,7 +53,7 @@ class Subconscious:
         },
         "_models": {}
       }
-      f = open("./data/settings.json", "w")
+      f = open("./resource/settings.json", "w")
       f.write(json.dumps(self.settings, indent=2))
       f.close()
     
@@ -75,7 +73,6 @@ class Subconscious:
 
     def main(page: ft.Page):
       # Flet page config
-      self.__set_app_icon()
       page.window.center()
       self.page = page
       page.padding = 0
@@ -97,7 +94,6 @@ class Subconscious:
       page.title = self.title
       page.font = { "calibri": "https://fonts.googleapis.com/css2?family=Calibri:wght@400;700&display=swap" }
       page.on_resized = window_resized_handler
-      # page.
       
       # Language config
       page.locale_configuration = ft.LocaleConfiguration(
@@ -120,10 +116,8 @@ class Subconscious:
         page.overlay.pop(0)
 
       # Update the pages
-      self.__set_app_icon()
       page.update()
       self.__mainwindow.page.update()
-      self.__set_app_icon()
   
     # Load the subconscious app
     if view == 'web':
@@ -162,16 +156,14 @@ class Subconscious:
   def switch_llm(self, e):
     """ Calls an external function to switch the LLM model """
     return self.__switcher(e)
-
+  
   def show_banner(self, error):
     """ Show the banner """
     self.__mainwindow.show_banner(error)
   
   def update_Settings(self):
     """ Update the settings file """
-    f = open("./data/settings.json", "w")
-    f.write(json.dumps(self.settings, indent=2))
-    f.close()
+    raise NotImplementedError
   
   # Internal methods
   def __initialize_ui(self):
@@ -201,7 +193,7 @@ class Subconscious:
       title="Subconscious",
       menu=pystray.Menu(
         pystray.MenuItem("Open Subconscious", self.__default_tray_option, default=True),
-        pystray.MenuItem("Exit", self.__tray_exit)
+        pystray.MenuItem("Exit", self.__tray_exit),
       ),
       visible=True,
     )
@@ -239,10 +231,3 @@ class Subconscious:
       bgcolor=ft.colors.BACKGROUND
     )
   
-  def __set_app_icon(self, icon_path = "assets\\favicon.ico"):
-    """ Override the default icon used by flet, the config that replaces it is broken """
-    hwnd = win32gui.GetForegroundWindow()
-    hicon = win32gui.LoadImage(None, icon_path, win32con.IMAGE_ICON, 0, 0, win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE)
-    win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_SMALL, hicon)
-    win32gui.SendMessage(hwnd, win32con.WM_SETICON, win32con.ICON_BIG, hicon)
-
