@@ -2,11 +2,11 @@
 
 # Subconcious Chat UI (Alpha)
 
-[Subconscious](https://subconscious.chat) is a desktop application for using LLMs and agents through a chat interface. Built in python using flet for the UI and langchain for the LLM interaction. Currently a small project for personal use and learning. Currently in alpha, supports OpenAI, Google, Ollama, Anthropic and Hugging Face APIs.
+[Subconscious](https://subconscious.chat) is a desktop application for using LLMs and agents through a chat interface. Built in python using flet for the UI and langchain for the LLM management. Currently a small project for personal use and learning. Currently in alpha, supports OpenAI, Google, Ollama, Anthropic and Hugging Face APIs.
 
 ## Download & Installation
 
-The windows application installer can be downloaded from the [Subconscious website](https://subconscious.chat). The application is available for Windows only. Also, the source and build for the latest release can be downloaded from the [releases page](https://github.com/baebranch/subconscious/releases) and extracted into the install folder.
+The crrent build can be downloaded from the [Subconscious website](https://subconscious.chat) or [releases page](https://github.com/baebranch/subconscious/releases) and extracted to an install directory. The application is currently only compiled for windows however as it is written in python the source code should run on most other systems.
 
 ## Usage & Configuration
 
