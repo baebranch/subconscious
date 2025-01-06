@@ -9,3 +9,4 @@ installer/src/dist/*
 /src/dist/*
 temp/*
 source/*
+src/resource/*
