@@ -2,15 +2,32 @@
   // Use IntelliSense to learn about possible attributes.
   // Hover to view descriptions of existing attributes.
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  //
+  // Subconscious.Host.Cli multi-targets net10.0-windows;net10.0 (see its csproj) so the
+  // real Windows tray icon (System.Windows.Forms.NotifyIcon, in Subconscious.Desktop.Tray)
+  // is only present in the net10.0-windows build - the plain net10.0 build always gets the
+  // no-op tray service, even when run on Windows. These configs target net10.0-windows so
+  // debugging the tray icon actually exercises it.
   "version": "0.2.0",
   "configurations": [
     {
       "name": "Subconscious Engine (Dev)",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build-engine-host",
-      "program": "${workspaceFolder}/src/Subconscious.Host.Cli/bin/Debug/net10.0/subconscious.dll",
+      "preLaunchTask": "build-engine-host-windows",
+      "program": "${workspaceFolder}/src/Subconscious.Host.Cli/bin/Debug/net10.0-windows/subconscious.dll",
       "args": ["engine", "--dev"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Subconscious Engine (Dev, headless)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-engine-host-windows",
+      "program": "${workspaceFolder}/src/Subconscious.Host.Cli/bin/Debug/net10.0-windows/subconscious.dll",
+      "args": ["engine", "--dev", "--headless"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "stopAtEntry": false
@@ -19,8 +36,8 @@
       "name": "Subconscious Engine (Dev, no API)",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build-engine-host",
-      "program": "${workspaceFolder}/src/Subconscious.Host.Cli/bin/Debug/net10.0/subconscious.dll",
+      "preLaunchTask": "build-engine-host-windows",
+      "program": "${workspaceFolder}/src/Subconscious.Host.Cli/bin/Debug/net10.0-windows/subconscious.dll",
       "args": ["engine", "--dev", "--no-api"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",

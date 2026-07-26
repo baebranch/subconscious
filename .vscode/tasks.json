@@ -15,6 +15,21 @@
       "group": "build"
     },
     {
+      "label": "build-engine-host-windows",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Subconscious.Host.Cli/Subconscious.Host.Cli.csproj",
+        "-f",
+        "net10.0-windows",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
       "label": "build-all",
       "type": "process",
       "command": "dotnet",
