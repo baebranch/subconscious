@@ -1,7 +1,15 @@
 <Project>
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!--
+      Deliberately NOT setting TargetFramework/TargetFrameworks here. Directory.Build.props
+      is imported before each project's own body, so a shared TargetFramework set here would
+      win over a project's own <TargetFrameworks> (plural, multi-targeting) - the SDK decides
+      single- vs. multi-targeting before the project body is ever evaluated, and a non-empty
+      TargetFramework short-circuits that decision to single-targeting. Every project sets its
+      own TargetFramework or TargetFrameworks explicitly instead (see e.g.
+      Subconscious.Desktop.Tray.csproj, which multi-targets net10.0-windows;net10.0).
+    -->
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>

@@ -9,6 +9,28 @@
   <ItemGroup>
     <!-- Generic host + DI: composition root for the engine (see EngineHost.cs). -->
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Phase 2 model/agent layer (translation.md §4.4): LlmTornado is the provider-agnostic
+      model SDK (agent.py's AgentManager equivalent); the Microsoft.Extensions.AI bridge
+      exposes TornadoApi as an IChatClient, which is what the interactive chat/tool loop
+      and (Phase 5) an optional AG-UI endpoint are both built on.
+    -->
+    <PackageReference Include="LlmTornado" Version="3.8.64" />
+    <PackageReference Include="LlmTornado.Microsoft.Extensions.AI" Version="1.1.61" />
+    <!--
+      Explicit override: LlmTornado.Microsoft.Extensions.AI pulls in OpenTelemetry.Api
+      1.14.0, which has an open moderate severity advisory (GHSA-g94r-2vxg-569j). Pinning
+      to 1.17.0 resolves it; re-run "dotnet list package" with the vulnerable and
+      include-transitive options after any LlmTornado version bump to check whether this
+      override is still needed.
+    -->
+    <PackageReference Include="OpenTelemetry.Api" Version="1.17.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- db/models.py + db/session.py equivalent (Phase 1 data layer). -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
     <!--
