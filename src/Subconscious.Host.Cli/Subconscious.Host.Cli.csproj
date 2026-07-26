@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>subconscious</AssemblyName>
+    <RootNamespace>Subconscious.Host.Cli</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- cli/__init__.py equivalent: engine/desktop/web/code subcommands, dev and no-api flags. -->
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta5.25306.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Subconscious.Engine\Subconscious.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Subconscious.Tools.Desktop</AssemblyName>
+    <RootNamespace>Subconscious.Tools.Desktop</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Subconscious.Engine\Subconscious.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

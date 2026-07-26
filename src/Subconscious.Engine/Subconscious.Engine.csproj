@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Subconscious.Engine</AssemblyName>
+    <RootNamespace>Subconscious.Engine</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Generic host + DI: composition root for the engine (see EngineHost.cs). -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+  </ItemGroup>
+
+  <!--
+    Phase 1 will add Microsoft.EntityFrameworkCore.Sqlite (db/models.py + db/session.py
+    equivalent). Deferred for now since it pulls SQLitePCLRaw.lib.e_sqlite3, which currently
+    has an open advisory (GHSA-2m69-gcr7-jv3q) - re-check for a patched version when Phase 1
+    actually wires up the DbContext.
+  -->
+
+
+</Project>

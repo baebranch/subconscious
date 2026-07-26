@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Subconscious.Engine/Subconscious.Engine.csproj" />
+    <Project Path="src/Subconscious.Host.Cli/Subconscious.Host.Cli.csproj" />
+    <Project Path="src/Subconscious.Tools.Desktop/Subconscious.Tools.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Subconscious.Engine.Tests/Subconscious.Engine.Tests.csproj" />
+  </Folder>
+</Solution>

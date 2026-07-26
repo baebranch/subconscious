@@ -1,0 +1,17 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <Company>Subconscious</Company>
+    <Product>Subconscious</Product>
+    <Copyright>Copyright (c) 2026 - Brian Branch</Copyright>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+</Project>
