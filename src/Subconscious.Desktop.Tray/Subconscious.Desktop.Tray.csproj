@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Subconscious.Desktop.Tray</AssemblyName>
+    <RootNamespace>Subconscious.Desktop.Tray</RootNamespace>
+    <!--
+      Multi-targeted so Windows builds get a real system tray icon (via
+      System.Windows.Forms.NotifyIcon - the same "just works everywhere on
+      Windows" primitive pystray uses under the hood in the Python app),
+      while other target frameworks fall back to NullTrayIconService
+      (see NullTrayIconService.cs). Native macOS/Linux tray backends are a
+      Phase 6 decision alongside the desktop UI framework (Avalonia vs.
+      MAUI) - see translation.md §4.3/§9 - since Avalonia's own TrayIcon
+      control is the most likely fit and shouldn't be duplicated here.
+    -->
+    <TargetFrameworks>net10.0-windows;net10.0</TargetFrameworks>
+    <UseWindowsForms Condition="'$(TargetFramework)'=='net10.0-windows'">true</UseWindowsForms>
+    <DefineConstants Condition="'$(TargetFramework)'=='net10.0-windows'">$(DefineConstants);WINDOWS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Subconscious.Engine\Subconscious.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

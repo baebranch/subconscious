@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>Subconscious.Engine</AssemblyName>
     <RootNamespace>Subconscious.Engine</RootNamespace>
   </PropertyGroup>
@@ -8,14 +9,18 @@
   <ItemGroup>
     <!-- Generic host + DI: composition root for the engine (see EngineHost.cs). -->
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <!-- db/models.py + db/session.py equivalent (Phase 1 data layer). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
+    <!--
+      Explicit override: Microsoft.EntityFrameworkCore.Sqlite 10.0.0 pulls in
+      SQLitePCLRaw.lib.e_sqlite3 2.1.11, which has an open high severity advisory
+      (GHSA-2m69-gcr7-jv3q, CVE-2025-6965, a memory-corruption issue in bundled SQLite
+      versions older than 3.50.2). Pinning bundle_e_sqlite3 to 3.0.4 (which bundles a
+      patched SQLite) resolves it; re-run "dotnet list package" with the vulnerable and
+      include-transitive options after any EF Core version bump to check whether this
+      override is still needed.
+    -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.4" />
   </ItemGroup>
-
-  <!--
-    Phase 1 will add Microsoft.EntityFrameworkCore.Sqlite (db/models.py + db/session.py
-    equivalent). Deferred for now since it pulls SQLitePCLRaw.lib.e_sqlite3, which currently
-    has an open advisory (GHSA-2m69-gcr7-jv3q) - re-check for a patched version when Phase 1
-    actually wires up the DbContext.
-  -->
-
 
 </Project>

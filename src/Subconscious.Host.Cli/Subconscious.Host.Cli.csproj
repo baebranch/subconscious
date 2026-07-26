@@ -4,6 +4,15 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>subconscious</AssemblyName>
     <RootNamespace>Subconscious.Host.Cli</RootNamespace>
+    <!--
+      Multi-targeted to match Subconscious.Desktop.Tray: building/running as
+      net10.0-windows is what unlocks the real Windows Forms-backed tray icon on
+      Windows (a plain OS-agnostic net10.0 build only ever gets the no-op tray
+      service, even on Windows - a common .NET multi-targeting gotcha). Publish
+      picks the net10.0-windows TFM on Windows automatically; non-Windows CI/dev
+      machines build net10.0 only.
+    -->
+    <TargetFrameworks>net10.0-windows;net10.0</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,6 +22,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Subconscious.Engine\Subconscious.Engine.csproj" />
+    <ProjectReference Include="..\Subconscious.Desktop.Tray\Subconscious.Desktop.Tray.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Tray icon asset (docs/icon.png + favicon.ico equivalent from assets/ in the
+         Python app). Copied next to the built executable so a relative lookup from
+         AppContext.BaseDirectory always finds it regardless of working directory. -->
+    <None Include="Assets\favicon.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

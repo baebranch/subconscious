@@ -14,11 +14,20 @@ namespace Subconscious.Engine;
 /// <param name="Api">Whether the local loopback API should be started.</param>
 /// <param name="Gui">Whether a desktop GUI host is attached (set by the CLI subcommand).</param>
 /// <param name="Tui">Whether a TUI host is attached (set by the CLI subcommand).</param>
+/// <param name="Headless">
+/// Run without the desktop GUI window (once one exists — Phase 6; a no-op today). The
+/// system tray icon is <em>not</em> affected by this flag and is always shown on
+/// platforms that support one, regardless of <see cref="Headless"/> — it's how a
+/// headless run stays reachable ("open Subconscious", "exit"). This flag has no direct
+/// Python-side equivalent: the Python CLI's <c>engine</c> subcommand had no UI presence
+/// of any kind, whereas the .NET engine always shows a tray icon when available.
+/// </param>
 public sealed record EngineConfig(
     bool Dev = false,
     bool Api = true,
     bool Gui = false,
-    bool Tui = false)
+    bool Tui = false,
+    bool Headless = false)
 {
     /// <summary>Per-run node identity. Loaded from / persisted to config.yaml in Python.</summary>
     public string? NodeId { get; set; }

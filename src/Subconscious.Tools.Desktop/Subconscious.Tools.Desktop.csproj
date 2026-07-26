@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>Subconscious.Tools.Desktop</AssemblyName>
     <RootNamespace>Subconscious.Tools.Desktop</RootNamespace>
   </PropertyGroup>
