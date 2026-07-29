@@ -30,6 +30,19 @@
       "group": "build"
     },
     {
+      "label": "build-desktop",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Subconscious.Desktop/Subconscious.Desktop.csproj",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
       "label": "build-all",
       "type": "process",
       "command": "dotnet",

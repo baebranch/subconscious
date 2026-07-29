@@ -22,12 +22,18 @@ namespace Subconscious.Engine;
 /// Python-side equivalent: the Python CLI's <c>engine</c> subcommand had no UI presence
 /// of any kind, whereas the .NET engine always shows a tray icon when available.
 /// </param>
+/// <param name="Port">
+/// Loopback port the local API listens on. <c>0</c> (the default) asks the OS for any
+/// free port, mirroring the Python engine's dynamic-port + <c>runtime.json</c> discovery
+/// model — clients never need a hardcoded port.
+/// </param>
 public sealed record EngineConfig(
     bool Dev = false,
     bool Api = true,
     bool Gui = false,
     bool Tui = false,
-    bool Headless = false)
+    bool Headless = false,
+    int Port = 0)
 {
     /// <summary>Per-run node identity. Loaded from / persisted to config.yaml in Python.</summary>
     public string? NodeId { get; set; }

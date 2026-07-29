@@ -30,10 +30,26 @@ public class ProviderCatalogTests
     }
 
     [Fact]
-    public void Resolve_Bedrock_ThrowsNotSupported()
+    public void Resolve_Bedrock_ThrowsBecauseItIsSelfImplemented()
     {
+        // Bedrock is supported, but not via a Tornado connector — callers must route it through
+        // IsSelfImplemented() instead of Resolve().
         var act = () => ProviderCatalog.Resolve("bedrock");
-        act.Should().Throw<NotSupportedException>();
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void IsSelfImplemented_Bedrock_ReturnsTrue()
+    {
+        ProviderCatalog.IsSelfImplemented("bedrock").Should().BeTrue();
+        ProviderCatalog.IsSelfImplemented("Bedrock").Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsSelfImplemented_TornadoBackedProvider_ReturnsFalse()
+    {
+        ProviderCatalog.IsSelfImplemented("openai").Should().BeFalse();
+        ProviderCatalog.IsSelfImplemented("ollama").Should().BeFalse();
     }
 
     [Fact]
@@ -80,9 +96,16 @@ public class ProviderCatalogTests
     }
 
     [Fact]
-    public void IsSupported_Bedrock_ReturnsFalse()
+    public void IsSupported_Bedrock_ReturnsTrue()
     {
-        ProviderCatalog.IsSupported("bedrock").Should().BeFalse();
+        // Bedrock is supported via Subconscious's own Converse-API provider.
+        ProviderCatalog.IsSupported("bedrock").Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsSupported_HuggingFace_ReturnsFalse()
+    {
+        ProviderCatalog.IsSupported("hugging face").Should().BeFalse();
     }
 
     [Fact]

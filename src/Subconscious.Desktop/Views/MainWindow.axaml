@@ -1,0 +1,84 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Subconscious.Desktop.ViewModels"
+        xmlns:views="using:Subconscious.Desktop.Views"
+        x:Class="Subconscious.Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Subconscious"
+        Width="1280" Height="800"
+        MinWidth="960" MinHeight="600"
+        Icon="avares://Subconscious.Desktop/Assets/icon.png"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Background="White">
+
+  <Window.Styles>
+    <Style Selector="Button.titleBarButton">
+      <Setter Property="Width" Value="46" />
+      <Setter Property="Height" Value="36" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.titleBarButton:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}" />
+    </Style>
+    <Style Selector="Button.titleBarCloseButton:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#E81123" />
+      <Setter Property="TextBlock.Foreground" Value="White" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="36,*">
+
+    <!-- Custom titlebar: white, matches the rest of the app's chrome. -->
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Background="White" Name="TitleBarHost" PointerPressed="OnTitleBarPointerPressed">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
+        <Image Source="avares://Subconscious.Desktop/Assets/icon.png" Width="16" Height="16" />
+        <TextBlock Text="Subconscious" FontSize="12" Foreground="{StaticResource PrimaryTextBrush}" VerticalAlignment="Center" />
+      </StackPanel>
+
+      <StackPanel Grid.Column="2" Orientation="Horizontal">
+        <Button Classes="titleBarButton" Content="&#xE921;" FontFamily="Segoe MDL2 Assets" Click="OnMinimizeClick" ToolTip.Tip="Minimize" />
+        <Button Classes="titleBarButton" Content="&#xE922;" FontFamily="Segoe MDL2 Assets" Click="OnMaximizeRestoreClick" ToolTip.Tip="Maximize" Name="MaximizeRestoreButton" />
+        <Button Classes="titleBarButton titleBarCloseButton" Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets" Click="OnCloseClick" ToolTip.Tip="Close" />
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="0" VerticalAlignment="Bottom" Height="1" Background="{StaticResource DividerBrush}" />
+
+    <Grid Grid.Row="1" ColumnDefinitions="380,*,360">
+
+      <!-- Left: Chat panel (functional in this slice). -->
+      <views:ChatView Grid.Column="0" DataContext="{Binding Chat}" />
+
+      <Border Grid.Column="0" HorizontalAlignment="Right" Width="1" Background="{StaticResource DividerBrush}" />
+
+      <!-- Center: Utility panel placeholder (Files/Preview/Terminal — future pass). -->
+      <Border Grid.Column="1" Background="White">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+          <TextBlock Text="Utility panel" FontSize="16" Foreground="{StaticResource SecondaryTextBrush}" HorizontalAlignment="Center" />
+          <TextBlock Text="Files · Preview · Terminal — coming soon" FontSize="12" Foreground="{StaticResource SecondaryTextBrush}" HorizontalAlignment="Center" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Column="1" HorizontalAlignment="Right" Width="1" Background="{StaticResource DividerBrush}" />
+
+      <!-- Right: Context panel placeholder (Threads/Folders tabs — future pass). -->
+      <Border Grid.Column="2" Background="{StaticResource PanelBackgroundBrush}">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+          <TextBlock Text="Context panel" FontSize="16" Foreground="{StaticResource SecondaryTextBrush}" HorizontalAlignment="Center" />
+          <TextBlock Text="Threads · Folders — coming soon" FontSize="12" Foreground="{StaticResource SecondaryTextBrush}" HorizontalAlignment="Center" />
+        </StackPanel>
+      </Border>
+
+    </Grid>
+
+  </Grid>
+
+</Window>

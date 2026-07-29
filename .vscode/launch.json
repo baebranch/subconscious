@@ -44,9 +44,30 @@
       "stopAtEntry": false
     },
     {
+      "name": "Subconscious Desktop (Dev)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-desktop",
+      "program": "${workspaceFolder}/src/Subconscious.Desktop/bin/Debug/net10.0/Subconscious.Desktop.dll",
+      "args": ["--dev"],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
       "name": ".NET Attach",
       "type": "coreclr",
       "request": "attach"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Subconscious Engine + Desktop (Dev)",
+      "configurations": [
+        "Subconscious Engine (Dev, headless)",
+        "Subconscious Desktop (Dev)"
+      ],
+      "stopAll": true
     }
   ]
 }

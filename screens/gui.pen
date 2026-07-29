@@ -1,0 +1,2730 @@
+{
+  "version": "2.14",
+  "children": [
+    {
+      "type": "frame",
+      "id": "win-desktop",
+      "x": 0,
+      "y": 0,
+      "name": "Desktop \u2014 Windows 11",
+      "clip": true,
+      "width": 1280,
+      "height": 800,
+      "fill": "#FFFFFF",
+      "cornerRadius": 8,
+      "layout": "none",
+      "children": [
+        {
+          "type": "rectangle",
+          "id": "win-border",
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 800,
+          "cornerRadius": 8,
+          "stroke": "#D8D6E0",
+          "fill": "transparent"
+        },
+        {
+          "type": "frame",
+          "id": "win-topbar",
+          "x": 0,
+          "y": 0,
+          "name": "Title Bar",
+          "clip": true,
+          "width": 1280,
+          "height": 44,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "win-topbar-rule",
+              "x": 0,
+              "y": 43,
+              "x2": 1280,
+              "y2": 43,
+              "stroke": "#E5E3ED",
+              "strokeWidth": 1
+            },
+            {
+              "type": "ellipse",
+              "id": "win-logo",
+              "x": 14,
+              "y": 12,
+              "width": 20,
+              "height": 20,
+              "fill": "#7C6FE0"
+            },
+            {
+              "type": "text",
+              "id": "win-app-title",
+              "x": 42,
+              "y": 14,
+              "fontSize": 13,
+              "fontFamily": "Segoe UI Variable",
+              "fill": "#1F1B2E",
+              "text": "Subconscious"
+            },
+            {
+              "type": "rectangle",
+              "id": "win-dev-badge",
+              "x": 118,
+              "y": 12,
+              "width": 34,
+              "height": 18,
+              "cornerRadius": 4,
+              "fill": "#E5484D",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "win-dev-text",
+                  "x": 6,
+                  "y": 3,
+                  "fontSize": 10,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#FFFFFF",
+                  "text": "dev"
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "id": "win-workspace-pill",
+              "x": 820,
+              "y": 9,
+              "width": 150,
+              "height": 26,
+              "cornerRadius": 13,
+              "fill": "#F5F3FE",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "win-workspace-text",
+                  "x": 12,
+                  "y": 6,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#4B4560",
+                  "text": "\ud83d\udcc1 Subconscious \u25be"
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "id": "win-model-pill",
+              "x": 980,
+              "y": 9,
+              "width": 130,
+              "height": 26,
+              "cornerRadius": 13,
+              "fill": "#F5F3FE",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "win-model-text",
+                  "x": 12,
+                  "y": 6,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#4B4560",
+                  "text": "\u2728 Qwen 235B \u25be"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "win-cap-min",
+              "x": 1140,
+              "y": 14,
+              "fontSize": 14,
+              "fontFamily": "Segoe UI Variable",
+              "fill": "#5A5668",
+              "text": "\u2013"
+            },
+            {
+              "type": "text",
+              "id": "win-cap-max",
+              "x": 1190,
+              "y": 14,
+              "fontSize": 12,
+              "fontFamily": "Segoe UI Variable",
+              "fill": "#5A5668",
+              "text": "\u25a1"
+            },
+            {
+              "type": "rectangle",
+              "id": "win-cap-close-hover",
+              "x": 1230,
+              "y": 0,
+              "width": 44,
+              "height": 44,
+              "fill": "#E81123",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "win-cap-close",
+                  "x": 16,
+                  "y": 13,
+                  "fontSize": 13,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#FFFFFF",
+                  "text": "\u00d7"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "win-chat-panel",
+          "x": 0,
+          "y": 44,
+          "name": "Chat Panel (Left)",
+          "clip": true,
+          "width": 380,
+          "height": 756,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "win-chat-divider",
+              "x": 380,
+              "y": 0,
+              "x2": 380,
+              "y2": 756,
+              "stroke": "#E5E3ED",
+              "strokeWidth": 1
+            },
+            {
+              "type": "frame",
+              "id": "win-chat-header",
+              "x": 0,
+              "y": 0,
+              "name": "Chat Header",
+              "clip": true,
+              "width": 380,
+              "height": 52,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "win-chat-thread-title",
+                  "x": 16,
+                  "y": 17,
+                  "fontSize": 14,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#1F1B2E",
+                  "text": "New Thread"
+                },
+                {
+                  "type": "ellipse",
+                  "id": "win-new-chat-btn",
+                  "x": 336,
+                  "y": 11,
+                  "width": 30,
+                  "height": 30,
+                  "fill": "#7C6FE0",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "win-new-chat-icon",
+                      "x": 10,
+                      "y": 6,
+                      "fontSize": 15,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#FFFFFF",
+                      "text": "+"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "win-chat-messages",
+              "x": 0,
+              "y": 52,
+              "name": "Message List",
+              "clip": true,
+              "width": 380,
+              "height": 592,
+              "fill": "#FAFAFB",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "id": "win-msg-user-1",
+                  "x": 90,
+                  "y": 16,
+                  "width": 274,
+                  "height": 54,
+                  "cornerRadius": 10,
+                  "fill": "#EEEBFB",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "win-msg-user-1-text",
+                      "x": 12,
+                      "y": 10,
+                      "fontSize": 12,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#2B2640",
+                      "text": "Can you write a simple example\nscript using the blessed library?"
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "win-msg-assistant-1",
+                  "x": 16,
+                  "y": 82,
+                  "width": 274,
+                  "height": 58,
+                  "cornerRadius": 10,
+                  "fill": "#F2F2F5",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "win-msg-assistant-1-text",
+                      "x": 12,
+                      "y": 10,
+                      "fontSize": 12,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#2B2640",
+                      "text": "I'll create a simple Python script\nthat demonstrates the blessed library."
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "win-msg-tool-1",
+                  "x": 16,
+                  "y": 152,
+                  "width": 348,
+                  "height": 34,
+                  "cornerRadius": 8,
+                  "stroke": "#E5E3ED",
+                  "fill": "#FFFFFF",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "win-msg-tool-1-text",
+                      "x": 12,
+                      "y": 9,
+                      "fontSize": 12,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#7C6FE0",
+                      "text": "\ud83d\udd27 Tool: create_file  \u25be"
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "win-msg-assistant-2",
+                  "x": 16,
+                  "y": 198,
+                  "width": 348,
+                  "height": 90,
+                  "cornerRadius": 10,
+                  "fill": "#F2F2F5",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "win-msg-assistant-2-text",
+                      "x": 12,
+                      "y": 10,
+                      "fontSize": 12,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#2B2640",
+                      "text": "I've created the script. Here's what it does:\n1. Creates a Terminal instance\n2. Clears the screen\n3. Centers the text and applies styling"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "win-chat-input",
+              "x": 0,
+              "y": 644,
+              "name": "Chat Input",
+              "clip": true,
+              "width": 380,
+              "height": 112,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "id": "win-input-box",
+                  "x": 16,
+                  "y": 12,
+                  "width": 348,
+                  "height": 70,
+                  "cornerRadius": 12,
+                  "stroke": "#E5E3ED",
+                  "fill": "#FAFAFB",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "win-input-placeholder",
+                      "x": 14,
+                      "y": 12,
+                      "fontSize": 12,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#A6A2B5",
+                      "text": "Type a message..."
+                    },
+                    {
+                      "type": "text",
+                      "id": "win-input-attach",
+                      "x": 14,
+                      "y": 44,
+                      "fontSize": 14,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#8A8698",
+                      "text": "\ud83d\udcce"
+                    },
+                    {
+                      "type": "text",
+                      "id": "win-input-enhance",
+                      "x": 44,
+                      "y": 44,
+                      "fontSize": 14,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#8A8698",
+                      "text": "\u2728"
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "win-send-btn",
+                      "x": 306,
+                      "y": 34,
+                      "width": 30,
+                      "height": 30,
+                      "fill": "#7C6FE0",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "win-send-icon",
+                          "x": 8,
+                          "y": 6,
+                          "fontSize": 13,
+                          "fontFamily": "Segoe UI Variable",
+                          "fill": "#FFFFFF",
+                          "text": "\u27a4"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "win-utility-panel",
+          "x": 380,
+          "y": 44,
+          "name": "Utility Panel (Center)",
+          "clip": true,
+          "width": 540,
+          "height": 756,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "win-utility-divider",
+              "x": 540,
+              "y": 0,
+              "x2": 540,
+              "y2": 756,
+              "stroke": "#E5E3ED",
+              "strokeWidth": 1
+            },
+            {
+              "type": "frame",
+              "id": "win-utility-tabs",
+              "x": 0,
+              "y": 0,
+              "name": "Tabs",
+              "clip": true,
+              "width": 540,
+              "height": 40,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "line",
+                  "id": "win-utility-tabs-rule",
+                  "x": 0,
+                  "y": 39,
+                  "x2": 540,
+                  "y2": 39,
+                  "stroke": "#E5E3ED",
+                  "strokeWidth": 1
+                },
+                {
+                  "type": "text",
+                  "id": "win-tab-files",
+                  "x": 16,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#7C6FE0",
+                  "text": "Files"
+                },
+                {
+                  "type": "line",
+                  "id": "win-tab-files-underline",
+                  "x": 16,
+                  "y": 36,
+                  "x2": 44,
+                  "y2": 36,
+                  "stroke": "#7C6FE0",
+                  "strokeWidth": 2
+                },
+                {
+                  "type": "text",
+                  "id": "win-tab-preview",
+                  "x": 76,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#8A8698",
+                  "text": "Preview"
+                },
+                {
+                  "type": "text",
+                  "id": "win-tab-terminal",
+                  "x": 152,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#8A8698",
+                  "text": "Terminal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "win-utility-breadcrumb",
+              "x": 0,
+              "y": 40,
+              "name": "Breadcrumb",
+              "clip": true,
+              "width": 540,
+              "height": 36,
+              "fill": "#FAFAFB",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "win-breadcrumb-text",
+                  "x": 16,
+                  "y": 10,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#8A8698",
+                  "text": "C:\\code\\Ancilla\\Subconscious"
+                },
+                {
+                  "type": "text",
+                  "id": "win-breadcrumb-search",
+                  "x": 500,
+                  "y": 10,
+                  "fontSize": 13,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#8A8698",
+                  "text": "\ud83d\udd0d"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "win-utility-filelist",
+              "x": 0,
+              "y": 76,
+              "name": "File List",
+              "clip": true,
+              "width": 540,
+              "height": 680,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "win-file-1",
+                  "x": 16,
+                  "y": 16,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#2B2640",
+                  "text": "\ud83d\udcc1 subconscious-net"
+                },
+                {
+                  "type": "text",
+                  "id": "win-file-2",
+                  "x": 32,
+                  "y": 46,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#2B2640",
+                  "text": "\ud83d\udcc4 EngineHost.cs"
+                },
+                {
+                  "type": "text",
+                  "id": "win-file-3",
+                  "x": 32,
+                  "y": 76,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#2B2640",
+                  "text": "\ud83d\udcc4 Program.cs"
+                },
+                {
+                  "type": "rectangle",
+                  "id": "win-file-preview-card",
+                  "x": 16,
+                  "y": 120,
+                  "width": 508,
+                  "height": 400,
+                  "cornerRadius": 8,
+                  "stroke": "#E5E3ED",
+                  "fill": "#FAFAFB",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "win-file-preview-text",
+                      "x": 14,
+                      "y": 14,
+                      "fontSize": 11,
+                      "fontFamily": "Cascadia Code",
+                      "fill": "#4B4560",
+                      "text": "1  public sealed class EngineHost\n2  {\n3      private readonly IHost _host;\n4      ..."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "win-context-panel",
+          "x": 920,
+          "y": 44,
+          "name": "Context Panel (Right)",
+          "clip": true,
+          "width": 360,
+          "height": 756,
+          "fill": "#FAFAFB",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "win-context-tabs",
+              "x": 0,
+              "y": 0,
+              "name": "Tabs",
+              "clip": true,
+              "width": 360,
+              "height": 40,
+              "fill": "#FAFAFB",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "line",
+                  "id": "win-context-tabs-rule",
+                  "x": 0,
+                  "y": 39,
+                  "x2": 360,
+                  "y2": 39,
+                  "stroke": "#E5E3ED",
+                  "strokeWidth": 1
+                },
+                {
+                  "type": "text",
+                  "id": "win-tab-threads",
+                  "x": 16,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#7C6FE0",
+                  "text": "Threads"
+                },
+                {
+                  "type": "line",
+                  "id": "win-tab-threads-underline",
+                  "x": 16,
+                  "y": 36,
+                  "x2": 68,
+                  "y2": 36,
+                  "stroke": "#7C6FE0",
+                  "strokeWidth": 2
+                },
+                {
+                  "type": "text",
+                  "id": "win-tab-folders",
+                  "x": 100,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#8A8698",
+                  "text": "Folders"
+                },
+                {
+                  "type": "ellipse",
+                  "id": "win-new-thread-btn",
+                  "x": 320,
+                  "y": 6,
+                  "width": 26,
+                  "height": 26,
+                  "fill": "transparent",
+                  "stroke": "#8A8698",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "win-new-thread-icon",
+                      "x": 7,
+                      "y": 5,
+                      "fontSize": 13,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#8A8698",
+                      "text": "+"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "win-thread-list",
+              "x": 0,
+              "y": 40,
+              "name": "Thread List",
+              "clip": true,
+              "width": 360,
+              "height": 716,
+              "fill": "#FAFAFB",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "id": "win-thread-item-selected",
+                  "x": 0,
+                  "y": 0,
+                  "width": 360,
+                  "height": 56,
+                  "fill": "#EEEBFB",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "win-thread-item-selected-title",
+                      "x": 16,
+                      "y": 12,
+                      "fontSize": 12,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#1F1B2E",
+                      "text": "New Thread"
+                    },
+                    {
+                      "type": "text",
+                      "id": "win-thread-item-selected-date",
+                      "x": 300,
+                      "y": 12,
+                      "fontSize": 11,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#7C6FE0",
+                      "text": "Monday"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "win-thread-item-2",
+                  "x": 16,
+                  "y": 68,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#2B2640",
+                  "text": "Does twitter have an api that..."
+                },
+                {
+                  "type": "text",
+                  "id": "win-thread-item-2-preview",
+                  "x": 16,
+                  "y": 86,
+                  "fontSize": 11,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#8A8698",
+                  "text": "Social media automation"
+                },
+                {
+                  "type": "line",
+                  "id": "win-thread-rule-1",
+                  "x": 0,
+                  "y": 112,
+                  "x2": 360,
+                  "y2": 112,
+                  "stroke": "#EEEDF3",
+                  "strokeWidth": 1
+                },
+                {
+                  "type": "text",
+                  "id": "win-thread-item-3",
+                  "x": 16,
+                  "y": 124,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#2B2640",
+                  "text": "FreeCAD Trial"
+                },
+                {
+                  "type": "text",
+                  "id": "win-thread-item-3-preview",
+                  "x": 16,
+                  "y": 142,
+                  "fontSize": 11,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#8A8698",
+                  "text": "Testing the Desktop automation tools"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "mac-desktop",
+      "x": 1320,
+      "y": 0,
+      "name": "Desktop \u2014 macOS",
+      "clip": true,
+      "width": 1280,
+      "height": 800,
+      "fill": "#FFFFFF",
+      "cornerRadius": 10,
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "mac-topbar",
+          "x": 0,
+          "y": 0,
+          "name": "Title Bar",
+          "clip": true,
+          "width": 1280,
+          "height": 52,
+          "fill": "#F5F3FE",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "mac-topbar-rule",
+              "x": 0,
+              "y": 51,
+              "x2": 1280,
+              "y2": 51,
+              "stroke": "#E5E3ED",
+              "strokeWidth": 1
+            },
+            {
+              "type": "ellipse",
+              "id": "mac-traffic-close",
+              "x": 18,
+              "y": 21,
+              "width": 12,
+              "height": 12,
+              "fill": "#FF5F57"
+            },
+            {
+              "type": "ellipse",
+              "id": "mac-traffic-min",
+              "x": 38,
+              "y": 21,
+              "width": 12,
+              "height": 12,
+              "fill": "#FEBC2E"
+            },
+            {
+              "type": "ellipse",
+              "id": "mac-traffic-max",
+              "x": 58,
+              "y": 21,
+              "width": 12,
+              "height": 12,
+              "fill": "#28C840"
+            },
+            {
+              "type": "text",
+              "id": "mac-app-title",
+              "x": 590,
+              "y": 17,
+              "fontSize": 13,
+              "fontFamily": "SF Pro Text",
+              "fill": "#1F1B2E",
+              "text": "Subconscious \u2014 New Thread"
+            },
+            {
+              "type": "rectangle",
+              "id": "mac-workspace-pill",
+              "x": 890,
+              "y": 13,
+              "width": 150,
+              "height": 26,
+              "cornerRadius": 13,
+              "fill": "#FFFFFF",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mac-workspace-text",
+                  "x": 12,
+                  "y": 6,
+                  "fontSize": 12,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#4B4560",
+                  "text": "\ud83d\udcc1 Subconscious \u25be"
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "id": "mac-model-pill",
+              "x": 1050,
+              "y": 13,
+              "width": 130,
+              "height": 26,
+              "cornerRadius": 13,
+              "fill": "#FFFFFF",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mac-model-text",
+                  "x": 12,
+                  "y": 6,
+                  "fontSize": 12,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#4B4560",
+                  "text": "\u2728 Qwen 235B \u25be"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mac-chat-panel",
+          "x": 0,
+          "y": 52,
+          "name": "Chat Panel (Left)",
+          "clip": true,
+          "width": 380,
+          "height": 748,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "mac-chat-divider",
+              "x": 380,
+              "y": 0,
+              "x2": 380,
+              "y2": 748,
+              "stroke": "#E5E3ED",
+              "strokeWidth": 1
+            },
+            {
+              "type": "text",
+              "id": "mac-chat-hint",
+              "x": 16,
+              "y": 16,
+              "fontSize": 12,
+              "fontFamily": "SF Pro Text",
+              "fill": "#8A8698",
+              "text": "Same conversation layout as Windows \u2014\nvibrancy background, SF Pro type, macOS\nrubber-band scroll & swipe-to-delete on rows."
+            },
+            {
+              "type": "rectangle",
+              "id": "mac-input-box",
+              "x": 16,
+              "y": 660,
+              "width": 348,
+              "height": 68,
+              "cornerRadius": 14,
+              "stroke": "#E5E3ED",
+              "fill": "#F5F3FE",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mac-input-placeholder",
+                  "x": 14,
+                  "y": 12,
+                  "fontSize": 12,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#A6A2B5",
+                  "text": "Type a message..."
+                },
+                {
+                  "type": "ellipse",
+                  "id": "mac-send-btn",
+                  "x": 306,
+                  "y": 32,
+                  "width": 30,
+                  "height": 30,
+                  "fill": "#7C6FE0",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "mac-send-icon",
+                      "x": 8,
+                      "y": 6,
+                      "fontSize": 13,
+                      "fontFamily": "SF Pro Text",
+                      "fill": "#FFFFFF",
+                      "text": "\u27a4"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mac-utility-panel",
+          "x": 380,
+          "y": 52,
+          "name": "Utility Panel (Center)",
+          "clip": true,
+          "width": 540,
+          "height": 748,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "mac-utility-divider",
+              "x": 540,
+              "y": 0,
+              "x2": 540,
+              "y2": 748,
+              "stroke": "#E5E3ED",
+              "strokeWidth": 1
+            },
+            {
+              "type": "frame",
+              "id": "mac-utility-tabs",
+              "x": 0,
+              "y": 0,
+              "name": "Segmented Tabs",
+              "clip": true,
+              "width": 540,
+              "height": 44,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "id": "mac-segmented-control",
+                  "x": 16,
+                  "y": 7,
+                  "width": 260,
+                  "height": 30,
+                  "cornerRadius": 8,
+                  "fill": "#F0EEF7",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "id": "mac-segment-files-active",
+                      "x": 3,
+                      "y": 3,
+                      "width": 82,
+                      "height": 24,
+                      "cornerRadius": 6,
+                      "fill": "#FFFFFF",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "mac-segment-files-text",
+                          "x": 20,
+                          "y": 5,
+                          "fontSize": 12,
+                          "fontFamily": "SF Pro Text",
+                          "fill": "#1F1B2E",
+                          "text": "Files"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "mac-segment-preview-text",
+                      "x": 105,
+                      "y": 8,
+                      "fontSize": 12,
+                      "fontFamily": "SF Pro Text",
+                      "fill": "#6B6678",
+                      "text": "Preview"
+                    },
+                    {
+                      "type": "text",
+                      "id": "mac-segment-terminal-text",
+                      "x": 190,
+                      "y": 8,
+                      "fontSize": 12,
+                      "fontFamily": "SF Pro Text",
+                      "fill": "#6B6678",
+                      "text": "Terminal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "mac-utility-note",
+              "x": 16,
+              "y": 60,
+              "fontSize": 12,
+              "fontFamily": "SF Pro Text",
+              "fill": "#8A8698",
+              "text": "macOS segmented control replaces the Windows\nunderline tab bar; identical file tree \u00b7 preview \u00b7\nterminal content underneath."
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mac-context-panel",
+          "x": 920,
+          "y": 52,
+          "name": "Context Panel (Right)",
+          "clip": true,
+          "width": 360,
+          "height": 748,
+          "fill": "#FAFAFB",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "mac-context-tabs",
+              "x": 0,
+              "y": 0,
+              "name": "Tabs",
+              "clip": true,
+              "width": 360,
+              "height": 44,
+              "fill": "#FAFAFB",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "id": "mac-segmented-control-2",
+                  "x": 16,
+                  "y": 7,
+                  "width": 200,
+                  "height": 30,
+                  "cornerRadius": 8,
+                  "fill": "#F0EEF7",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "id": "mac-segment-threads-active",
+                      "x": 3,
+                      "y": 3,
+                      "width": 94,
+                      "height": 24,
+                      "cornerRadius": 6,
+                      "fill": "#FFFFFF",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "mac-segment-threads-text",
+                          "x": 14,
+                          "y": 5,
+                          "fontSize": 12,
+                          "fontFamily": "SF Pro Text",
+                          "fill": "#1F1B2E",
+                          "text": "Threads"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "mac-segment-folders-text",
+                      "x": 120,
+                      "y": 8,
+                      "fontSize": 12,
+                      "fontFamily": "SF Pro Text",
+                      "fill": "#6B6678",
+                      "text": "Folders"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "mac-thread-item-1",
+              "x": 16,
+              "y": 60,
+              "fontSize": 12,
+              "fontFamily": "SF Pro Text",
+              "fill": "#2B2640",
+              "text": "New Thread \u00b7 Monday"
+            },
+            {
+              "type": "text",
+              "id": "mac-thread-item-2",
+              "x": 16,
+              "y": 88,
+              "fontSize": 12,
+              "fontFamily": "SF Pro Text",
+              "fill": "#2B2640",
+              "text": "Does twitter have an api that..."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "linux-desktop",
+      "x": 0,
+      "y": 900,
+      "name": "Desktop \u2014 Linux (GNOME/Adwaita)",
+      "clip": true,
+      "width": 1280,
+      "height": 800,
+      "fill": "#FFFFFF",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "linux-topbar",
+          "x": 0,
+          "y": 0,
+          "name": "Header Bar",
+          "clip": true,
+          "width": 1280,
+          "height": 46,
+          "fill": "#EDEDF0",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "linux-topbar-rule",
+              "x": 0,
+              "y": 45,
+              "x2": 1280,
+              "y2": 45,
+              "stroke": "#D3D1D8",
+              "strokeWidth": 1
+            },
+            {
+              "type": "text",
+              "id": "linux-app-title",
+              "x": 16,
+              "y": 15,
+              "fontSize": 13,
+              "fontFamily": "Cantarell",
+              "fill": "#1F1B2E",
+              "text": "\u2630   Subconscious"
+            },
+            {
+              "type": "text",
+              "id": "linux-title-center",
+              "x": 590,
+              "y": 15,
+              "fontSize": 13,
+              "fontFamily": "Cantarell",
+              "fill": "#1F1B2E",
+              "text": "New Thread"
+            },
+            {
+              "type": "rectangle",
+              "id": "linux-workspace-pill",
+              "x": 850,
+              "y": 8,
+              "width": 150,
+              "height": 30,
+              "cornerRadius": 6,
+              "fill": "#FFFFFF",
+              "stroke": "#D3D1D8",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "linux-workspace-text",
+                  "x": 12,
+                  "y": 8,
+                  "fontSize": 12,
+                  "fontFamily": "Cantarell",
+                  "fill": "#4B4560",
+                  "text": "\ud83d\udcc1 Subconscious \u25be"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "linux-cap-min",
+              "x": 1180,
+              "y": 15,
+              "fontSize": 13,
+              "fontFamily": "Cantarell",
+              "fill": "#4B4560",
+              "text": "\u2013"
+            },
+            {
+              "type": "text",
+              "id": "linux-cap-max",
+              "x": 1210,
+              "y": 15,
+              "fontSize": 12,
+              "fontFamily": "Cantarell",
+              "fill": "#4B4560",
+              "text": "\u25a1"
+            },
+            {
+              "type": "text",
+              "id": "linux-cap-close",
+              "x": 1245,
+              "y": 15,
+              "fontSize": 13,
+              "fontFamily": "Cantarell",
+              "fill": "#4B4560",
+              "text": "\u00d7"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "linux-chat-panel",
+          "x": 0,
+          "y": 46,
+          "name": "Chat Panel (Left)",
+          "clip": true,
+          "width": 380,
+          "height": 754,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "linux-chat-divider",
+              "x": 380,
+              "y": 0,
+              "x2": 380,
+              "y2": 754,
+              "stroke": "#D3D1D8",
+              "strokeWidth": 1
+            },
+            {
+              "type": "text",
+              "id": "linux-chat-hint",
+              "x": 16,
+              "y": 16,
+              "fontSize": 12,
+              "fontFamily": "Cantarell",
+              "fill": "#6B6678",
+              "text": "GTK/Adwaita chrome via Avalonia's Fluent\ntheme override \u2014 square-ish corners, libadwaita\naccent color, same 3-pane layout."
+            },
+            {
+              "type": "rectangle",
+              "id": "linux-input-box",
+              "x": 16,
+              "y": 660,
+              "width": 348,
+              "height": 68,
+              "cornerRadius": 6,
+              "stroke": "#D3D1D8",
+              "fill": "#FFFFFF",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "linux-input-placeholder",
+                  "x": 14,
+                  "y": 12,
+                  "fontSize": 12,
+                  "fontFamily": "Cantarell",
+                  "fill": "#8A8698",
+                  "text": "Type a message..."
+                },
+                {
+                  "type": "rectangle",
+                  "id": "linux-send-btn",
+                  "x": 300,
+                  "y": 30,
+                  "width": 34,
+                  "height": 30,
+                  "cornerRadius": 6,
+                  "fill": "#7C6FE0",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "linux-send-icon",
+                      "x": 9,
+                      "y": 6,
+                      "fontSize": 13,
+                      "fontFamily": "Cantarell",
+                      "fill": "#FFFFFF",
+                      "text": "\u27a4"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "linux-utility-panel",
+          "x": 380,
+          "y": 46,
+          "name": "Utility Panel (Center)",
+          "clip": true,
+          "width": 540,
+          "height": 754,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "linux-utility-divider",
+              "x": 540,
+              "y": 0,
+              "x2": 540,
+              "y2": 754,
+              "stroke": "#D3D1D8",
+              "strokeWidth": 1
+            },
+            {
+              "type": "frame",
+              "id": "linux-utility-tabs",
+              "x": 0,
+              "y": 0,
+              "name": "Tabs",
+              "clip": true,
+              "width": 540,
+              "height": 40,
+              "fill": "#EDEDF0",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "linux-tab-files",
+                  "x": 16,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "Cantarell",
+                  "fill": "#1F1B2E",
+                  "text": "Files"
+                },
+                {
+                  "type": "text",
+                  "id": "linux-tab-preview",
+                  "x": 76,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "Cantarell",
+                  "fill": "#6B6678",
+                  "text": "Preview"
+                },
+                {
+                  "type": "text",
+                  "id": "linux-tab-terminal",
+                  "x": 152,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "Cantarell",
+                  "fill": "#6B6678",
+                  "text": "Terminal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "linux-context-panel",
+          "x": 920,
+          "y": 46,
+          "name": "Context Panel (Right)",
+          "clip": true,
+          "width": 360,
+          "height": 754,
+          "fill": "#F5F5F6",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "linux-context-tabs",
+              "x": 0,
+              "y": 0,
+              "name": "Tabs",
+              "clip": true,
+              "width": 360,
+              "height": 40,
+              "fill": "#EDEDF0",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "linux-tab-threads",
+                  "x": 16,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "Cantarell",
+                  "fill": "#1F1B2E",
+                  "text": "Threads"
+                },
+                {
+                  "type": "text",
+                  "id": "linux-tab-folders",
+                  "x": 100,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "Cantarell",
+                  "fill": "#6B6678",
+                  "text": "Folders"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "web-client",
+      "x": 1320,
+      "y": 900,
+      "name": "Web (Blazor) \u2014 same 3-pane layout",
+      "clip": true,
+      "width": 1280,
+      "height": 800,
+      "fill": "#FFFFFF",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "web-topbar",
+          "x": 0,
+          "y": 0,
+          "name": "Browser Chrome",
+          "clip": true,
+          "width": 1280,
+          "height": 40,
+          "fill": "#F0EEF7",
+          "layout": "none",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "web-tab",
+              "x": 0,
+              "y": 8,
+              "width": 220,
+              "height": 32,
+              "cornerRadius": 8,
+              "fill": "#FFFFFF",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "web-tab-text",
+                  "x": 30,
+                  "y": 8,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#1F1B2E",
+                  "text": "Subconscious \u2014 app.subconscious.chat"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "web-addressbar",
+          "x": 0,
+          "y": 40,
+          "name": "Address Bar",
+          "clip": true,
+          "width": 1280,
+          "height": 40,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "web-addressbar-rule",
+              "x": 0,
+              "y": 39,
+              "x2": 1280,
+              "y2": 39,
+              "stroke": "#E5E3ED",
+              "strokeWidth": 1
+            },
+            {
+              "type": "rectangle",
+              "id": "web-address-pill",
+              "x": 200,
+              "y": 6,
+              "width": 500,
+              "height": 28,
+              "cornerRadius": 14,
+              "fill": "#F0EEF7",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "web-address-text",
+                  "x": 16,
+                  "y": 6,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#4B4560",
+                  "text": "\ud83d\udd12 app.subconscious.chat"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "web-app-shell",
+          "x": 0,
+          "y": 80,
+          "name": "App Shell",
+          "clip": true,
+          "width": 1280,
+          "height": 720,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "web-chat-panel",
+              "x": 0,
+              "y": 0,
+              "name": "Chat Panel (Left)",
+              "clip": true,
+              "width": 380,
+              "height": 720,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "line",
+                  "id": "web-chat-divider",
+                  "x": 380,
+                  "y": 0,
+                  "x2": 380,
+                  "y2": 720,
+                  "stroke": "#E5E3ED",
+                  "strokeWidth": 1
+                },
+                {
+                  "type": "text",
+                  "id": "web-chat-hint",
+                  "x": 16,
+                  "y": 16,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#8A8698",
+                  "text": "Identical chat / utility / context layout to the\ndesktop client (Blazor reuses the same C# view\nmodels) \u2014 rendered with web-native focus rings\nand system scrollbars instead of OS chrome."
+                },
+                {
+                  "type": "rectangle",
+                  "id": "web-input-box",
+                  "x": 16,
+                  "y": 628,
+                  "width": 348,
+                  "height": 68,
+                  "cornerRadius": 10,
+                  "stroke": "#E5E3ED",
+                  "fill": "#FAFAFB",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "web-input-placeholder",
+                      "x": 14,
+                      "y": 12,
+                      "fontSize": 12,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#A6A2B5",
+                      "text": "Type a message..."
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "web-send-btn",
+                      "x": 306,
+                      "y": 30,
+                      "width": 30,
+                      "height": 30,
+                      "fill": "#7C6FE0",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "web-send-icon",
+                          "x": 8,
+                          "y": 6,
+                          "fontSize": 13,
+                          "fontFamily": "Segoe UI Variable",
+                          "fill": "#FFFFFF",
+                          "text": "\u27a4"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "web-utility-panel",
+              "x": 380,
+              "y": 0,
+              "name": "Utility Panel (Center)",
+              "clip": true,
+              "width": 540,
+              "height": 720,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "line",
+                  "id": "web-utility-divider",
+                  "x": 540,
+                  "y": 0,
+                  "x2": 540,
+                  "y2": 720,
+                  "stroke": "#E5E3ED",
+                  "strokeWidth": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "web-utility-tabs",
+                  "x": 0,
+                  "y": 0,
+                  "name": "Tabs",
+                  "clip": true,
+                  "width": 540,
+                  "height": 40,
+                  "fill": "#FFFFFF",
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "line",
+                      "id": "web-utility-tabs-rule",
+                      "x": 0,
+                      "y": 39,
+                      "x2": 540,
+                      "y2": 39,
+                      "stroke": "#E5E3ED",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "web-tab-files",
+                      "x": 16,
+                      "y": 12,
+                      "fontSize": 13,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#7C6FE0",
+                      "text": "Files"
+                    },
+                    {
+                      "type": "text",
+                      "id": "web-tab-preview",
+                      "x": 76,
+                      "y": 12,
+                      "fontSize": 13,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#8A8698",
+                      "text": "Preview"
+                    },
+                    {
+                      "type": "text",
+                      "id": "web-tab-terminal",
+                      "x": 152,
+                      "y": 12,
+                      "fontSize": 13,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#8A8698",
+                      "text": "Terminal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "web-context-panel",
+              "x": 920,
+              "y": 0,
+              "name": "Context Panel (Right)",
+              "clip": true,
+              "width": 360,
+              "height": 720,
+              "fill": "#FAFAFB",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "web-context-tabs",
+                  "x": 0,
+                  "y": 0,
+                  "name": "Tabs",
+                  "clip": true,
+                  "width": 360,
+                  "height": 40,
+                  "fill": "#FAFAFB",
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "line",
+                      "id": "web-context-tabs-rule",
+                      "x": 0,
+                      "y": 39,
+                      "x2": 360,
+                      "y2": 39,
+                      "stroke": "#E5E3ED",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "web-tab-threads",
+                      "x": 16,
+                      "y": 12,
+                      "fontSize": 13,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#7C6FE0",
+                      "text": "Threads"
+                    },
+                    {
+                      "type": "text",
+                      "id": "web-tab-folders",
+                      "x": 100,
+                      "y": 12,
+                      "fontSize": 13,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#8A8698",
+                      "text": "Folders"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "mobile-client",
+      "x": 2680,
+      "y": 0,
+      "name": "Mobile (MAUI) \u2014 drawer + main panel",
+      "clip": true,
+      "width": 390,
+      "height": 844,
+      "fill": "#FFFFFF",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "mobile-statusbar",
+          "x": 0,
+          "y": 0,
+          "name": "Status Bar",
+          "clip": true,
+          "width": 390,
+          "height": 44,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "mobile-clock",
+              "x": 24,
+              "y": 14,
+              "fontSize": 13,
+              "fontFamily": "SF Pro Text",
+              "fill": "#1F1B2E",
+              "text": "9:41"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mobile-header",
+          "x": 0,
+          "y": 44,
+          "name": "Header",
+          "clip": true,
+          "width": 390,
+          "height": 52,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "mobile-header-rule",
+              "x": 0,
+              "y": 51,
+              "x2": 390,
+              "y2": 51,
+              "stroke": "#E5E3ED",
+              "strokeWidth": 1
+            },
+            {
+              "type": "text",
+              "id": "mobile-menu-icon",
+              "x": 16,
+              "y": 16,
+              "fontSize": 18,
+              "fontFamily": "SF Pro Text",
+              "fill": "#1F1B2E",
+              "text": "\u2630"
+            },
+            {
+              "type": "text",
+              "id": "mobile-title",
+              "x": 48,
+              "y": 16,
+              "fontSize": 15,
+              "fontFamily": "SF Pro Text",
+              "fill": "#1F1B2E",
+              "text": "New Thread"
+            },
+            {
+              "type": "ellipse",
+              "id": "mobile-new-chat",
+              "x": 344,
+              "y": 8,
+              "width": 30,
+              "height": 30,
+              "fill": "#7C6FE0",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mobile-new-chat-icon",
+                  "x": 10,
+                  "y": 5,
+                  "fontSize": 15,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#FFFFFF",
+                  "text": "+"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mobile-main-panel",
+          "x": 0,
+          "y": 96,
+          "name": "Main Panel (Chat)",
+          "clip": true,
+          "width": 390,
+          "height": 616,
+          "fill": "#FAFAFB",
+          "layout": "none",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "mobile-msg-user",
+              "x": 90,
+              "y": 16,
+              "width": 284,
+              "height": 54,
+              "cornerRadius": 14,
+              "fill": "#EEEBFB",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mobile-msg-user-text",
+                  "x": 12,
+                  "y": 10,
+                  "fontSize": 13,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#2B2640",
+                  "text": "Can you write a simple example\nscript using blessed?"
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "id": "mobile-msg-assistant",
+              "x": 16,
+              "y": 82,
+              "width": 284,
+              "height": 68,
+              "cornerRadius": 14,
+              "fill": "#F2F2F5",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mobile-msg-assistant-text",
+                  "x": 12,
+                  "y": 10,
+                  "fontSize": 13,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#2B2640",
+                  "text": "I'll create a simple Python script\nthat demonstrates the blessed\nlibrary."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mobile-input-bar",
+          "x": 0,
+          "y": 712,
+          "name": "Input Bar",
+          "clip": true,
+          "width": 390,
+          "height": 96,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "mobile-input-box",
+              "x": 16,
+              "y": 12,
+              "width": 314,
+              "height": 44,
+              "cornerRadius": 22,
+              "stroke": "#E5E3ED",
+              "fill": "#FAFAFB",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mobile-input-placeholder",
+                  "x": 16,
+                  "y": 14,
+                  "fontSize": 13,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#A6A2B5",
+                  "text": "Type a message..."
+                }
+              ]
+            },
+            {
+              "type": "ellipse",
+              "id": "mobile-send-btn",
+              "x": 340,
+              "y": 12,
+              "width": 44,
+              "height": 44,
+              "fill": "#7C6FE0",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mobile-send-icon",
+                  "x": 14,
+                  "y": 12,
+                  "fontSize": 16,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#FFFFFF",
+                  "text": "\u27a4"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mobile-home-indicator",
+          "x": 0,
+          "y": 808,
+          "name": "Home Indicator",
+          "clip": true,
+          "width": 390,
+          "height": 36,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "mobile-home-bar",
+              "x": 137,
+              "y": 12,
+              "width": 116,
+              "height": 5,
+              "cornerRadius": 3,
+              "fill": "#1F1B2E"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "mobile-drawer-open",
+      "x": 3090,
+      "y": 0,
+      "name": "Mobile \u2014 Drawer Open",
+      "clip": true,
+      "width": 390,
+      "height": 844,
+      "fill": "#FFFFFF",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "rectangle",
+          "id": "drawer-scrim",
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "fill": "#00000066"
+        },
+        {
+          "type": "frame",
+          "id": "drawer-panel",
+          "x": 0,
+          "y": 0,
+          "name": "Drawer",
+          "clip": true,
+          "width": 300,
+          "height": 844,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "drawer-header",
+              "x": 0,
+              "y": 44,
+              "name": "Drawer Header",
+              "clip": true,
+              "width": 300,
+              "height": 90,
+              "fill": "#F5F3FE",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "drawer-logo",
+                  "x": 16,
+                  "y": 16,
+                  "width": 28,
+                  "height": 28,
+                  "fill": "#7C6FE0"
+                },
+                {
+                  "type": "text",
+                  "id": "drawer-app-name",
+                  "x": 16,
+                  "y": 54,
+                  "fontSize": 15,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#1F1B2E",
+                  "text": "Subconscious"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "drawer-tabs",
+              "x": 0,
+              "y": 134,
+              "name": "Threads / Folders Tabs",
+              "clip": true,
+              "width": 300,
+              "height": 40,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "line",
+                  "id": "drawer-tabs-rule",
+                  "x": 0,
+                  "y": 39,
+                  "x2": 300,
+                  "y2": 39,
+                  "stroke": "#E5E3ED",
+                  "strokeWidth": 1
+                },
+                {
+                  "type": "text",
+                  "id": "drawer-tab-threads",
+                  "x": 16,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#7C6FE0",
+                  "text": "Threads"
+                },
+                {
+                  "type": "text",
+                  "id": "drawer-tab-folders",
+                  "x": 100,
+                  "y": 12,
+                  "fontSize": 13,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#8A8698",
+                  "text": "Folders"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "drawer-thread-list",
+              "x": 0,
+              "y": 174,
+              "name": "Thread List",
+              "clip": true,
+              "width": 300,
+              "height": 634,
+              "fill": "#FFFFFF",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "id": "drawer-thread-selected",
+                  "x": 0,
+                  "y": 0,
+                  "width": 300,
+                  "height": 52,
+                  "fill": "#EEEBFB",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "drawer-thread-selected-text",
+                      "x": 16,
+                      "y": 16,
+                      "fontSize": 13,
+                      "fontFamily": "SF Pro Text",
+                      "fill": "#1F1B2E",
+                      "text": "New Thread"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "drawer-thread-2",
+                  "x": 16,
+                  "y": 66,
+                  "fontSize": 13,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#2B2640",
+                  "text": "Does twitter have an api that..."
+                },
+                {
+                  "type": "text",
+                  "id": "drawer-thread-3",
+                  "x": 16,
+                  "y": 106,
+                  "fontSize": 13,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#2B2640",
+                  "text": "FreeCAD Trial"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "drawer-settings-row",
+              "x": 0,
+              "y": 780,
+              "name": "Settings",
+              "clip": true,
+              "width": 300,
+              "height": 48,
+              "fill": "#FAFAFB",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "drawer-settings-icon",
+                  "x": 16,
+                  "y": 14,
+                  "fontSize": 14,
+                  "fontFamily": "SF Pro Text",
+                  "fill": "#4B4560",
+                  "text": "\u2699\ufe0f  Settings"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "browser-extension",
+      "x": 3500,
+      "y": 0,
+      "name": "Browser Extension \u2014 popup",
+      "clip": true,
+      "width": 380,
+      "height": 600,
+      "fill": "#FFFFFF",
+      "cornerRadius": 8,
+      "layout": "none",
+      "children": [
+        {
+          "type": "rectangle",
+          "id": "ext-border",
+          "x": 0,
+          "y": 0,
+          "width": 380,
+          "height": 600,
+          "cornerRadius": 8,
+          "stroke": "#D8D6E0",
+          "fill": "transparent"
+        },
+        {
+          "type": "frame",
+          "id": "ext-header",
+          "x": 0,
+          "y": 0,
+          "name": "Header",
+          "clip": true,
+          "width": 380,
+          "height": 48,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "line",
+              "id": "ext-header-rule",
+              "x": 0,
+              "y": 47,
+              "x2": 380,
+              "y2": 47,
+              "stroke": "#E5E3ED",
+              "strokeWidth": 1
+            },
+            {
+              "type": "text",
+              "id": "ext-menu-icon",
+              "x": 14,
+              "y": 15,
+              "fontSize": 16,
+              "fontFamily": "Segoe UI Variable",
+              "fill": "#1F1B2E",
+              "text": "\u2630"
+            },
+            {
+              "type": "text",
+              "id": "ext-title",
+              "x": 44,
+              "y": 15,
+              "fontSize": 13,
+              "fontFamily": "Segoe UI Variable",
+              "fill": "#1F1B2E",
+              "text": "New Thread"
+            },
+            {
+              "type": "ellipse",
+              "id": "ext-new-chat",
+              "x": 336,
+              "y": 9,
+              "width": 28,
+              "height": 28,
+              "fill": "#7C6FE0",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ext-new-chat-icon",
+                  "x": 9,
+                  "y": 5,
+                  "fontSize": 14,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#FFFFFF",
+                  "text": "+"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ext-main-panel",
+          "x": 0,
+          "y": 48,
+          "name": "Main Panel",
+          "clip": true,
+          "width": 380,
+          "height": 452,
+          "fill": "#FAFAFB",
+          "layout": "none",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "ext-msg-user",
+              "x": 90,
+              "y": 16,
+              "width": 274,
+              "height": 46,
+              "cornerRadius": 10,
+              "fill": "#EEEBFB",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ext-msg-user-text",
+                  "x": 12,
+                  "y": 10,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#2B2640",
+                  "text": "Summarize this page for me"
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "id": "ext-msg-assistant",
+              "x": 16,
+              "y": 74,
+              "width": 274,
+              "height": 60,
+              "cornerRadius": 10,
+              "fill": "#F2F2F5",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ext-msg-assistant-text",
+                  "x": 12,
+                  "y": 10,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#2B2640",
+                  "text": "Here's a summary of the current tab\ncontent \u2014 pulled via the extension's\npage-context tool."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ext-input-bar",
+          "x": 0,
+          "y": 500,
+          "name": "Input Bar",
+          "clip": true,
+          "width": 380,
+          "height": 100,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "ext-input-box",
+              "x": 16,
+              "y": 12,
+              "width": 348,
+              "height": 62,
+              "cornerRadius": 10,
+              "stroke": "#E5E3ED",
+              "fill": "#FAFAFB",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ext-input-placeholder",
+                  "x": 14,
+                  "y": 12,
+                  "fontSize": 12,
+                  "fontFamily": "Segoe UI Variable",
+                  "fill": "#A6A2B5",
+                  "text": "Type a message..."
+                },
+                {
+                  "type": "ellipse",
+                  "id": "ext-send-btn",
+                  "x": 306,
+                  "y": 28,
+                  "width": 28,
+                  "height": 28,
+                  "fill": "#7C6FE0",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ext-send-icon",
+                      "x": 8,
+                      "y": 5,
+                      "fontSize": 12,
+                      "fontFamily": "Segoe UI Variable",
+                      "fill": "#FFFFFF",
+                      "text": "\u27a4"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "tui-client",
+      "x": 3920,
+      "y": 0,
+      "name": "TUI \u2014 Claude Code / Copilot CLI style",
+      "clip": true,
+      "width": 900,
+      "height": 560,
+      "fill": "#0D0D0F",
+      "cornerRadius": 6,
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "tui-titlebar",
+          "x": 0,
+          "y": 0,
+          "name": "Terminal Titlebar",
+          "clip": true,
+          "width": 900,
+          "height": 32,
+          "fill": "#1A1A1D",
+          "layout": "none",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "tui-dot-close",
+              "x": 14,
+              "y": 11,
+              "width": 10,
+              "height": 10,
+              "fill": "#FF5F57"
+            },
+            {
+              "type": "ellipse",
+              "id": "tui-dot-min",
+              "x": 32,
+              "y": 11,
+              "width": 10,
+              "height": 10,
+              "fill": "#FEBC2E"
+            },
+            {
+              "type": "ellipse",
+              "id": "tui-dot-max",
+              "x": 50,
+              "y": 11,
+              "width": 10,
+              "height": 10,
+              "fill": "#28C840"
+            },
+            {
+              "type": "text",
+              "id": "tui-titlebar-text",
+              "x": 400,
+              "y": 8,
+              "fontSize": 12,
+              "fontFamily": "Cascadia Code",
+              "fill": "#8A8698",
+              "text": "subconscious \u2014 zsh"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "tui-banner",
+          "x": 0,
+          "y": 32,
+          "name": "ASCII Banner",
+          "clip": true,
+          "width": 900,
+          "height": 70,
+          "fill": "#0D0D0F",
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "tui-banner-text",
+              "x": 20,
+              "y": 12,
+              "fontSize": 13,
+              "fontFamily": "Cascadia Code",
+              "fill": "#7C6FE0",
+              "text": "\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557   Subconscious CLI  v0.1.11"
+            },
+            {
+              "type": "text",
+              "id": "tui-banner-sub",
+              "x": 20,
+              "y": 40,
+              "fontSize": 12,
+              "fontFamily": "Cascadia Code",
+              "fill": "#6B6678",
+              "text": "workspace: Subconscious   model: qwen-235b   cwd: ~/code/Ancilla/Subconscious"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "tui-transcript",
+          "x": 0,
+          "y": 102,
+          "name": "Transcript",
+          "clip": true,
+          "width": 900,
+          "height": 380,
+          "fill": "#0D0D0F",
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "tui-user-turn",
+              "x": 20,
+              "y": 12,
+              "fontSize": 13,
+              "fontFamily": "Cascadia Code",
+              "fill": "#E8E6F0",
+              "text": "> Can you write a simple example script using the blessed library?"
+            },
+            {
+              "type": "rectangle",
+              "id": "tui-tool-card",
+              "x": 20,
+              "y": 44,
+              "width": 860,
+              "height": 92,
+              "cornerRadius": 6,
+              "stroke": "#2A2A30",
+              "fill": "#151417",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tui-tool-card-header",
+                  "x": 14,
+                  "y": 10,
+                  "fontSize": 12,
+                  "fontFamily": "Cascadia Code",
+                  "fill": "#7C6FE0",
+                  "text": "\u25cf create_file  script.py"
+                },
+                {
+                  "type": "text",
+                  "id": "tui-tool-card-body",
+                  "x": 14,
+                  "y": 34,
+                  "fontSize": 12,
+                  "fontFamily": "Cascadia Code",
+                  "fill": "#8FDB9A",
+                  "text": "+ from blessed import Terminal\n+ term = Terminal()\n+ print(term.center('Subconscious'))"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "tui-assistant-turn",
+              "x": 20,
+              "y": 150,
+              "fontSize": 13,
+              "fontFamily": "Cascadia Code",
+              "fill": "#B8B4C8",
+              "text": "I've created the script. To run it, install blessed first:"
+            },
+            {
+              "type": "rectangle",
+              "id": "tui-code-block",
+              "x": 20,
+              "y": 178,
+              "width": 400,
+              "height": 32,
+              "cornerRadius": 4,
+              "fill": "#151417",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tui-code-block-text",
+                  "x": 14,
+                  "y": 8,
+                  "fontSize": 12,
+                  "fontFamily": "Cascadia Code",
+                  "fill": "#E8E6F0",
+                  "text": "$ pip install blessed"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "tui-spinner-line",
+              "x": 20,
+              "y": 230,
+              "fontSize": 12,
+              "fontFamily": "Cascadia Code",
+              "fill": "#6B6678",
+              "text": "\u28f4 esc to interrupt \u00b7 Tab for tool approval queue"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "tui-input-row",
+          "x": 0,
+          "y": 482,
+          "name": "Input Row",
+          "clip": true,
+          "width": 900,
+          "height": 78,
+          "fill": "#0D0D0F",
+          "layout": "none",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "tui-input-border",
+              "x": 20,
+              "y": 8,
+              "width": 860,
+              "height": 44,
+              "cornerRadius": 6,
+              "stroke": "#2A2A30",
+              "fill": "#0D0D0F",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tui-input-prompt",
+                  "x": 14,
+                  "y": 13,
+                  "fontSize": 13,
+                  "fontFamily": "Cascadia Code",
+                  "fill": "#7C6FE0",
+                  "text": ">"
+                },
+                {
+                  "type": "text",
+                  "id": "tui-input-text",
+                  "x": 32,
+                  "y": 13,
+                  "fontSize": 13,
+                  "fontFamily": "Cascadia Code",
+                  "fill": "#6B6678",
+                  "text": "Type a message, or / for commands..."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "tui-footer-hint",
+              "x": 20,
+              "y": 60,
+              "fontSize": 11,
+              "fontFamily": "Cascadia Code",
+              "fill": "#4A4750",
+              "text": "^T threads   ^F files   ^K skills   ctrl+c exit"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fileToken": "e96566a1-efa8-4c38-a164-0176af876a2d"
+}
+

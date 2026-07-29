@@ -1,6 +1,6 @@
 using System.CommandLine;
-using Microsoft.Extensions.Hosting;
 using Subconscious.Engine;
+using Microsoft.Extensions.Hosting;
 
 namespace Subconscious.Host.Cli;
 
@@ -118,11 +118,14 @@ public static class Program
     private static async Task RunEngineAsync(EngineConfig config)
     {
         Console.WriteLine(Logo.Text);
-        using var host = EngineHost.CreateHostBuilder(config).Build();
+        var app = EngineHost.Build(config);
         Console.WriteLine($"Subconscious Engine {Constants.Version}");
         Console.WriteLine($"Data directory: {config.DataDirectory}");
 
-        using var tray = EngineTrayCoordinator.AttachIfSupported(host, config);
+        await EngineHost.StartEngineAsync(app, config);
+        Console.WriteLine($"Local API listening on 127.0.0.1 (see runtime.json in the data directory for the port/token).");
+
+        using var tray = EngineTrayCoordinator.AttachIfSupported(app, config);
         if (tray is not null)
         {
             Console.WriteLine("Tray icon ready. Right-click it to open or exit Subconscious.");
@@ -133,6 +136,13 @@ public static class Program
         }
 
         Console.WriteLine("Engine started. Press Ctrl+C to exit.");
-        await host.RunAsync();
+        try
+        {
+            await app.WaitForShutdownAsync();
+        }
+        finally
+        {
+            EngineHost.StopEngine(config);
+        }
     }
 }

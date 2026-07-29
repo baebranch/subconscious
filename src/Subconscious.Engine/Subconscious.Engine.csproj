@@ -1,14 +1,26 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>Subconscious.Engine</AssemblyName>
     <RootNamespace>Subconscious.Engine</RootNamespace>
+    <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Tool implementation methods are internal: they exist to be wrapped as AIFunctions by their
+      IToolModule, not to be called directly by consumers. Tests exercise them directly so the
+      pure logic (formatting, timezone handling, unit tables) is verified without going through
+      JSON schema binding.
+    -->
+    <InternalsVisibleTo Include="Subconscious.Engine.Tests" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- Generic host + DI: composition root for the engine (see EngineHost.cs). -->
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="System.IO.Hashing" Version="10.0.10" />
   </ItemGroup>
 
   <ItemGroup>

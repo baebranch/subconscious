@@ -8,15 +8,13 @@ namespace Subconscious.Engine.Agents;
 /// enum. Mirrors <c>agent.py</c>'s <c>_PROVIDER_MAP</c> / <c>_provider_prefix</c>.
 ///
 /// <para>
-/// <b>Known gap:</b> LLM Tornado has no native AWS Bedrock connector as of this writing (its own
+/// <b>Bedrock:</b> LLM Tornado has no native AWS Bedrock connector (its own
 /// <c>FeatureMatrix.md</c> does not list Bedrock, and Tornado's "Custom" provider only covers
-/// OpenAI-compatible APIs — Bedrock's Converse API is not). <c>agent.py</c>'s Bedrock support
-/// (<c>_build_bedrock_model</c>, region/credential resolution) therefore has no direct 1:1 port
-/// yet. <see cref="Resolve"/> throws <see cref="NotSupportedException"/> for "bedrock" rather
-/// than silently mis-routing it — see translation.md §4.4/§9 for the tracked decision (either
-/// wait for/contribute a Tornado Bedrock connector, or bridge the AWS SDK for .NET's Bedrock
-/// Runtime client through a hand-written <see cref="Microsoft.Extensions.AI.IChatClient"/> for
-/// just this one provider).
+/// OpenAI-compatible APIs — Bedrock's Converse API is not). Subconscious therefore implements
+/// Bedrock itself (<c>Bedrock/BedrockChatClient.cs</c>), plugged into the same
+/// <see cref="Microsoft.Extensions.AI.IChatClient"/> seam as every Tornado-backed provider. It
+/// is fully supported; it just isn't reachable through <see cref="Resolve"/>, so callers use
+/// <see cref="IsSelfImplemented"/> to route it (which <see cref="AgentManager"/> does).
 /// </para>
 /// </summary>
 public static class ProviderCatalog
@@ -60,19 +58,39 @@ public static class ProviderCatalog
         ["azure"] = LLmProviders.AzureOpenAi,
     };
 
-    // Providers with no first-party Tornado connector today. "hugging face" has no Tornado
-    // connector either (agent.py routed it through the openai-compatible path with a
-    // provider-specific env var, but there's no equivalent HF Inference Endpoints shape in
-    // Tornado's Custom provider) — tracked alongside Bedrock rather than guessed at.
-    private static readonly HashSet<string> UnsupportedProviders = new(StringComparer.OrdinalIgnoreCase)
+    // Providers Subconscious implements itself rather than routing through a Tornado connector.
+    // Bedrock has no native Tornado connector, so Subconscious ships its own Converse-API
+    // provider (see Bedrock/BedrockChatClient.cs) — it is fully supported, just not via
+    // LLmProviders, hence excluded from Resolve().
+    private static readonly HashSet<string> SelfImplementedProviders = new(StringComparer.OrdinalIgnoreCase)
     {
-        "bedrock", "hugging face",
+        "bedrock",
     };
 
-    /// <summary>True when <see cref="Resolve"/> would succeed for this provider name.</summary>
+    // Providers with no connector at all today. "hugging face" has no Tornado connector
+    // (agent.py routed it through the openai-compatible path with a provider-specific env var,
+    // but there's no equivalent HF Inference Endpoints shape in Tornado's Custom provider).
+    private static readonly HashSet<string> UnsupportedProviders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "hugging face",
+    };
+
+    /// <summary>
+    /// True when Subconscious can build a chat client for this provider — either via a Tornado
+    /// connector (<see cref="Resolve"/>) or via a Subconscious-implemented provider such as
+    /// Bedrock (<see cref="IsSelfImplemented"/>).
+    /// </summary>
     public static bool IsSupported(string providerName) =>
         !UnsupportedProviders.Contains(providerName)
-        && (DirectProviders.ContainsKey(providerName) || OpenAiCompatibleProviders.Contains(providerName));
+        && (SelfImplementedProviders.Contains(providerName)
+            || DirectProviders.ContainsKey(providerName)
+            || OpenAiCompatibleProviders.Contains(providerName));
+
+    /// <summary>
+    /// True when this provider is implemented by Subconscious directly rather than routed through
+    /// a Tornado connector — currently Bedrock only. <see cref="Resolve"/> does not apply to these.
+    /// </summary>
+    public static bool IsSelfImplemented(string providerName) => SelfImplementedProviders.Contains(providerName);
 
     /// <summary>True when this provider needs no API key (local/self-hosted).</summary>
     public static bool RequiresNoApiKey(string providerName) => NoApiKeyProviders.Contains(providerName);
@@ -87,12 +105,18 @@ public static class ProviderCatalog
     /// </summary>
     public static LLmProviders Resolve(string providerName)
     {
+        if (SelfImplementedProviders.Contains(providerName))
+        {
+            throw new InvalidOperationException(
+                $"Provider '{providerName}' is implemented by Subconscious directly, not via an LLM " +
+                "Tornado connector — check IsSelfImplemented() before calling Resolve(). " +
+                "AgentManager.BuildChatClient handles this routing.");
+        }
         if (UnsupportedProviders.Contains(providerName))
         {
             throw new NotSupportedException(
-                $"Provider '{providerName}' has no LLM Tornado connector yet. See translation.md " +
-                "§4.4/§9 for the tracked decision on how to add it (Bedrock: no native Tornado " +
-                "connector as of this writing; Hugging Face: no equivalent OpenAI-compatible " +
+                $"Provider '{providerName}' has no connector yet. See translation.md §4.4/§9 for the " +
+                "tracked decision on how to add it (Hugging Face: no equivalent OpenAI-compatible " +
                 "endpoint shape in Tornado's Custom provider).");
         }
         if (DirectProviders.TryGetValue(providerName, out var provider))

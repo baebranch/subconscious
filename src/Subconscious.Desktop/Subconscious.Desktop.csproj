@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Subconscious.Desktop</AssemblyName>
+    <RootNamespace>Subconscious.Desktop</RootNamespace>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Avalonia UI (translation.md §4.3 Phase 6 decision): cross-platform, custom-rendered,
+      the closest analog to "one codebase, native-feeling everywhere" the desktop client
+      needs across Windows/macOS/Linux. Fluent theme gives Windows 11-native-looking chrome
+      out of the box; per-platform look (macOS traffic lights, GNOME header bars) is a
+      follow-up styling pass once this vertical slice (chat) is validated.
+    -->
+    <PackageReference Include="Avalonia" Version="11.3.18" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.18" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.18" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.18" />
+    <!-- Diagnostics only in Debug; excluded from Release builds like the Avalonia template default. -->
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.18" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Subconscious.Engine\Subconscious.Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Window/taskbar icon + custom titlebar logo, copied from the repo-root Icons/ folder. -->
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+
+</Project>

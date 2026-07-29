@@ -1,13 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!--
+      Multi-targeted like Subconscious.Desktop.Tray so Windows builds get a real
+      System.Windows.Forms.Clipboard (ClipboardToolModule.cs), while other target
+      frameworks fall back to a no-op clipboard (see ClipboardToolModule.cs #if WINDOWS).
+    -->
+    <TargetFrameworks>net10.0-windows;net10.0</TargetFrameworks>
+    <UseWindowsForms Condition="'$(TargetFramework)'=='net10.0-windows'">true</UseWindowsForms>
+    <DefineConstants Condition="'$(TargetFramework)'=='net10.0-windows'">$(DefineConstants);WINDOWS</DefineConstants>
     <AssemblyName>Subconscious.Tools.Desktop</AssemblyName>
     <RootNamespace>Subconscious.Tools.Desktop</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Subconscious.Engine\Subconscious.Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- System.Drawing.Common for image processing -->
+    <PackageReference Include="System.Drawing.Common" Version="10.0.0" />
   </ItemGroup>
 
 </Project>

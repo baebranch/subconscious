@@ -14,7 +14,15 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <WarningsAsErrors>nullable</WarningsAsErrors>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      ICU must stay enabled. InvariantGlobalization=true (the value the project templates
+      default to) disables ICU, and with it TimeZoneInfo's IANA/Windows identifier conversion:
+      on Windows the OS timezone database is keyed by Windows ids, so "Europe/London" simply
+      fails to resolve. The engine's time tools take IANA names as their documented contract
+      (ported from Python zoneinfo), and models emit IANA names, so invariant mode is not an
+      option here. Verified by test: TimeToolModuleTests.GetCurrentTime_IanaZone_*.
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
 
     <Company>Subconscious</Company>
     <Product>Subconscious</Product>

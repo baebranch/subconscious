@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Subconscious.Engine.Agents;
+using Subconscious.Engine.Agents.Bedrock;
 
 namespace Subconscious.Engine.Tests.Agents;
 
@@ -54,10 +55,45 @@ public class AgentManagerTests
     }
 
     [Fact]
-    public void BuildChatClient_BedrockConfig_ThrowsNotSupported()
+    public void BuildChatClient_BedrockConfigWithApiKey_ReturnsBedrockChatClient()
+    {
+        var manager = new AgentManager();
+        var config = new ModelConfig(
+            Id: "bedrock-1",
+            Provider: "bedrock",
+            Model: "anthropic.claude-3-5-sonnet-20241022-v2:0",
+            ApiKey: "bedrock-bearer-token",
+            Region: "us-east-1");
+
+        using var client = manager.BuildChatClient(config);
+
+        client.Should().BeOfType<BedrockChatClient>();
+    }
+
+    [Fact]
+    public void BuildChatClient_BedrockConfigWithoutApiKey_Throws()
     {
         var manager = new AgentManager();
         var config = new ModelConfig(Id: "bedrock-1", Provider: "bedrock", Model: "anthropic.claude-v2");
+
+        var act = () => manager.BuildChatClient(config);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void BuildChatClient_BedrockConfigWithAwsAccessKeys_ThrowsNotSupported()
+    {
+        // SigV4 signing is not implemented; supplying access keys must fail loudly rather than
+        // silently falling back to bearer-token auth.
+        var manager = new AgentManager();
+        var config = new ModelConfig(
+            Id: "bedrock-1",
+            Provider: "bedrock",
+            Model: "anthropic.claude-v2",
+            ApiKey: "bedrock-bearer-token",
+            AwsAccessKeyId: "AKIAEXAMPLE",
+            AwsSecretAccessKey: "secret");
 
         var act = () => manager.BuildChatClient(config);
 

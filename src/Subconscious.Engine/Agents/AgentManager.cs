@@ -2,6 +2,7 @@ using LlmTornado;
 using LlmTornado.Code;
 using LlmTornado.Microsoft.Extensions.AI;
 using Microsoft.Extensions.AI;
+using Subconscious.Engine.Agents.Bedrock;
 
 namespace Subconscious.Engine.Agents;
 
@@ -38,6 +39,13 @@ public sealed class AgentManager
             && string.Equals(config.Model, "echo", StringComparison.OrdinalIgnoreCase))
         {
             return new EchoChatClient();
+        }
+
+        // Providers Subconscious implements itself (currently Bedrock, which has no Tornado
+        // connector) still return an IChatClient, so callers can't tell the difference.
+        if (ProviderCatalog.IsSelfImplemented(config.Provider.Trim()))
+        {
+            return new BedrockChatClient(config);
         }
 
         var api = BuildTornadoApi(config);
