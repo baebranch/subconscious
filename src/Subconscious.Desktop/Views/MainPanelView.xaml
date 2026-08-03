@@ -283,28 +283,70 @@
             </Grid>
         </ScrollView>
 
-        <ScrollView IsVisible="{Binding IsAboutSettingsPageOpen}" Orientation="Vertical">
-            <Grid x:Name="AboutSettingsHost" Padding="24,28" HorizontalOptions="Center">
-                <VerticalStackLayout BindingContext="{Binding AboutSettings}"
-                                     x:DataType="vm:AboutSettingsViewModel"
-                                     MaximumWidthRequest="750" Spacing="14" HorizontalOptions="Fill">
-                    <Label Text="About" Style="{StaticResource SettingsSectionTitle}" />
-                    <Label Text="Subconscious" FontSize="20" FontAttributes="Bold" />
-                    <Label Text="Subconscious is a distributed agentic AI application for creating agents that work across your devices."
-                           Style="{StaticResource SettingsFieldValueLabel}" LineBreakMode="WordWrap" />
-                    <Label Text="Version" Style="{StaticResource SettingsFieldLabel}" />
-                    <Label Text="{Binding Version}" Style="{StaticResource SettingsFieldValueLabel}" />
-                    <HorizontalStackLayout Spacing="8">
-                        <Button Text="Website" Command="{Binding OpenWebsiteCommand}" Style="{StaticResource GhostButton}" />
-                        <Button Text="License" Command="{Binding OpenLicenseCommand}" Style="{StaticResource GhostButton}" />
-                        <Button Text="Report an Issue" Command="{Binding ReportIssueCommand}" Style="{StaticResource GhostButton}" />
+        <!-- About keeps its heading at the top, while the app identity and useful links remain
+             centered in the available panel space. It deliberately does not use card chrome. -->
+        <Grid IsVisible="{Binding IsAboutSettingsPageOpen}" RowDefinitions="Auto,1*,Auto,1*">
+            <HorizontalStackLayout Grid.Row="0" Margin="0,28,0,0" Spacing="6"
+                                   HorizontalOptions="Center" VerticalOptions="Start">
+                <mi:MauiIcon Icon="{mi:Fluent Icon=Info24}" IconSize="18"
+                             IconColor="{Binding IconColor}" VerticalOptions="Center" />
+                <Label Text="About" FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+
+            <Grid x:Name="AboutSettingsHost" Grid.Row="2" Padding="24,24,24,48"
+                  HorizontalOptions="Center" BindingContext="{Binding AboutSettings}"
+                  x:DataType="vm:AboutSettingsViewModel">
+                <VerticalStackLayout MaximumWidthRequest="750" Spacing="0"
+                                     HorizontalOptions="Fill">
+                    <Image Source="{AppThemeBinding Light=dark_logo.png, Dark=light_logo.png}"
+                           WidthRequest="88" HeightRequest="88" Aspect="AspectFit"
+                           HorizontalOptions="Center" Margin="0,0,0,12" />
+                    <Label Text="Subconscious" FontSize="20" FontAttributes="Bold"
+                           HorizontalOptions="Center" Margin="0,0,0,56" />
+
+                    <Label Text="Subconscious is a distributed agentic AI app, that allows you to create AI agents that run everywhere on every device at the same time."
+                           FontSize="14" TextColor="{DynamicResource SecondaryTextColor}"
+                           LineBreakMode="WordWrap" HorizontalTextAlignment="Center"
+                           HorizontalOptions="Fill" Margin="0,0,0,14" />
+
+                    <HorizontalStackLayout Spacing="4" HorizontalOptions="Center" Margin="0,0,0,14">
+                        <Label Text="Visit us at:" TextColor="{DynamicResource SecondaryTextColor}"
+                               VerticalOptions="Center" />
+                        <Label Text="Subconscious.chat" TextDecorations="Underline"
+                               TextColor="{DynamicResource PrimaryTextColor}"
+                               SemanticProperties.Description="Open Subconscious website"
+                               ToolTipProperties.Text="Open subconscious.chat">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenWebsiteCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
                     </HorizontalStackLayout>
-                    <Label Text="Automatic update checks and installation are not available in the desktop client yet."
-                           Style="{StaticResource MutedLabel}" LineBreakMode="WordWrap" />
-                    <Label Text="© 2026 Subconscious" Style="{StaticResource MutedLabel}" />
+
+                    <Label Text="View License" TextDecorations="Underline"
+                           TextColor="{DynamicResource PrimaryTextColor}" HorizontalOptions="Center"
+                           SemanticProperties.Description="View license" ToolTipProperties.Text="View license"
+                           Margin="0,0,0,14">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenLicenseCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                    <Label Text="Report an Issue" TextDecorations="Underline"
+                           TextColor="{DynamicResource PrimaryTextColor}" HorizontalOptions="Center"
+                           SemanticProperties.Description="Report an issue" ToolTipProperties.Text="Report an issue"
+                           Margin="0,0,0,18">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ReportIssueCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
+
+                    <Label Text="{Binding Version, StringFormat='Version: v{0}'}"
+                           TextColor="{DynamicResource SecondaryTextColor}"
+                           HorizontalOptions="Center" Margin="0,0,0,14" />
+                    <Label Text="© 2026 Subconscious" TextColor="{DynamicResource SecondaryTextColor}"
+                           HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </Grid>
-        </ScrollView>
+        </Grid>
 
     </Grid>
 
