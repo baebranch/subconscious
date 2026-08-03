@@ -17,6 +17,9 @@ namespace Subconscious.Desktop.Views;
 /// </summary>
 public partial class MainPage : ContentPage
 {
+    /// <summary>Fixed width of the persistent left navigation rail.</summary>
+    private const double SidebarWidth = 40;
+
     /// <summary>Divider width. Also the grab area — wide enough to hit with a mouse, narrow
     /// enough to still read as a divider line.</summary>
     private const double SplitterThickness = 6;
@@ -122,8 +125,8 @@ public partial class MainPage : ContentPage
         }
         else
         {
-            // Dragging the right-hand divider left makes the context panel wider, hence the minus.
-            SetContextPanelWidth(_dragStartWidth - delta);
+            // The context panel now sits to the left of its divider, so dragging right widens it.
+            SetContextPanelWidth(_dragStartWidth + delta);
         }
     }
 
@@ -194,7 +197,7 @@ public partial class MainPage : ContentPage
         }
 
         var dividers = SplitterThickness * (_viewModel.IsContextPanelOpen ? 2 : 1);
-        return available - MinCenterPanelWidth - dividers;
+        return available - SidebarWidth - MinCenterPanelWidth - dividers;
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -223,10 +226,10 @@ public partial class MainPage : ContentPage
     {
         var open = _viewModel.IsContextPanelOpen;
 
-        PanelsGrid.ColumnDefinitions[0].Width = new GridLength(_viewModel.ChatPanelWidth);
-        PanelsGrid.ColumnDefinitions[1].Width = new GridLength(SplitterThickness);
-        PanelsGrid.ColumnDefinitions[3].Width = new GridLength(open ? SplitterThickness : 0);
-        PanelsGrid.ColumnDefinitions[4].Width = new GridLength(_viewModel.EffectiveContextPanelWidth);
+        PanelsGrid.ColumnDefinitions[1].Width = new GridLength(_viewModel.EffectiveContextPanelWidth);
+        PanelsGrid.ColumnDefinitions[2].Width = new GridLength(open ? SplitterThickness : 0);
+        PanelsGrid.ColumnDefinitions[3].Width = new GridLength(_viewModel.ChatPanelWidth);
+        PanelsGrid.ColumnDefinitions[4].Width = new GridLength(SplitterThickness);
 
         ContextSplitter.IsVisible = open;
 

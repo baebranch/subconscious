@@ -2,14 +2,11 @@
 <!--
   The window itself, so that the custom title bar can be declared in XAML.
 
-  Everything that used to be the in-app header (logo, app name, context panel toggle) now lives
-  in Window.TitleBar, which MAUI draws into the OS caption region on Windows and Mac Catalyst.
-  That removes the doubled-up chrome the app had before - a native title bar with nothing in it
-  sitting on top of an app header with one button in it - and gets back 45px of vertical space.
+  The title bar holds only the app mark and title. Context navigation is in MainPage's persistent
+  left rail, leaving the native caption-button region free of app-specific controls.
 -->
 <Window xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
         xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-        xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
         xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
         x:Class="Subconscious.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
@@ -30,6 +27,7 @@
         -->
         <TitleBar Title="Subconscious"
                   Icon="{AppThemeBinding Light=dark_logo.png, Dark=light_logo.png}"
+                  Padding="-4,0,0,0"
                   HeightRequest="32"
                   BackgroundColor="{DynamicResource SurfaceColor}"
                   ForegroundColor="{DynamicResource PrimaryTextColor}">
@@ -52,26 +50,6 @@
                     </VisualStateGroup>
                 </VisualStateGroupList>
             </VisualStateManager.VisualStateGroups>
-
-            <!-- The context panel toggle. Trailing content is the slot immediately inside the
-                 caption buttons, so this lands to the left of minimize, and no margin keeps it
-                 flush with them rather than orphaned a few pixels away.
-
-                 Views placed here handle their own input instead of being treated as window-drag
-                 area, so the tap works without registering the toggle in PassthroughElements. -->
-            <TitleBar.TrailingContent>
-                <Grid x:Name="ContextPanelToggle"
-                      Style="{StaticResource TitleBarButton}"
-                      SemanticProperties.Description="Toggle context panel"
-                      ToolTipProperties.Text="Toggle context panel">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding ToggleContextPanelCommand}" />
-                    </Grid.GestureRecognizers>
-                    <mi:MauiIcon Icon="{mi:Fluent Icon=PanelRight24}" IconSize="16"
-                                 IconColor="{Binding IsContextPanelOpen, Converter={StaticResource TitleBarIconColor}}"
-                                 HorizontalOptions="Center" VerticalOptions="Center" />
-                </Grid>
-            </TitleBar.TrailingContent>
 
         </TitleBar>
     </Window.TitleBar>

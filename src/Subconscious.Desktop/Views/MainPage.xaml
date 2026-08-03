@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              xmlns:views="clr-namespace:Subconscious.Desktop.Views"
              xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
              x:Class="Subconscious.Desktop.Views.MainPage"
@@ -8,24 +9,19 @@
              Padding="0">
 
     <!--
-      Three panels side by side, exactly as in screens/gui.pen: chat | main | context.
-      Columns 1 and 3 are the draggable dividers; MainPage.xaml.cs turns a pan on either one
-      into a new width for the panel beside it and persists it (see LayoutStateStore).
-
-      There is no in-app header: the logo, the app name and the context panel toggle all live in
-      the window's custom TitleBar (see MainWindow.xaml), so the page is just the panels and the
-      rule that separates them from the title bar.
+      A persistent navigation rail sits beside the context | chat | main panels. The rail reuses
+      Context Panel commands: selecting a destination also opens the Context Panel when necessary.
     -->
     <Grid RowDefinitions="1,*">
 
         <BoxView Grid.Row="0" Color="{DynamicResource DividerColor}" />
 
-        <!-- ── Panels ──────────────────────────────────────────────────────── -->
+        <!-- ── Navigation and panels ───────────────────────────────────────── -->
         <!-- Widths here are just the design defaults; the real values are applied from the
              persisted layout in code-behind before the first frame. -->
         <!-- The parent grid is the sole move/release handler. Pointer capture keeps routed moves
              flowing to it after the pointer has left the 6px splitter hit target. -->
-        <Grid x:Name="PanelsGrid" Grid.Row="1" ColumnDefinitions="380,6,*,6,360"
+        <Grid x:Name="PanelsGrid" Grid.Row="1" ColumnDefinitions="40,360,6,380,6,*"
               SizeChanged="OnPanelsGridSizeChanged">
             <Grid.GestureRecognizers>
                 <PointerGestureRecognizer PointerMoved="OnPanelsPointerMoved"
@@ -38,27 +34,117 @@
                 <DynamicResource Key="SurfaceColor" />
             </Grid.BackgroundColor>
 
-            <views:ChatPanelView Grid.Column="0" BindingContext="{Binding Chat}" />
+            <!-- Fixed 40px rail. The stack layouts own the 4px outer inset and 4px gaps, leaving
+                 the full-height divider free to reach the bottom edge. The Context toggle remains
+                 an action; the remaining icons select and open their Context Panel section. -->
+            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto"
+                  BackgroundColor="{DynamicResource PanelBackgroundColor}">
+                <VerticalStackLayout Grid.Row="0" Padding="4,4,4,0" Spacing="4">
+                    <Border Style="{StaticResource SidebarRailButton}"
+                            SemanticProperties.Description="Toggle context panel"
+                            ToolTipProperties.Text="Toggle context panel">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ToggleContextPanelCommand}" />
+                        </Border.GestureRecognizers>
+                        <mi:MauiIcon Icon="{mi:Fluent Icon=PanelRight24}" IconSize="18"
+                                     IconColor="{Binding IconColor}"
+                                     HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+
+                    <Border Style="{StaticResource SidebarRailButton}"
+                            BackgroundColor="{Binding IsWorkspacesSectionSelected, Converter={StaticResource NavRowBackgroundColor}}"
+                            SemanticProperties.Description="Workspaces" ToolTipProperties.Text="Workspaces">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenContextSectionCommand}"
+                                                  CommandParameter="{x:Static vm:ContextPanelSection.Workspaces}" />
+                        </Border.GestureRecognizers>
+                        <Grid>
+                            <Border WidthRequest="3" HeightRequest="18"
+                                    HorizontalOptions="Start" VerticalOptions="Center"
+                                    BackgroundColor="{DynamicResource AccentColor}"
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 2"
+                                    IsVisible="{Binding IsWorkspacesSectionSelected}" />
+                            <mi:MauiIcon Icon="{mi:Fluent Icon=Folder24}" IconSize="18"
+                                         IconColor="{Binding IsWorkspacesSectionSelected, Converter={StaticResource TitleBarIconColor}}"
+                                         HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource SidebarRailButton}"
+                            BackgroundColor="{Binding IsThreadsSectionSelected, Converter={StaticResource NavRowBackgroundColor}}"
+                            SemanticProperties.Description="Threads" ToolTipProperties.Text="Threads">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenContextSectionCommand}"
+                                                  CommandParameter="{x:Static vm:ContextPanelSection.Threads}" />
+                        </Border.GestureRecognizers>
+                        <Grid>
+                            <Border WidthRequest="3" HeightRequest="18"
+                                    HorizontalOptions="Start" VerticalOptions="Center"
+                                    BackgroundColor="{DynamicResource AccentColor}"
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 2"
+                                    IsVisible="{Binding IsThreadsSectionSelected}" />
+                            <mi:MauiIcon Icon="{mi:Fluent Icon=Chat24}" IconSize="18"
+                                         IconColor="{Binding IsThreadsSectionSelected, Converter={StaticResource TitleBarIconColor}}"
+                                         HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- Separate the pinned settings/account group from the main navigation. -->
+                <BoxView Grid.Row="1" HeightRequest="1" Margin="4,0,4,0"
+                         VerticalOptions="End" InputTransparent="True"
+                         Color="{DynamicResource DividerColor}" />
+
+                <VerticalStackLayout Grid.Row="2" Padding="4" Spacing="4">
+                    <Border Style="{StaticResource SidebarRailButton}"
+                            BackgroundColor="{Binding IsSettingsSectionSelected, Converter={StaticResource NavRowBackgroundColor}}"
+                            SemanticProperties.Description="Settings" ToolTipProperties.Text="Settings">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenContextSectionCommand}"
+                                                  CommandParameter="{x:Static vm:ContextPanelSection.Settings}" />
+                        </Border.GestureRecognizers>
+                        <Grid>
+                            <Border WidthRequest="3" HeightRequest="18"
+                                    HorizontalOptions="Start" VerticalOptions="Center"
+                                    BackgroundColor="{DynamicResource AccentColor}"
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 2"
+                                    IsVisible="{Binding IsSettingsSectionSelected}" />
+                            <mi:MauiIcon Icon="{mi:Fluent Icon=Settings24}" IconSize="18"
+                                         IconColor="{Binding IsSettingsSectionSelected, Converter={StaticResource TitleBarIconColor}}"
+                                         HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource SidebarRailButton}"
+                            BackgroundColor="{Binding IsAccountSectionSelected, Converter={StaticResource NavRowBackgroundColor}}"
+                            SemanticProperties.Description="Account" ToolTipProperties.Text="Account">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenContextSectionCommand}"
+                                                  CommandParameter="{x:Static vm:ContextPanelSection.Account}" />
+                        </Border.GestureRecognizers>
+                        <Grid>
+                            <Border WidthRequest="3" HeightRequest="18"
+                                    HorizontalOptions="Start" VerticalOptions="Center"
+                                    BackgroundColor="{DynamicResource AccentColor}"
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 2"
+                                    IsVisible="{Binding IsAccountSectionSelected}" />
+                            <mi:MauiIcon Icon="{mi:Fluent Icon=Person24}" IconSize="18"
+                                         IconColor="{Binding IsAccountSectionSelected, Converter={StaticResource TitleBarIconColor}}"
+                                         HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- This overlay is outside the padded button layouts, so it touches both edges. -->
+                <BoxView Grid.RowSpan="3" WidthRequest="1" HorizontalOptions="End"
+                         InputTransparent="True" Color="{DynamicResource DividerColor}" />
+            </Grid>
+
+            <views:ContextPanelView Grid.Column="1" IsVisible="{Binding IsContextPanelOpen}" />
 
             <!-- The column remains 6px wide for an easy drag target; only this centered rule is
                  painted, so the divider itself reads as a 1px line. -->
-            <Grid x:Name="ChatSplitter" Grid.Column="1" Style="{StaticResource PanelSplitter}"
-                  SemanticProperties.Description="Resize chat panel"
-                  ToolTipProperties.Text="Drag to resize · double-click to reset">
-                <BoxView x:Name="ChatDividerLine" WidthRequest="1" HorizontalOptions="Center"
-                         VerticalOptions="Fill" InputTransparent="True"
-                         Color="{DynamicResource DividerColor}" />
-                <Grid.GestureRecognizers>
-                    <PointerGestureRecognizer PointerPressed="OnChatSplitterPressed"
-                                              PointerEntered="OnChatSplitterPointerEntered"
-                                              PointerExited="OnChatSplitterPointerExited" />
-                    <TapGestureRecognizer NumberOfTapsRequired="2" Command="{Binding ResetPanelWidthsCommand}" />
-                </Grid.GestureRecognizers>
-            </Grid>
-
-            <views:MainPanelView Grid.Column="2" />
-
-            <Grid x:Name="ContextSplitter" Grid.Column="3" Style="{StaticResource PanelSplitter}"
+            <Grid x:Name="ContextSplitter" Grid.Column="2" Style="{StaticResource PanelSplitter}"
                   SemanticProperties.Description="Resize context panel"
                   ToolTipProperties.Text="Drag to resize · double-click to reset">
                 <BoxView x:Name="ContextDividerLine" WidthRequest="1" HorizontalOptions="Center"
@@ -72,7 +158,23 @@
                 </Grid.GestureRecognizers>
             </Grid>
 
-            <views:ContextPanelView Grid.Column="4" IsVisible="{Binding IsContextPanelOpen}" />
+            <views:ChatPanelView Grid.Column="3" BindingContext="{Binding Chat}" />
+
+            <Grid x:Name="ChatSplitter" Grid.Column="4" Style="{StaticResource PanelSplitter}"
+                  SemanticProperties.Description="Resize chat panel"
+                  ToolTipProperties.Text="Drag to resize · double-click to reset">
+                <BoxView x:Name="ChatDividerLine" WidthRequest="1" HorizontalOptions="Center"
+                         VerticalOptions="Fill" InputTransparent="True"
+                         Color="{DynamicResource DividerColor}" />
+                <Grid.GestureRecognizers>
+                    <PointerGestureRecognizer PointerPressed="OnChatSplitterPressed"
+                                              PointerEntered="OnChatSplitterPointerEntered"
+                                              PointerExited="OnChatSplitterPointerExited" />
+                    <TapGestureRecognizer NumberOfTapsRequired="2" Command="{Binding ResetPanelWidthsCommand}" />
+                </Grid.GestureRecognizers>
+            </Grid>
+
+            <views:MainPanelView Grid.Column="5" />
 
         </Grid>
 

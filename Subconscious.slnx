@@ -1,9 +1,11 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Subconscious.Desktop/Subconscious.Desktop.csproj" />
-    <Project Path="src/Subconscious.Desktop.Tray/Subconscious.Desktop.Tray.csproj" />
     <Project Path="src/Subconscious.Engine/Subconscious.Engine.csproj" />
+    <Project Path="src/Subconscious.Mobile/Subconscious.Mobile.csproj" />
+    <Project Path="src/Subconscious.Browser/Subconscious.Browser.csproj" />
+    <Project Path="src/Subconscious.Desktop/Subconscious.Desktop.csproj" />
     <Project Path="src/Subconscious.Host.Cli/Subconscious.Host.Cli.csproj" />
+    <Project Path="src/Subconscious.Desktop.Tray/Subconscious.Desktop.Tray.csproj" />
     <Project Path="src/Subconscious.Tools.Desktop/Subconscious.Tools.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">

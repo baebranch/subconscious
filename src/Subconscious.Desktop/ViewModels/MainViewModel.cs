@@ -216,6 +216,15 @@ public sealed partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void SelectContextSection(ContextPanelSection section) => CurrentContextSection = section;
 
+    /// <summary>Selects a Context Panel section from the persistent navigation rail and makes the
+    /// panel visible when it was previously closed.</summary>
+    [RelayCommand]
+    private void OpenContextSection(ContextPanelSection section)
+    {
+        CurrentContextSection = section;
+        IsContextPanelOpen = true;
+    }
+
     // ── Center panel: workspace form ──────────────────────────────────────────
 
     /// <summary>The center panel's workspace create/edit form. Null means the center panel shows

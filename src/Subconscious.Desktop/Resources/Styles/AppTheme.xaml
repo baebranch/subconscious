@@ -116,7 +116,7 @@
         <Setter Property="BackgroundColor" Value="{DynamicResource AccentColor}" />
         <Setter Property="TextColor" Value="{DynamicResource SurfaceColor}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="CornerRadius" Value="5" />
         <Setter Property="Padding" Value="16,8" />
     </Style>
 
@@ -124,7 +124,7 @@
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="TextColor" Value="{DynamicResource SecondaryTextColor}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="CornerRadius" Value="5" />
         <Setter Property="Padding" Value="16,8" />
     </Style>
 
@@ -182,6 +182,34 @@
         </Setter>
     </Style>
 
+    <!-- Persistent left-rail navigation: a 32px icon target with a 4px margin on each side inside
+         the 40px rail. Individual tabs bind their normal background to selection; this style
+         supplies only shape and hover. -->
+    <Style x:Key="SidebarRailButton" TargetType="Border">
+        <Setter Property="WidthRequest" Value="32" />
+        <Setter Property="HeightRequest" Value="32" />
+        <!-- Parent rail stacks own the shared 4px outer inset and inter-button spacing. -->
+        <Setter Property="Margin" Value="0" />
+        <!-- The 3px selected-marker column shifts its icon right; reserve the same space on the
+             trailing edge so the icon remains centered in the full 32px button. -->
+        <Setter Property="Padding" Value="0,0,0,0" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 5" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource HoverColor}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
     <!-- Compact one-line thread entries. The Button retains its established context-panel
          appearance; LineBreakMode on each bound instance ensures the title cannot wrap. -->
     <Style x:Key="ContextThreadButton" TargetType="Button">
@@ -189,7 +217,7 @@
         <Setter Property="BackgroundColor" Value="{DynamicResource PanelBackgroundColor}" />
         <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="5" />
         <Setter Property="Padding" Value="12,0" />
     </Style>
 

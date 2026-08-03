@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "Windows Machine": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    },
+    "Windows Machine (Dev engine)": {
+      "commandName": "Project",
+      "commandLineArgs": "--dev",
+      "nativeDebugging": false
+    }
+  }
+}

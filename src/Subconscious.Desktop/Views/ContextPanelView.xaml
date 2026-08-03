@@ -9,69 +9,12 @@
              x:DataType="vm:MainViewModel"
              BackgroundColor="{DynamicResource PanelBackgroundColor}">
 
-    <Grid RowDefinitions="44,1,*">
+    <!-- The persistent sidebar owns section selection, so this panel contains only the active
+         section's content and no duplicate tab row. -->
+    <Grid>
 
-        <!-- ── Sub-header: 4 equal tabs, accent icon + underline on the selected one ── -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,*,*,*">
-
-            <Grid Grid.Column="0" RowDefinitions="*,3" BackgroundColor="Transparent"
-                  SemanticProperties.Description="Threads" ToolTipProperties.Text="Threads">
-                <Grid.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding SelectContextSectionCommand}"
-                                          CommandParameter="{x:Static vm:ContextPanelSection.Threads}" />
-                </Grid.GestureRecognizers>
-                <mi:MauiIcon Grid.Row="0" Icon="{mi:Fluent Icon=Chat24}" IconSize="18"
-                             IconColor="{Binding IsThreadsSectionSelected, Converter={StaticResource TabIconColor}}"
-                             HorizontalOptions="Center" VerticalOptions="Center" />
-                <BoxView Grid.Row="1"
-                         Color="{Binding IsThreadsSectionSelected, Converter={StaticResource TabUnderlineColor}}" />
-            </Grid>
-
-            <Grid Grid.Column="1" RowDefinitions="*,3" BackgroundColor="Transparent"
-                  SemanticProperties.Description="Workspaces" ToolTipProperties.Text="Workspaces">
-                <Grid.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding SelectContextSectionCommand}"
-                                          CommandParameter="{x:Static vm:ContextPanelSection.Workspaces}" />
-                </Grid.GestureRecognizers>
-                <mi:MauiIcon Grid.Row="0" Icon="{mi:Fluent Icon=Folder24}" IconSize="18"
-                             IconColor="{Binding IsWorkspacesSectionSelected, Converter={StaticResource TabIconColor}}"
-                             HorizontalOptions="Center" VerticalOptions="Center" />
-                <BoxView Grid.Row="1"
-                         Color="{Binding IsWorkspacesSectionSelected, Converter={StaticResource TabUnderlineColor}}" />
-            </Grid>
-
-            <Grid Grid.Column="2" RowDefinitions="*,3" BackgroundColor="Transparent"
-                  SemanticProperties.Description="Settings" ToolTipProperties.Text="Settings">
-                <Grid.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding SelectContextSectionCommand}"
-                                          CommandParameter="{x:Static vm:ContextPanelSection.Settings}" />
-                </Grid.GestureRecognizers>
-                <mi:MauiIcon Grid.Row="0" Icon="{mi:Fluent Icon=Settings24}" IconSize="18"
-                             IconColor="{Binding IsSettingsSectionSelected, Converter={StaticResource TabIconColor}}"
-                             HorizontalOptions="Center" VerticalOptions="Center" />
-                <BoxView Grid.Row="1"
-                         Color="{Binding IsSettingsSectionSelected, Converter={StaticResource TabUnderlineColor}}" />
-            </Grid>
-
-            <Grid Grid.Column="3" RowDefinitions="*,3" BackgroundColor="Transparent"
-                  SemanticProperties.Description="Account" ToolTipProperties.Text="Account">
-                <Grid.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding SelectContextSectionCommand}"
-                                          CommandParameter="{x:Static vm:ContextPanelSection.Account}" />
-                </Grid.GestureRecognizers>
-                <mi:MauiIcon Grid.Row="0" Icon="{mi:Fluent Icon=Person24}" IconSize="18"
-                             IconColor="{Binding IsAccountSectionSelected, Converter={StaticResource TabIconColor}}"
-                             HorizontalOptions="Center" VerticalOptions="Center" />
-                <BoxView Grid.Row="1"
-                         Color="{Binding IsAccountSectionSelected, Converter={StaticResource TabUnderlineColor}}" />
-            </Grid>
-
-        </Grid>
-
-        <BoxView Grid.Row="1" Color="{DynamicResource DividerColor}" />
-
-        <!-- ── Section content — placeholders until each gets its own pass ──── -->
-        <Grid Grid.Row="2">
+        <!-- ── Section content ─────────────────────────────────────────────── -->
+        <Grid>
 
             <!-- The native selector changes the active workspace in-place. Selecting a workspace
                  reloads its thread collection; the compact list below keeps only thread titles. -->
