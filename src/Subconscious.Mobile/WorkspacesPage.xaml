@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+  xmlns:engine="clr-namespace:Subconscious.Mobile.Engine"
+  x:Class="Subconscious.Mobile.WorkspacesPage"
+  Title="Workspaces">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- Error banner: only visible when the last refresh failed (e.g. no engine reachable
+             yet). Bound directly to the store rather than a page-local property, since the
+             store is the single source of truth shared with AppShell's startup load. -->
+        <Border Grid.Row="0"
+                x:Name="ErrorBanner"
+                Padding="12,8"
+                Margin="12,12,12,0"
+                BackgroundColor="#FDECEA"
+                IsVisible="False">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <Label x:Name="ErrorLabel" TextColor="#B3261E" FontSize="13" />
+        </Border>
+
+        <RefreshView Grid.Row="1" x:Name="WorkspacesRefreshView" Refreshing="OnRefreshing">
+            <CollectionView x:Name="WorkspacesView"
+                            Margin="12"
+                            SelectionMode="None">
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
+                        <Label Text="No workspaces yet" FontSize="16" HorizontalOptions="Center" />
+                        <Label Text="Pull to refresh once the engine is running." FontSize="13"
+                               TextColor="Gray" HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="engine:Workspace">
+                        <Grid Padding="12,10" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" FontSize="16" FontAttributes="Bold" />
+                            <Label Grid.Row="1" Grid.Column="0" Text="{Binding Description}" FontSize="13"
+                                   TextColor="Gray" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+
+    </Grid>
+
+</ContentPage>

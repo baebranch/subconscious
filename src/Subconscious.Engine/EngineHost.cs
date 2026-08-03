@@ -18,6 +18,11 @@ namespace Subconscious.Engine;
 /// </summary>
 public static class EngineHost
 {
+    // Stable loopback endpoint for the local development workflow. These values are deliberately
+    // used only for --dev; regular engine launches retain an OS-assigned port and fresh token.
+    private const int DevelopmentPort = 55681;
+    private const string DevelopmentToken = "subconscious-dev-token";
+
     /// <summary>
     /// Build the engine host. Returns a <see cref="WebApplication"/> (which implements
     /// <see cref="IHost"/>) so callers that only need generic host behavior — e.g. the
@@ -39,12 +44,12 @@ public static class EngineHost
         });
         builder.Logging.SetMinimumLevel(config.Dev ? LogLevel.Debug : LogLevel.Information);
 
-        // Loopback-only binding, dynamic port unless one was requested explicitly. Port 0
-        // asks Kestrel for any free port; the actual bound port is read back after Start()
-        // (see StartEngineAsync) and stamped into runtime.json.
+        // Loopback-only binding. Development has a stable endpoint for debuggers and REST
+        // clients; regular runs keep an explicitly requested port or the OS-assigned port 0.
+        var listenPort = config.Dev ? DevelopmentPort : config.Port;
         builder.WebHost.UseKestrel(kestrel =>
         {
-            kestrel.Listen(System.Net.IPAddress.Loopback, config.Port);
+            kestrel.Listen(System.Net.IPAddress.Loopback, listenPort);
         });
         // Suppress the ASP.NET Core startup banner lines ("Now listening on...",
         // "Application started...") that would otherwise print regardless of the
@@ -53,7 +58,9 @@ public static class EngineHost
         builder.WebHost.UseSetting("suppressStatusMessages", "true");
 
         builder.Services.AddSingleton(config);
-        builder.Services.AddSingleton(EngineAuthToken.Generate());
+        builder.Services.AddSingleton(config.Dev
+            ? new EngineAuthToken(DevelopmentToken)
+            : EngineAuthToken.Generate());
 
         Directory.CreateDirectory(config.DataDirectory);
         var dbPath = Path.Combine(config.DataDirectory, "subconscious.db");
@@ -81,7 +88,14 @@ public static class EngineHost
         using (var scope = app.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<SubconsciousDbContext>();
-            await db.Database.EnsureCreatedAsync();
+
+            // Creates the database if it's missing entirely, applies any pending migrations if
+            // it isn't, and transparently baselines pre-migrations databases (from earlier .NET
+            // builds using EnsureCreated, or from the original Python engine) onto the migration
+            // history in place — see DatabaseMigrator for the reasoning.
+            await DatabaseMigrator.MigrateAsync(
+                db,
+                scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(DatabaseMigrator)));
         }
 
         await app.StartAsync();

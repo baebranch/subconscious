@@ -1,40 +1,96 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>Subconscious.Desktop</AssemblyName>
-    <RootNamespace>Subconscious.Desktop</RootNamespace>
-    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-  </PropertyGroup>
+	<PropertyGroup>
+		<!--
+			.NET MAUI replaces Avalonia here (see CHANGELOG): same "one codebase, native-feeling
+			everywhere" goal, but the same UI stack the Mobile client already uses, so there is
+			one framework to learn instead of two.
 
-  <ItemGroup>
-    <!--
-      Avalonia UI (translation.md §4.3 Phase 6 decision): cross-platform, custom-rendered,
-      the closest analog to "one codebase, native-feeling everywhere" the desktop client
-      needs across Windows/macOS/Linux. Fluent theme gives Windows 11-native-looking chrome
-      out of the box; per-platform look (macOS traffic lights, GNOME header bars) is a
-      follow-up styling pass once this vertical slice (chat) is validated.
-    -->
-    <PackageReference Include="Avalonia" Version="11.3.18" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.18" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.18" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.18" />
-    <!-- Diagnostics only in Debug; excluded from Release builds like the Avalonia template default. -->
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.18" Condition="'$(Configuration)' == 'Debug'" />
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-  </ItemGroup>
+			Only the head that can actually be built on the current OS is listed - Windows builds
+			the WinUI head, macOS builds the Mac Catalyst head. Listing both unconditionally would
+			make `dotnet build Subconscious.slnx` on Windows try (and fail) to build the Mac app.
 
-  <ItemGroup>
-    <ProjectReference Include="..\Subconscious.Engine\Subconscious.Engine.csproj" />
-  </ItemGroup>
+			Trade-off worth knowing: MAUI has no Linux head. The Avalonia version ran on Linux;
+			this one does not.
+		-->
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">net10.0-windows10.0.19041.0</TargetFrameworks>
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('osx'))">net10.0-maccatalyst</TargetFrameworks>
 
-  <ItemGroup>
-    <!-- Window/taskbar icon + custom titlebar logo, copied from the repo-root Icons/ folder. -->
-    <AvaloniaResource Include="Assets\**" />
-  </ItemGroup>
+		<OutputType>Exe</OutputType>
+		<RootNamespace>Subconscious.Desktop</RootNamespace>
+		<AssemblyName>Subconscious.Desktop</AssemblyName>
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
 
+		<!-- Compile XAML to C# via the source generator (same setting as Subconscious.Mobile):
+		     XAML errors show up at build time instead of as a runtime exception. -->
+		<MauiXamlInflator>SourceGen</MauiXamlInflator>
+
+		<!-- Display name -->
+		<ApplicationTitle>Subconscious</ApplicationTitle>
+
+		<!-- App Identifier -->
+		<ApplicationId>com.subconscious.desktop</ApplicationId>
+
+		<!-- Versions -->
+		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+		<ApplicationVersion>1</ApplicationVersion>
+
+		<!-- Unpackaged (plain .exe, no MSIX identity) so it runs straight from bin/ and from
+		     `dotnet run` like the Avalonia app did. -->
+		<WindowsPackageType>None</WindowsPackageType>
+
+		<!--
+			MVVMTK0045: the MVVM Toolkit suggests [ObservableProperty] on partial properties rather
+			than fields so CsWinRT can generate WinRT marshalling for Native AOT. This app isn't
+			AOT-published and its view models are never marshalled across the WinRT boundary, and
+			the 8.4.0 generator doesn't actually emit implementations for partial properties here,
+			so the field form stays and the advice is muted rather than left as build noise.
+		-->
+		<NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
+
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- Use the shared Subconscious mark for the generated Windows taskbar/application icon.
+		     It contains its own white rounded background and black glyph, so it replaces the
+		     previous MAUI foreground/background composition. -->
+		<MauiIcon Include="..\..\Icons\logo.svg" Link="Resources\AppIcon\subconscious_appicon.svg" />
+
+		<!-- Splash Screen -->
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#7C6FE0" BaseSize="128,128" />
+
+		<!--
+			The title bar uses the supplied PNG files directly. Exclude this folder from MauiImage so
+			Resizetizer does not generate scaled copies or rasterize the legacy SVGs; MauiAsset
+			packages the original PNG bytes under their filename for ImageSource resolution.
+		-->
+		<MauiImage Remove="Resources\Images\**\*" />
+		<MauiAsset Include="Resources\Images\*.png" LogicalName="%(Filename)%(Extension)" />
+
+		<!-- Custom Fonts -->
+		<MauiFont Include="Resources\Fonts\*" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<!-- Same icon set the Mobile client uses, so both clients draw from one visual language
+		     instead of the hand-rolled Rectangle/Ellipse glyphs the Avalonia version had. -->
+		<PackageReference Include="AathifMahir.Maui.MauiIcons.Fluent" Version="6.0.0" />
+	</ItemGroup>
+
+	<!--
+		No ProjectReference to Subconscious.Engine on purpose: Engine/ here holds client-side
+		copies of the wire DTOs (same approach as subconscious-code/src/engine/types.ts), so the
+		client stays a plain HTTP/WebSocket consumer of the engine's API. Referencing the engine
+		project would also drag the ASP.NET Core framework reference into a WinUI app.
+	-->
 
 </Project>

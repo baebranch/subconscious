@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Converters, and every control style the app's views use. The palette itself — AccentColor,
+  SurfaceColor, and the rest of the semantic colour keys — used to be defined right here as static
+  <Color> values. It now lives in ThemeService/ThemePalette instead: ThemeService.Initialize
+  writes the active palette straight into Application.Current.Resources at startup, and every
+  Setter below reads those keys via DynamicResource rather than StaticResource so a later theme
+  change (mode, accent, or the OS flipping under a "Device" setting) repaints live instead of
+  needing a restart.
+
+  The <Color> declarations just below are fallbacks only — needed because a resource dictionary
+  merged via App.xaml's MergedDictionaries is compiled and available before ThemeService.Initialize
+  runs (see App.xaml.cs), so a DynamicResource lookup needs *something* to resolve to for that one
+  frame. ThemeService overwrites every one of these keys on its very first Apply() call. Values
+  here match ThemePalette's light palette so there's no flash if Initialize is ever skipped.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    xmlns:conv="clr-namespace:Subconscious.Desktop.Converters">
+
+    <!-- ── Palette fallbacks — overwritten by ThemeService.Initialize before first paint ────── -->
+    <Color x:Key="AccentColor">#673AB7</Color>
+    <Color x:Key="SurfaceColor">#FFFFFF</Color>
+    <Color x:Key="PanelBackgroundColor">#FFFFFF</Color>
+    <Color x:Key="ContextRowSelectedBackgroundColor">#EBE7F4</Color>
+    <Color x:Key="DividerColor">#E5E3ED</Color>
+    <Color x:Key="PrimaryTextColor">#1F1B2E</Color>
+    <Color x:Key="SecondaryTextColor">#8A8698</Color>
+    <Color x:Key="HoverColor">#EFEEF4</Color>
+    <Color x:Key="UserBubbleColor">#EEEBFB</Color>
+    <Color x:Key="AssistantBubbleColor">#F2F2F5</Color>
+    <Color x:Key="ErrorColor">#D9534F</Color>
+    <Color x:Key="ErrorBackgroundColor">#FDECEA</Color>
+
+    <!-- Also rebuilt by ThemeService.Apply (Border.Stroke and friends want a Brush, not a Color) —
+         static bindings here would each stop tracking their source Color the moment that key's
+         value changes, same reasoning as the Apply() code comment. -->
+    <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentColor}" />
+    <SolidColorBrush x:Key="DividerBrush" Color="{DynamicResource DividerColor}" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{DynamicResource SurfaceColor}" />
+
+    <!-- ── Converters ───────────────────────────────────────────────────────── -->
+    <conv:InvertedBoolConverter x:Key="InvertedBool" />
+    <conv:IsNotEmptyConverter x:Key="IsNotEmpty" />
+    <conv:IsEmptyConverter x:Key="IsEmpty" />
+    <conv:BubbleAlignmentConverter x:Key="BubbleAlignment" />
+    <!-- These converters resolve semantic resource keys every time their bound selection state is
+         evaluated. MainViewModel refreshes those bindings after ThemeService replaces the runtime
+         palette, so selected context navigation repaints immediately. -->
+    <conv:SelectedColorConverter x:Key="TabIconColor"
+                                 SelectedResourceKey="AccentColor"
+                                 UnselectedResourceKey="SecondaryTextColor" />
+    <!-- Title-bar controls remain monochrome, using full-strength vs. muted app text. -->
+    <conv:SelectedColorConverter x:Key="TitleBarIconColor"
+                                 SelectedResourceKey="PrimaryTextColor"
+                                 UnselectedResourceKey="SecondaryTextColor" />
+    <conv:SelectedColorConverter x:Key="TabUnderlineColor"
+                                 SelectedResourceKey="AccentColor"
+                                 UnselectedColor="Transparent" />
+    <conv:BoolToTextConverter x:Key="WorkspaceFormTitle" TrueText="Edit workspace" FalseText="New workspace" />
+    <conv:BoolToTextConverter x:Key="WorkspaceFormSaveLabel" TrueText="Save" FalseText="Create" />
+
+    <!-- ── Base control styles ──────────────────────────────────────────────── -->
+    <Style TargetType="Page" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceColor}" />
+    </Style>
+
+    <Style TargetType="Label">
+        <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <Style x:Key="PanelTitleLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <Style x:Key="MutedLabel" TargetType="Label">
+        <Setter Property="TextColor" Value="{DynamicResource SecondaryTextColor}" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style x:Key="FieldLabel" TargetType="Label">
+        <Setter Property="TextColor" Value="{DynamicResource SecondaryTextColor}" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style x:Key="FormEntry" TargetType="Entry">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceColor}" />
+        <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource SecondaryTextColor}" />
+    </Style>
+
+    <Style x:Key="FormEditor" TargetType="Editor">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceColor}" />
+        <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource SecondaryTextColor}" />
+        <Setter Property="MinimumHeightRequest" Value="76" />
+    </Style>
+
+    <!-- Compact multiline composer: it begins as a single line, expands with text to roughly
+         five lines, then leaves overflow to the Editor's native vertical scrollbar. -->
+    <Style x:Key="ChatComposerEditor" TargetType="Editor">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource SecondaryTextColor}" />
+        <Setter Property="MinimumHeightRequest" Value="40" />
+        <Setter Property="MaximumHeightRequest" Value="120" />
+    </Style>
+
+    <Style x:Key="AccentButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{DynamicResource AccentColor}" />
+        <Setter Property="TextColor" Value="{DynamicResource SurfaceColor}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="16,8" />
+    </Style>
+
+    <Style x:Key="GhostButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{DynamicResource SecondaryTextColor}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="16,8" />
+    </Style>
+
+    <!-- The splitter grid is a 6px transparent hit target. Its input-transparent child is the
+         only painted part, preserving a precise 1px divider. MainPage switches that rule to the
+         accent color while the pointer is over it. -->
+    <Style x:Key="PanelSplitter" TargetType="Grid">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+    </Style>
+
+    <!-- A button in the title bar's caption strip. 46x32 is the size Windows draws minimize /
+         maximize / close at, so a custom control next to them lines up with the row instead of
+         floating in it, and fills the bar's full height the way they do. Square, borderless, and
+         hover-tinted for the same reason. -->
+    <Style x:Key="TitleBarButton" TargetType="Grid">
+        <Setter Property="WidthRequest" Value="46" />
+        <Setter Property="HeightRequest" Value="32" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="Transparent" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource HoverColor}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Square icon buttons match the compact controls in the other desktop clients: a fixed
+         square hit target with a neutral hover fill instead of a circular icon-button treatment. -->
+    <Style x:Key="SquareIconButton" TargetType="ImageButton">
+        <Setter Property="WidthRequest" Value="32" />
+        <Setter Property="HeightRequest" Value="32" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource HoverColor}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Compact one-line thread entries. The Button retains its established context-panel
+         appearance; LineBreakMode on each bound instance ensures the title cannot wrap. -->
+    <Style x:Key="ContextThreadButton" TargetType="Button">
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource PanelBackgroundColor}" />
+        <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="12,0" />
+    </Style>
+
+    <!-- ── Settings nav row (context panel) ─────────────────────────────────── -->
+    <!-- A sidebar-nav-style row for the Settings section's list of settings pages — currently
+         just "General Settings". No icon, no chevron: a left accent bar plus a filled background
+         mark the page that's currently open in the center panel, the shape a settings app's own
+         section list uses ("this is where you are"), not a Windows-Settings/iOS-Settings-style
+         "this opens something" row. -->
+    <conv:SelectedColorConverter x:Key="NavRowBackgroundColor"
+                                 SelectedResourceKey="ContextRowSelectedBackgroundColor"
+                                 UnselectedResourceKey="PanelBackgroundColor" />
+    <conv:StringMatchColorConverter x:Key="WorkspaceRowBackgroundColor"
+                                    MatchResourceKey="ContextRowSelectedBackgroundColor"
+                                    NoMatchResourceKey="PanelBackgroundColor" />
+    <conv:StringMatchColorConverter x:Key="WorkspaceRowIndicatorColor"
+                                    MatchResourceKey="AccentColor"
+                                    NoMatchColor="Transparent" />
+    <conv:StringMatchColorConverter x:Key="ThreadRowBackgroundColor"
+                                    MatchResourceKey="ContextRowSelectedBackgroundColor"
+                                    NoMatchResourceKey="PanelBackgroundColor" />
+    <conv:StringMatchColorConverter x:Key="ThreadRowIndicatorColor"
+                                    MatchResourceKey="AccentColor"
+                                    NoMatchColor="Transparent" />
+
+    <!-- Shared for Settings pages and workspace entries. The binding supplies the base selected
+         or neutral colour; PointerOver temporarily raises it to the same neutral hover fill
+         Windows uses for navigation rows. -->
+    <Style x:Key="ContextNavigationRow" TargetType="Border">
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource PanelBackgroundColor}" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 6" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource HoverColor}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Workspace entries retain the same hover, selected tint, compact marker, and rounded
+         button shape as settings pages, but reserve room for a title plus two description lines. -->
+    <Style x:Key="ContextWorkspaceRow" TargetType="Border" BasedOn="{StaticResource ContextNavigationRow}">
+        <Setter Property="HeightRequest" Value="68" />
+    </Style>
+
+    <!-- ── Settings form (center panel) ────────────────────────────────────── -->
+    <!-- Deliberately *not* restyled beyond spacing/typography: the brief calls for "OS field
+         styling", so Picker/Entry below carry no BackgroundColor, Stroke, or CornerRadius setters
+         of their own and render with whatever chrome WinUI/Mac Catalyst draws for that control —
+         the same ComboBox/NSPopUpButton look every other app on the OS uses, rather than the
+         purple-outlined box style the rest of this app's forms use (see FormEntry/FormEditor). -->
+
+    <Style x:Key="SettingsSectionTitle" TargetType="Label">
+        <Setter Property="FontSize" Value="19" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
+    </Style>
+
+    <Style x:Key="SettingsFieldLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{DynamicResource SecondaryTextColor}" />
+    </Style>
+
+    <Style x:Key="SettingsFieldValueLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="LineBreakMode" Value="NoWrap" />
+    </Style>
+
+    <!-- Small circular accent button used for "new thread" / "new workspace" / send / stop. -->
+    <Style x:Key="RoundAccentButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{DynamicResource AccentColor}" />
+        <Setter Property="TextColor" Value="{DynamicResource SurfaceColor}" />
+        <Setter Property="WidthRequest" Value="30" />
+        <Setter Property="HeightRequest" Value="30" />
+        <Setter Property="CornerRadius" Value="15" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+</ResourceDictionary>

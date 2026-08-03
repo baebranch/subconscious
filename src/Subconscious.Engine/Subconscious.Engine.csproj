@@ -57,4 +57,17 @@
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      Design-time package for `dotnet ef migrations add/remove` and `dotnet ef database update`.
+      Not required at runtime (EngineHost still bootstraps via EnsureCreatedAsync +
+      SqliteSchemaReconciler), but migrations are the source of truth for schema history and are
+      generated/verified with this tooling.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
 </Project>

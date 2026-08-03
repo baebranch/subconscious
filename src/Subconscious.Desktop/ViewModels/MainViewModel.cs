@@ -1,0 +1,347 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Subconscious.Desktop.Engine;
+using Subconscious.Desktop.Services;
+
+namespace Subconscious.Desktop.ViewModels;
+
+
+/// <summary>The right-hand context panel's sub-header sections. Each shows a placeholder pane for
+/// now — Threads is the default/left-most section.</summary>
+public enum ContextPanelSection
+{
+    Threads,
+    Workspaces,
+    Settings,
+    Account,
+}
+
+/// <summary>Settings pages that mirror the desktop Python client's settings modes.</summary>
+public enum SettingsPage
+{
+    General,
+    Models,
+    Tools,
+    Skills,
+    About,
+}
+
+/// <summary>
+/// Root view model for the main page: the chat pane (the wired-up vertical slice), the center
+/// utility panel, the right context panel, and the panel widths the user drags the dividers to.
+/// </summary>
+public sealed partial class MainViewModel : ViewModelBase
+{
+    // Drag limits. The center panel additionally keeps a minimum share of the window — that cap
+    // depends on the current window width, so MainPage applies it (see MainPage.ClampChatWidth).
+    public const double MinChatPanelWidth = 280;
+    public const double MaxChatPanelWidth = 720;
+    public const double MinContextPanelWidth = 240;
+    public const double MaxContextPanelWidth = 640;
+    public const double DefaultChatPanelWidth = 380;
+    public const double DefaultContextPanelWidth = 360;
+
+    private readonly LayoutStateStore _layoutStore;
+    private readonly LayoutState _layout;
+    private readonly ThemeService _theme;
+
+    private double _chatPanelWidth;
+    private double _contextPanelWidth;
+    private long _themeRevision;
+
+    /// <summary>Set while the constructor seeds properties from the persisted layout, so restoring
+    /// state doesn't immediately write it straight back out.</summary>
+    private bool _restoring;
+
+    public ChatViewModel Chat { get; } = new();
+
+    // These forms model the fields defined by the Python UI and engine migrations. They retain
+    // page-local input while navigating; persistence is enabled only once engine CRUD endpoints
+    // and a secrets store are available.
+    public ModelSettingsFormViewModel ModelSettingsForm { get; } = new();
+    public ToolSettingsFormViewModel ToolSettingsForm { get; } = new();
+    public SkillSettingsFormViewModel SkillSettingsForm { get; } = new();
+    public AboutSettingsViewModel AboutSettings { get; } = new();
+
+    /// <summary>Where the engine reads/writes its data (db, runtime.json, logs) — shown read-only
+    /// on the Settings pane. Same directory <see cref="Engine.EngineDiscovery"/> probes to find a
+    /// running engine, so what's displayed here is exactly where that lookup is looking.</summary>
+    public string DataDirectory { get; } = Engine.EngineDiscovery.DataDirectory(MauiProgram.DevMode);
+
+    /// <summary>Theme-aware icon color for nested MauiIcons markup. A direct DynamicResource does
+    /// not resolve inside that markup extension, so this value is explicitly refreshed when the
+    /// active palette changes.</summary>
+    public Color IconColor => Application.Current?.Resources.TryGetValue("PrimaryTextColor", out var value) == true
+        && value is Color color
+        ? color
+        : Colors.Black;
+
+    /// <summary>A monotonically increasing input for collection-item MultiBindings. Its value is
+    /// irrelevant to selection comparisons; the change notification forces converters to resolve
+    /// newly replaced palette resources immediately.</summary>
+    public long ThemeRevision => _themeRevision;
+
+    public MainViewModel(LayoutStateStore layoutStore, ThemeService theme)
+    {
+        _layoutStore = layoutStore;
+        _layout = layoutStore.Load();
+        _theme = theme;
+        _theme.Changed += OnThemeChanged;
+        Chat.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ChatViewModel.CurrentThread))
+            {
+                OnPropertyChanged(nameof(ActiveThreadUuid));
+            }
+        };
+
+        _restoring = true;
+        _chatPanelWidth = Math.Clamp(_layout.ChatPanelWidth, MinChatPanelWidth, MaxChatPanelWidth);
+        _contextPanelWidth = Math.Clamp(_layout.ContextPanelWidth, MinContextPanelWidth, MaxContextPanelWidth);
+        IsContextPanelOpen = _layout.IsContextPanelOpen;
+        CurrentContextSection = Enum.TryParse<ContextPanelSection>(_layout.ContextSection, out var section)
+            ? section
+            : ContextPanelSection.Threads;
+        _restoring = false;
+    }
+
+    // ── Panel sizing ──────────────────────────────────────────────────────────
+
+    /// <summary>Width of the left chat panel, in device-independent units. Clamped on assignment
+    /// so a fast drag can't push it past its limits.</summary>
+    public double ChatPanelWidth
+    {
+        get => _chatPanelWidth;
+        set => SetProperty(ref _chatPanelWidth, Math.Clamp(value, MinChatPanelWidth, MaxChatPanelWidth));
+    }
+
+    /// <summary>Width of the right context panel when it's open.</summary>
+    public double ContextPanelWidth
+    {
+        get => _contextPanelWidth;
+        set
+        {
+            if (SetProperty(ref _contextPanelWidth, Math.Clamp(value, MinContextPanelWidth, MaxContextPanelWidth)))
+            {
+                OnPropertyChanged(nameof(EffectiveContextPanelWidth));
+            }
+        }
+    }
+
+    /// <summary>The width the context column should actually get — zero while the panel is
+    /// toggled off, so the center panel takes the space back.</summary>
+    public double EffectiveContextPanelWidth => IsContextPanelOpen ? ContextPanelWidth : 0;
+
+    /// <summary>Writes the current layout to disk. Called when a drag finishes rather than on
+    /// every pixel of movement.</summary>
+    public void SaveLayout()
+    {
+        if (_restoring)
+        {
+            return;
+        }
+
+        _layout.ChatPanelWidth = ChatPanelWidth;
+        _layout.ContextPanelWidth = ContextPanelWidth;
+        _layout.IsContextPanelOpen = IsContextPanelOpen;
+        _layout.ContextSection = CurrentContextSection.ToString();
+        _layoutStore.Save(_layout);
+    }
+
+    /// <summary>Restores both dividers to their design defaults — bound to a double-click on
+    /// either divider, the usual desktop convention.</summary>
+    [RelayCommand]
+    private void ResetPanelWidths()
+    {
+        ChatPanelWidth = DefaultChatPanelWidth;
+        ContextPanelWidth = DefaultContextPanelWidth;
+        SaveLayout();
+    }
+
+    // ── Context panel ─────────────────────────────────────────────────────────
+
+    /// <summary>Whether the right-hand context panel is visible. Toggled from the header button.</summary>
+    [ObservableProperty]
+    private bool _isContextPanelOpen = true;
+
+    /// <summary>Which sub-header section of the context panel is currently shown.</summary>
+    [ObservableProperty]
+    private ContextPanelSection _currentContextSection = ContextPanelSection.Threads;
+
+    public bool IsThreadsSectionSelected => CurrentContextSection == ContextPanelSection.Threads;
+    public bool IsWorkspacesSectionSelected => CurrentContextSection == ContextPanelSection.Workspaces;
+    public bool IsSettingsSectionSelected => CurrentContextSection == ContextPanelSection.Settings;
+    public bool IsAccountSectionSelected => CurrentContextSection == ContextPanelSection.Account;
+
+    partial void OnIsContextPanelOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(EffectiveContextPanelWidth));
+        SaveLayout();
+    }
+
+    partial void OnCurrentContextSectionChanged(ContextPanelSection value)
+    {
+        OnPropertyChanged(nameof(IsThreadsSectionSelected));
+        OnPropertyChanged(nameof(IsWorkspacesSectionSelected));
+        OnPropertyChanged(nameof(IsSettingsSectionSelected));
+        OnPropertyChanged(nameof(IsAccountSectionSelected));
+        SaveLayout();
+    }
+
+    /// <summary>Re-evaluates selection converters after ThemeService has replaced the runtime
+    /// palette. Converters do not receive resource-change notifications on their own.</summary>
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        _themeRevision++;
+        Chat.RefreshTheme();
+        OnPropertyChanged(nameof(ThemeRevision));
+        OnPropertyChanged(nameof(IsContextPanelOpen));
+        OnPropertyChanged(nameof(IsThreadsSectionSelected));
+        OnPropertyChanged(nameof(IsWorkspacesSectionSelected));
+        OnPropertyChanged(nameof(IsSettingsSectionSelected));
+        OnPropertyChanged(nameof(IsAccountSectionSelected));
+        OnPropertyChanged(nameof(IsGeneralSettingsPageOpen));
+        OnPropertyChanged(nameof(IsModelsSettingsPageOpen));
+        OnPropertyChanged(nameof(IsToolsSettingsPageOpen));
+        OnPropertyChanged(nameof(IsSkillsSettingsPageOpen));
+        OnPropertyChanged(nameof(IsAboutSettingsPageOpen));
+        OnPropertyChanged(nameof(ActiveWorkspaceUuid));
+        OnPropertyChanged(nameof(ActiveThreadUuid));
+        OnPropertyChanged(nameof(IconColor));
+    }
+
+    [RelayCommand]
+    private void ToggleContextPanel() => IsContextPanelOpen = !IsContextPanelOpen;
+
+    [RelayCommand]
+    private void SelectContextSection(ContextPanelSection section) => CurrentContextSection = section;
+
+    // ── Center panel: workspace form ──────────────────────────────────────────
+
+    /// <summary>The center panel's workspace create/edit form. Null means the center panel shows
+    /// its normal placeholder content instead.</summary>
+    [ObservableProperty]
+    private WorkspaceFormViewModel? _workspaceForm;
+
+    public bool IsWorkspaceFormOpen => WorkspaceForm is not null;
+
+    /// <summary>The workspace currently open in the center-panel management form. This is
+    /// deliberately independent from <see cref="ChatViewModel.CurrentWorkspace"/>, which only
+    /// determines the thread collection selected in the Threads subpanel.</summary>
+    public string? ActiveWorkspaceUuid => WorkspaceForm?.Uuid;
+
+    /// <summary>The thread currently loaded in the chat pane. Kept as a root property so selected
+    /// row converters reevaluate after either a chat selection or a live palette change.</summary>
+    public string? ActiveThreadUuid => Chat.CurrentThread?.Uuid;
+
+    /// <summary>True when the center panel isn't showing a workspace or settings page.</summary>
+    public bool IsCenterPanelIdle => WorkspaceForm is null && ActiveSettingsPage is null;
+
+    partial void OnWorkspaceFormChanged(WorkspaceFormViewModel? value)
+    {
+        OnPropertyChanged(nameof(IsWorkspaceFormOpen));
+        OnPropertyChanged(nameof(ActiveWorkspaceUuid));
+        OnPropertyChanged(nameof(IsCenterPanelIdle));
+    }
+
+    /// <summary>Opens the center panel's form for creating a new workspace — invoked by the
+    /// Workspaces panel's "+" button instead of creating one directly.</summary>
+    [RelayCommand]
+    private void NewWorkspace() => OpenWorkspaceForm(new WorkspaceFormViewModel(Chat));
+
+    /// <summary>Opens the center panel's form pre-filled with an existing workspace's details —
+    /// invoked by selecting a workspace in the Workspaces panel list.</summary>
+    [RelayCommand]
+    private void EditWorkspace(Workspace workspace) => OpenWorkspaceForm(new WorkspaceFormViewModel(Chat, workspace));
+
+    private void OpenWorkspaceForm(WorkspaceFormViewModel form)
+    {
+        CloseSettingsPage();
+
+        form.Saved += OnWorkspaceFormSaved;
+        form.Cancelled += OnWorkspaceFormCancelled;
+        WorkspaceForm = form;
+    }
+
+    private void OnWorkspaceFormSaved(object? sender, Workspace workspace) => CloseWorkspaceForm();
+
+    private void OnWorkspaceFormCancelled(object? sender, EventArgs e) => CloseWorkspaceForm();
+
+    private void CloseWorkspaceForm()
+    {
+        if (WorkspaceForm is { } form)
+        {
+            form.Saved -= OnWorkspaceFormSaved;
+            form.Cancelled -= OnWorkspaceFormCancelled;
+        }
+        WorkspaceForm = null;
+    }
+
+    // ── Center panel: settings pages ──────────────────────────────────────────
+
+    /// <summary>The selected settings page. Null means no settings page currently occupies the
+    /// center panel.</summary>
+    [ObservableProperty]
+    private SettingsPage? _activeSettingsPage;
+
+    public bool IsGeneralSettingsPageOpen => ActiveSettingsPage == SettingsPage.General;
+    public bool IsModelsSettingsPageOpen => ActiveSettingsPage == SettingsPage.Models;
+    public bool IsToolsSettingsPageOpen => ActiveSettingsPage == SettingsPage.Tools;
+    public bool IsSkillsSettingsPageOpen => ActiveSettingsPage == SettingsPage.Skills;
+    public bool IsAboutSettingsPageOpen => ActiveSettingsPage == SettingsPage.About;
+
+    partial void OnActiveSettingsPageChanged(SettingsPage? value)
+    {
+        OnPropertyChanged(nameof(IsGeneralSettingsPageOpen));
+        OnPropertyChanged(nameof(IsModelsSettingsPageOpen));
+        OnPropertyChanged(nameof(IsToolsSettingsPageOpen));
+        OnPropertyChanged(nameof(IsSkillsSettingsPageOpen));
+        OnPropertyChanged(nameof(IsAboutSettingsPageOpen));
+        OnPropertyChanged(nameof(IsCenterPanelIdle));
+    }
+
+    /// <summary>The backing form for the General settings page. The other pages are intentionally
+    /// configuration empty states until matching desktop engine APIs are available.</summary>
+    [ObservableProperty]
+    private SettingsFormViewModel? _settingsForm;
+
+    partial void OnSettingsFormChanged(SettingsFormViewModel? value)
+    {
+        OnPropertyChanged(nameof(IsCenterPanelIdle));
+    }
+
+    /// <summary>Opens a settings destination from the context panel and ensures the center panel
+    /// hosts exactly one workspace or settings page at a time.</summary>
+    [RelayCommand]
+    private void OpenSettingsPage(SettingsPage page)
+    {
+        CloseWorkspaceForm();
+        CloseSettingsForm();
+        ActiveSettingsPage = page;
+
+        if (page == SettingsPage.General)
+        {
+            var form = new SettingsFormViewModel(_theme, DataDirectory);
+            form.Closed += OnSettingsFormClosed;
+            SettingsForm = form;
+        }
+    }
+
+    private void OnSettingsFormClosed(object? sender, EventArgs e) => CloseSettingsPage();
+
+    private void CloseSettingsPage()
+    {
+        CloseSettingsForm();
+        ActiveSettingsPage = null;
+    }
+
+    private void CloseSettingsForm()
+    {
+        if (SettingsForm is { } form)
+        {
+            form.Closed -= OnSettingsFormClosed;
+            form.Detach();
+        }
+        SettingsForm = null;
+    }
+}

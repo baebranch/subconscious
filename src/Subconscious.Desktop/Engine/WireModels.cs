@@ -48,6 +48,7 @@ public sealed record CreateWorkspaceRequest
 {
     [JsonPropertyName("name")] public required string Name { get; init; }
     [JsonPropertyName("description")] public string? Description { get; init; }
+    [JsonPropertyName("defaultModelId")] public string? DefaultModelId { get; init; }
 }
 
 public sealed record CreateThreadRequest

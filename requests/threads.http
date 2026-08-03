@@ -1,0 +1,29 @@
+@host = 127.0.0.1
+@port = 55681
+@token = subconscious-dev-token
+
+# When started with --dev, the engine always listens on 127.0.0.1:55681 and accepts the
+# development-only token above. Non-dev runs keep dynamic runtime.json discovery values.
+# All routes except /api/v1/health require BearerTokenMiddleware authentication and use
+# camelCase JSON responses.
+#
+# Workspace-scoped thread lists are ordered by updatedAt descending. Message history is
+# ordered by createdAt ascending, ready to load directly into a chat view.
+
+# @workspaceUuid = 446a6abe-b5f8-42ac-a24f-b3e27a450b1a
+@workspaceUuid = 00000000-0000-0000-0000-000000000000
+
+### Get threads in a workspace — 200. An unknown workspace uuid returns an empty list.
+GET http://{{host}}:{{port}}/api/v1/workspaces/{{workspaceUuid}}/threads
+Authorization: Bearer {{token}}
+
+@threadUuid = 00000000-0000-0000-0000-000000000000
+
+### Get one thread — 200, or 404 if the uuid is unknown.
+GET http://{{host}}:{{port}}/api/v1/threads/{{threadUuid}}
+Authorization: Bearer {{token}}
+
+### Get a thread's message history — 200, ordered oldest first.
+# An unknown thread uuid returns an empty list.
+GET http://{{host}}:{{port}}/api/v1/threads/{{threadUuid}}/messages
+Authorization: Bearer {{token}}

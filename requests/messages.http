@@ -1,0 +1,13 @@
+@host = 127.0.0.1
+@port = 55681
+@token = subconscious-dev-token
+
+# The --dev Engine always listens on the endpoint above. A message history is scoped to its
+# thread UUID and is returned in createdAt (oldest-first) order, ready for chat rendering.
+
+@threadUuid = 00000000-0000-0000-0000-000000000000
+
+### Get message history for a thread — 200, ordered oldest first.
+# An unknown thread UUID returns an empty list.
+GET http://{{host}}:{{port}}/api/v1/threads/{{threadUuid}}/messages
+Authorization: Bearer {{token}}

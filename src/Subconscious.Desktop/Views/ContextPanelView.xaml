@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
+             xmlns:engine="clr-namespace:Subconscious.Desktop.Engine"
+             xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
+             x:Class="Subconscious.Desktop.Views.ContextPanelView"
+             x:Name="ContextPanelRoot"
+             x:DataType="vm:MainViewModel"
+             BackgroundColor="{DynamicResource PanelBackgroundColor}">
+
+    <Grid RowDefinitions="44,1,*">
+
+        <!-- ── Sub-header: 4 equal tabs, accent icon + underline on the selected one ── -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,*,*,*">
+
+            <Grid Grid.Column="0" RowDefinitions="*,3" BackgroundColor="Transparent"
+                  SemanticProperties.Description="Threads" ToolTipProperties.Text="Threads">
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding SelectContextSectionCommand}"
+                                          CommandParameter="{x:Static vm:ContextPanelSection.Threads}" />
+                </Grid.GestureRecognizers>
+                <mi:MauiIcon Grid.Row="0" Icon="{mi:Fluent Icon=Chat24}" IconSize="18"
+                             IconColor="{Binding IsThreadsSectionSelected, Converter={StaticResource TabIconColor}}"
+                             HorizontalOptions="Center" VerticalOptions="Center" />
+                <BoxView Grid.Row="1"
+                         Color="{Binding IsThreadsSectionSelected, Converter={StaticResource TabUnderlineColor}}" />
+            </Grid>
+
+            <Grid Grid.Column="1" RowDefinitions="*,3" BackgroundColor="Transparent"
+                  SemanticProperties.Description="Workspaces" ToolTipProperties.Text="Workspaces">
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding SelectContextSectionCommand}"
+                                          CommandParameter="{x:Static vm:ContextPanelSection.Workspaces}" />
+                </Grid.GestureRecognizers>
+                <mi:MauiIcon Grid.Row="0" Icon="{mi:Fluent Icon=Folder24}" IconSize="18"
+                             IconColor="{Binding IsWorkspacesSectionSelected, Converter={StaticResource TabIconColor}}"
+                             HorizontalOptions="Center" VerticalOptions="Center" />
+                <BoxView Grid.Row="1"
+                         Color="{Binding IsWorkspacesSectionSelected, Converter={StaticResource TabUnderlineColor}}" />
+            </Grid>
+
+            <Grid Grid.Column="2" RowDefinitions="*,3" BackgroundColor="Transparent"
+                  SemanticProperties.Description="Settings" ToolTipProperties.Text="Settings">
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding SelectContextSectionCommand}"
+                                          CommandParameter="{x:Static vm:ContextPanelSection.Settings}" />
+                </Grid.GestureRecognizers>
+                <mi:MauiIcon Grid.Row="0" Icon="{mi:Fluent Icon=Settings24}" IconSize="18"
+                             IconColor="{Binding IsSettingsSectionSelected, Converter={StaticResource TabIconColor}}"
+                             HorizontalOptions="Center" VerticalOptions="Center" />
+                <BoxView Grid.Row="1"
+                         Color="{Binding IsSettingsSectionSelected, Converter={StaticResource TabUnderlineColor}}" />
+            </Grid>
+
+            <Grid Grid.Column="3" RowDefinitions="*,3" BackgroundColor="Transparent"
+                  SemanticProperties.Description="Account" ToolTipProperties.Text="Account">
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding SelectContextSectionCommand}"
+                                          CommandParameter="{x:Static vm:ContextPanelSection.Account}" />
+                </Grid.GestureRecognizers>
+                <mi:MauiIcon Grid.Row="0" Icon="{mi:Fluent Icon=Person24}" IconSize="18"
+                             IconColor="{Binding IsAccountSectionSelected, Converter={StaticResource TabIconColor}}"
+                             HorizontalOptions="Center" VerticalOptions="Center" />
+                <BoxView Grid.Row="1"
+                         Color="{Binding IsAccountSectionSelected, Converter={StaticResource TabUnderlineColor}}" />
+            </Grid>
+
+        </Grid>
+
+        <BoxView Grid.Row="1" Color="{DynamicResource DividerColor}" />
+
+        <!-- ── Section content — placeholders until each gets its own pass ──── -->
+        <Grid Grid.Row="2">
+
+            <!-- The native selector changes the active workspace in-place. Selecting a workspace
+                 reloads its thread collection; the compact list below keeps only thread titles. -->
+            <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsThreadsSectionSelected}">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="16,12,16,8">
+                    <Label Grid.Column="0" Text="Threads" FontSize="13" FontAttributes="Bold"
+                           VerticalOptions="Center" />
+                    <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                        <mi:MauiIcon Icon="{mi:Fluent Icon=Folder24}" IconSize="16"
+                                     IconColor="{Binding IconColor}" VerticalOptions="Center" />
+                        <Picker x:Name="WorkspacePicker"
+                                WidthRequest="170"
+                                VerticalOptions="Center"
+                                ItemsSource="{Binding Chat.WorkspaceSelectorItems}"
+                                ItemDisplayBinding="{Binding DisplayName}"
+                                SelectedItem="{Binding Chat.CurrentWorkspaceSelector, Mode=OneWay}"
+                                SelectedIndexChanged="OnWorkspacePickerSelectedIndexChanged"
+                                SemanticProperties.Description="Change workspace"
+                                ToolTipProperties.Text="Change workspace" />
+                    </HorizontalStackLayout>
+                </Grid>
+
+                <CollectionView Grid.Row="1"
+                                ItemsSource="{Binding Chat.Threads}"
+                                SelectionMode="None"
+                                Margin="8,0,8,8">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="4" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.EmptyView>
+                        <Label Text="No threads yet." Style="{StaticResource MutedLabel}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="engine:ThreadInfo">
+                            <Border Style="{StaticResource ContextNavigationRow}"
+                                    SemanticProperties.Description="{Binding Title}"
+                                    ToolTipProperties.Text="{Binding Title}">
+                                <Border.BackgroundColor>
+                                    <MultiBinding Converter="{StaticResource ThreadRowBackgroundColor}">
+                                        <Binding Path="Uuid" />
+                                        <Binding Path="BindingContext.ActiveThreadUuid"
+                                                 Source="{x:Reference ContextPanelRoot}" />
+                                        <!-- Forces a color-converter recalculation after palette replacement;
+                                             it does not affect the established row presentation. -->
+                                        <Binding Path="BindingContext.ThemeRevision"
+                                                 Source="{x:Reference ContextPanelRoot}" />
+                                    </MultiBinding>
+                                </Border.BackgroundColor>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Path=BindingContext.Chat.SelectThreadCommand,
+                                                                        Source={x:Reference ContextPanelRoot}}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="12,*">
+                                    <Border Grid.Column="0" WidthRequest="4" HeightRequest="24"
+                                            HorizontalOptions="Center" VerticalOptions="Center"
+                                            StrokeThickness="0" StrokeShape="RoundRectangle 2">
+                                        <Border.BackgroundColor>
+                                            <MultiBinding Converter="{StaticResource ThreadRowIndicatorColor}">
+                                                <Binding Path="Uuid" />
+                                                <Binding Path="BindingContext.ActiveThreadUuid"
+                                                         Source="{x:Reference ContextPanelRoot}" />
+                                                <!-- Same non-visual revision input as the row background. -->
+                                                <Binding Path="BindingContext.ThemeRevision"
+                                                         Source="{x:Reference ContextPanelRoot}" />
+                                            </MultiBinding>
+                                        </Border.BackgroundColor>
+                                    </Border>
+                                    <Label Grid.Column="1" Text="{Binding Title, TargetNullValue='Untitled thread'}"
+                                           FontSize="13" VerticalOptions="Center"
+                                           MaxLines="1" LineBreakMode="TailTruncation" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+
+            <!-- Workspaces: the list the engine returns from GET /workspaces, loaded once on
+                 startup by ChatViewModel.LoadWorkspacesAsync. Three mutually exclusive states —
+                 loading, failed (with Retry), loaded — because an engine with no workspaces and an
+                 engine that couldn't be asked are very different things to be looking at. -->
+            <Grid RowDefinitions="Auto,Auto,*" IsVisible="{Binding IsWorkspacesSectionSelected}">
+
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="16,12,16,8">
+                    <Label Grid.Column="0" Text="Workspaces" FontSize="13" FontAttributes="Bold"
+                           VerticalOptions="Center" />
+                    <ImageButton Grid.Column="1" Style="{StaticResource SquareIconButton}"
+                                 mi:MauiIcon.Value="{mi:Fluent Icon=Add24, IconSize=16, IconColor={Binding IconColor}}"
+                                 Command="{Binding NewWorkspaceCommand}"
+                                 SemanticProperties.Description="New workspace"
+                                 ToolTipProperties.Text="New workspace" />
+                </Grid>
+
+                <HorizontalStackLayout Grid.Row="1" Margin="16,0,16,8" Spacing="8"
+                                       IsVisible="{Binding Chat.IsLoadingWorkspaces}">
+                    <ActivityIndicator IsRunning="{Binding Chat.IsLoadingWorkspaces}"
+                                       Color="{DynamicResource AccentColor}"
+                                       WidthRequest="14" HeightRequest="14" VerticalOptions="Center" />
+                    <Label Text="Loading workspaces…" Style="{StaticResource MutedLabel}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+
+                <VerticalStackLayout Grid.Row="2" Margin="16,4,16,8" Spacing="10"
+                                     VerticalOptions="Start"
+                                     IsVisible="{Binding Chat.WorkspacesError, Converter={StaticResource IsNotEmpty}}">
+                    <Label Text="Couldn't load workspaces" FontSize="13" FontAttributes="Bold" />
+                    <Label Text="{Binding Chat.WorkspacesError}" Style="{StaticResource MutedLabel}"
+                           TextColor="{DynamicResource ErrorColor}" LineBreakMode="WordWrap" />
+                    <Button Text="Retry" Command="{Binding Chat.LoadWorkspacesCommand}"
+                            Style="{StaticResource GhostButton}" HorizontalOptions="Start" />
+                </VerticalStackLayout>
+
+                <!-- Selecting a row opens it in the center panel's form; see the code-behind,
+                     which clears the selection again so the same row can be re-opened. -->
+                <CollectionView Grid.Row="2" x:Name="WorkspacesView"
+                                ItemsSource="{Binding Chat.Workspaces}"
+                                SelectionMode="Single"
+                                SelectionChanged="OnWorkspaceSelected"
+                                Margin="8,0,8,8"
+                                IsVisible="{Binding Chat.WorkspacesError, Converter={StaticResource IsEmpty}}">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="4" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.EmptyView>
+                        <!-- Only reachable once a load has finished without error, so this now
+                             genuinely means "the engine has none". -->
+                        <Label Text="No workspaces yet." Style="{StaticResource MutedLabel}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="engine:Workspace">
+                            <Border Style="{StaticResource ContextWorkspaceRow}"
+                                    SemanticProperties.Description="{Binding Name}">
+                                <Border.BackgroundColor>
+                                    <MultiBinding Converter="{StaticResource WorkspaceRowBackgroundColor}">
+                                        <Binding Path="Uuid" />
+                                        <Binding Path="BindingContext.ActiveWorkspaceUuid"
+                                                 Source="{x:Reference ContextPanelRoot}" />
+                                        <Binding Path="BindingContext.ThemeRevision"
+                                                 Source="{x:Reference ContextPanelRoot}" />
+                                    </MultiBinding>
+                                </Border.BackgroundColor>
+                                <Grid ColumnDefinitions="12,*">
+                                    <Border Grid.Column="0" WidthRequest="4" HeightRequest="28"
+                                            HorizontalOptions="Center" VerticalOptions="Center"
+                                            StrokeThickness="0" StrokeShape="RoundRectangle 2">
+                                        <Border.BackgroundColor>
+                                            <MultiBinding Converter="{StaticResource WorkspaceRowIndicatorColor}">
+                                                <Binding Path="Uuid" />
+                                                <Binding Path="BindingContext.ActiveWorkspaceUuid"
+                                                         Source="{x:Reference ContextPanelRoot}" />
+                                                <Binding Path="BindingContext.ThemeRevision"
+                                                         Source="{x:Reference ContextPanelRoot}" />
+                                            </MultiBinding>
+                                        </Border.BackgroundColor>
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" Padding="0,7,8,7" Spacing="2"
+                                                         VerticalOptions="Center">
+                                        <Label Text="{Binding Name}" FontSize="13" MaxLines="1"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Text="{Binding Description}" Style="{StaticResource MutedLabel}"
+                                               FontSize="11" MaxLines="2" LineBreakMode="TailTruncation"
+                                               IsVisible="{Binding Description, Converter={StaticResource IsNotEmpty}}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+            </Grid>
+
+            <!-- Settings mirrors the Python client's five settings modes. A selected row marks
+                 the page currently hosted by MainPanelView, not merely the Settings top-level tab. -->
+            <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsSettingsSectionSelected}">
+                <Label Grid.Row="0" Text="Settings" FontSize="13" FontAttributes="Bold"
+                       Margin="16,12,16,8" />
+                <VerticalStackLayout Grid.Row="1" Padding="8,0,8,8" Spacing="8">
+                    <Border Style="{StaticResource ContextNavigationRow}"
+                            BackgroundColor="{Binding IsGeneralSettingsPageOpen, Converter={StaticResource NavRowBackgroundColor}}"
+                            SemanticProperties.Description="General Settings"
+                            ToolTipProperties.Text="General Settings">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSettingsPageCommand}"
+                                                  CommandParameter="{x:Static vm:SettingsPage.General}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="12,*">
+                            <Border Grid.Column="0" WidthRequest="4" HeightRequest="24"
+                                    HorizontalOptions="Center" VerticalOptions="Center"
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 2"
+                                    BackgroundColor="{Binding IsGeneralSettingsPageOpen, Converter={StaticResource TabUnderlineColor}}" />
+                            <Label Grid.Column="1" Text="General Settings" FontSize="13" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource ContextNavigationRow}"
+                            BackgroundColor="{Binding IsModelsSettingsPageOpen, Converter={StaticResource NavRowBackgroundColor}}"
+                            SemanticProperties.Description="Models" ToolTipProperties.Text="Models">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSettingsPageCommand}"
+                                                  CommandParameter="{x:Static vm:SettingsPage.Models}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="12,*">
+                            <Border Grid.Column="0" WidthRequest="4" HeightRequest="24"
+                                    HorizontalOptions="Center" VerticalOptions="Center"
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 2"
+                                    BackgroundColor="{Binding IsModelsSettingsPageOpen, Converter={StaticResource TabUnderlineColor}}" />
+                            <Label Grid.Column="1" Text="Models" FontSize="13" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource ContextNavigationRow}"
+                            BackgroundColor="{Binding IsToolsSettingsPageOpen, Converter={StaticResource NavRowBackgroundColor}}"
+                            SemanticProperties.Description="Tools" ToolTipProperties.Text="Tools">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSettingsPageCommand}"
+                                                  CommandParameter="{x:Static vm:SettingsPage.Tools}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="12,*">
+                            <Border Grid.Column="0" WidthRequest="4" HeightRequest="24"
+                                    HorizontalOptions="Center" VerticalOptions="Center"
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 2"
+                                    BackgroundColor="{Binding IsToolsSettingsPageOpen, Converter={StaticResource TabUnderlineColor}}" />
+                            <Label Grid.Column="1" Text="Tools" FontSize="13" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource ContextNavigationRow}"
+                            BackgroundColor="{Binding IsSkillsSettingsPageOpen, Converter={StaticResource NavRowBackgroundColor}}"
+                            SemanticProperties.Description="Skills" ToolTipProperties.Text="Skills">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSettingsPageCommand}"
+                                                  CommandParameter="{x:Static vm:SettingsPage.Skills}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="12,*">
+                            <Border Grid.Column="0" WidthRequest="4" HeightRequest="24"
+                                    HorizontalOptions="Center" VerticalOptions="Center"
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 2"
+                                    BackgroundColor="{Binding IsSkillsSettingsPageOpen, Converter={StaticResource TabUnderlineColor}}" />
+                            <Label Grid.Column="1" Text="Skills" FontSize="13" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource ContextNavigationRow}"
+                            BackgroundColor="{Binding IsAboutSettingsPageOpen, Converter={StaticResource NavRowBackgroundColor}}"
+                            SemanticProperties.Description="About" ToolTipProperties.Text="About">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSettingsPageCommand}"
+                                                  CommandParameter="{x:Static vm:SettingsPage.About}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="12,*">
+                            <Border Grid.Column="0" WidthRequest="4" HeightRequest="24"
+                                    HorizontalOptions="Center" VerticalOptions="Center"
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 2"
+                                    BackgroundColor="{Binding IsAboutSettingsPageOpen, Converter={StaticResource TabUnderlineColor}}" />
+                            <Label Grid.Column="1" Text="About" FontSize="13" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+            </Grid>
+
+            <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsAccountSectionSelected}">
+                <Label Grid.Row="0" Text="Account" FontSize="13" FontAttributes="Bold"
+                       Margin="16,12,16,8" />
+                <VerticalStackLayout Grid.Row="1" VerticalOptions="Center" HorizontalOptions="Center" Spacing="8">
+                    <Label Text="Account details — coming soon" Style="{StaticResource MutedLabel}"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Grid>
+
+        </Grid>
+
+    </Grid>
+
+</ContentView>

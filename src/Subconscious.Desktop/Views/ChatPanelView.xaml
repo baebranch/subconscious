@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
+             xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
+             x:Class="Subconscious.Desktop.Views.ChatPanelView"
+             x:Name="ChatPanelRoot"
+             x:DataType="vm:ChatViewModel"
+             BackgroundColor="{DynamicResource SurfaceColor}">
+
+    <Grid RowDefinitions="52,1,*,Auto,Auto">
+
+        <!-- ── Header: current thread title + new-thread button ────────────── -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,0">
+            <Label Grid.Column="0"
+                   Text="{Binding CurrentThread.Title, FallbackValue='Subconscious', TargetNullValue='Untitled thread'}"
+                   Style="{StaticResource PanelTitleLabel}" />
+            <ImageButton Grid.Column="1" Style="{StaticResource SquareIconButton}"
+                         mi:MauiIcon.Value="{mi:Fluent Icon=Add24, IconSize=16, IconColor={Binding IconColor}}"
+                         Command="{Binding NewThreadCommand}"
+                         SemanticProperties.Description="New thread"
+                         ToolTipProperties.Text="New thread" />
+        </Grid>
+
+        <BoxView Grid.Row="1" Color="{DynamicResource DividerColor}" />
+
+        <!-- Native bubbles let DynamicResource repaint the transcript and the platform render
+             themed scrollbars without regenerating a second HTML document. -->
+        <CollectionView x:Name="MessagesView"
+                        Grid.Row="2"
+                        ItemsSource="{Binding Messages}"
+                        SelectionMode="None"
+                        Margin="16,8">
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.EmptyView>
+                <Label Text="Start a conversation." Style="{StaticResource MutedLabel}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:MessageViewModel">
+                    <Border MaximumWidthRequest="420"
+                            Padding="10,8"
+                            StrokeThickness="0"
+                            BackgroundColor="{DynamicResource AssistantBubbleColor}"
+                            HorizontalOptions="{Binding IsUser, Converter={StaticResource BubbleAlignment}}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="10" />
+                        </Border.StrokeShape>
+                        <Border.Triggers>
+                            <DataTrigger TargetType="Border" Binding="{Binding IsUser}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{DynamicResource UserBubbleColor}" />
+                            </DataTrigger>
+                        </Border.Triggers>
+                        <VerticalStackLayout Spacing="0">
+                            <!-- Bubble colour conveys the participant; sender labels are intentionally omitted. -->
+                            <Label Text="{Binding Content}" LineBreakMode="WordWrap" />
+                            <Grid Margin="0,6,0,0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                                <Label Grid.Column="1" Text="{Binding Timestamp}" Style="{StaticResource MutedLabel}"
+                                       FontSize="11" VerticalOptions="Center" />
+                                <ImageButton Grid.Column="2" Style="{StaticResource SquareIconButton}"
+                                             WidthRequest="24" HeightRequest="24"
+                                             mi:MauiIcon.Value="{mi:Fluent Icon=Copy24, IconSize=15, IconColor={Binding Source={x:Reference ChatPanelRoot}, Path=BindingContext.IconColor}}"
+                                             Clicked="OnCopyMessageClicked"
+                                             SemanticProperties.Description="Copy message"
+                                             ToolTipProperties.Text="Copy message" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- ── Connection status ───────────────────────────────────────────── -->
+        <Label Grid.Row="3" Text="{Binding StatusText}" Style="{StaticResource MutedLabel}"
+               FontSize="11" Margin="16,6,16,4" />
+
+        <!-- ── Composer ───────────────────────────────────────────────────── -->
+        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="16,0,16,16">
+            <!-- Use the same native editor treatment as the settings forms. It starts at one
+                 line beside the send action, then grows with wrapped content up to five lines. -->
+            <Editor Grid.Column="0"
+                    Text="{Binding ComposerText}"
+                    Placeholder="Type a message..."
+                    AutoSize="TextChanges"
+                    MinimumHeightRequest="40"
+                    MaximumHeightRequest="120"
+                    Style="{StaticResource FormEditor}" />
+
+            <ImageButton Grid.Column="1" Style="{StaticResource SquareIconButton}"
+                         WidthRequest="60" HeightRequest="60" VerticalOptions="End"
+                         mi:MauiIcon.Value="{mi:Fluent Icon=Send24, IconSize=16, IconColor={Binding IconColor}}"
+                         Command="{Binding SendCommand}"
+                         IsVisible="{Binding IsBusy, Converter={StaticResource InvertedBool}}"
+                         SemanticProperties.Description="Send message"
+                         ToolTipProperties.Text="Send" />
+            <Button Grid.Column="1" Text="■" Style="{StaticResource RoundAccentButton}"
+                    Command="{Binding StopCommand}"
+                    IsVisible="{Binding IsBusy}"
+                    SemanticProperties.Description="Stop generating"
+                    ToolTipProperties.Text="Stop" />
+        </Grid>
+
+    </Grid>
+
+</ContentView>

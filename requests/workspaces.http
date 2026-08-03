@@ -1,0 +1,59 @@
+@host = 127.0.0.1
+@port = 55681
+@token = subconscious-dev-token
+
+# When started with --dev, the engine always listens on 127.0.0.1:55681 and accepts the
+# development-only token above. Non-dev runs still publish their dynamic port and random token
+# in runtime.json, e.g.:
+#   %APPDATA%\Subconscious\runtime.json        (Windows, non-dev)
+#   %APPDATA%\Subconscious-dev\runtime.json     (Windows, --dev)
+#
+# Every route below is mapped in Subconscious.Engine/Api/EngineApi.cs (MapWorkspaceEndpoints) and
+# served by WorkspaceService. Bodies and responses are camelCase: minimal APIs use ASP.NET Core's
+# JsonSerializerDefaults.Web and the engine configures nothing on top of it. Note that the
+# WebSocket frames on /api/v1/events use snake_case instead — the two transports differ.
+#
+# Everything except /api/v1/health is behind BearerTokenMiddleware; a wrong token is a 401.
+
+### Get all workspaces — 200, ordered by name
+GET http://{{host}}:{{port}}/api/v1/workspaces
+Authorization: Bearer {{token}}
+
+### Get one workspace — 200, or 404 if the uuid is unknown
+@workspaceUuid = 00000000-0000-0000-0000-000000000000
+GET http://{{host}}:{{port}}/api/v1/workspaces/{{workspaceUuid}}
+Authorization: Bearer {{token}}
+
+### Create a workspace — 200 (not 201) with the created WorkspaceDto.
+# Creates the "default" network on the fly if the database has none.
+POST http://{{host}}:{{port}}/api/v1/workspaces
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Scratch",
+  "description": "Created from workspaces.http",
+  "defaultModelId": null
+}
+
+### Update a workspace — 200, or 404 if the uuid is unknown.
+# Takes the same body as create, and applies it wholesale: omitting "description" sets it to null
+# rather than leaving it alone.
+PUT http://{{host}}:{{port}}/api/v1/workspaces/{{workspaceUuid}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Scratch (renamed)",
+  "description": "Updated from workspaces.http",
+  "defaultModelId": null
+}
+
+### Delete a workspace — 204, or 404 if the uuid is unknown.
+# Cascades: threads, messages, todos, notes, contacts, memories and indexed documents all go too.
+DELETE http://{{host}}:{{port}}/api/v1/workspaces/{{workspaceUuid}}
+Authorization: Bearer {{token}}
+
+### Threads in a workspace — 200. An unknown uuid is an empty list, not a 404.
+GET http://{{host}}:{{port}}/api/v1/workspaces/{{workspaceUuid}}/threads
+Authorization: Bearer {{token}}

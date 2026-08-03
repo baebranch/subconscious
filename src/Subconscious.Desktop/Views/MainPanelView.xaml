@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
+             xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
+             x:Class="Subconscious.Desktop.Views.MainPanelView"
+             x:DataType="vm:MainViewModel"
+             BackgroundColor="{DynamicResource SurfaceColor}">
+
+    <!-- Center panel. Shows the workspace create/edit form or the General Settings form when one
+         is open (MainViewModel only ever opens one at a time — see OpenWorkspaceForm /
+         OpenGeneralSettings), otherwise the Files/Preview/Terminal placeholder. -->
+    <Grid>
+
+        <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8"
+                             IsVisible="{Binding IsCenterPanelIdle}">
+            <Label Text="Utility panel" FontSize="16" Style="{StaticResource MutedLabel}"
+                   HorizontalOptions="Center" />
+            <Label Text="Files · Preview · Terminal — coming soon" Style="{StaticResource MutedLabel}"
+                   HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
+        <!-- Both forms live in the same responsive shell: the centered content stops growing at
+             750px, while the grid's padding leaves a comfortable gutter and lets it shrink with
+             a narrow center panel rather than causing horizontal clipping. -->
+        <ScrollView IsVisible="{Binding IsWorkspaceFormOpen}" Orientation="Vertical">
+            <Grid x:Name="WorkspaceFormHost" Padding="24,28" HorizontalOptions="Center">
+                <VerticalStackLayout BindingContext="{Binding WorkspaceForm}"
+                                     x:DataType="vm:WorkspaceFormViewModel"
+                                     MaximumWidthRequest="750" Spacing="18"
+                                     HorizontalOptions="Fill">
+
+                    <Label Text="{Binding IsEditMode, Converter={StaticResource WorkspaceFormTitle}}"
+                           FontSize="18" FontAttributes="Bold" />
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Name" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding Name}" Placeholder="Workspace name" Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Description" Style="{StaticResource FieldLabel}" />
+                        <Editor Text="{Binding Description}" Placeholder="Optional description"
+                                Style="{StaticResource FormEditor}" AutoSize="TextChanges" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Default model ID" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding DefaultModelId}"
+                               Placeholder="Optional — falls back to the first available model"
+                               Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding IsEditMode}">
+                        <Label Text="UUID" Style="{StaticResource FieldLabel}" />
+                        <Label Text="{Binding Uuid}" FontSize="12" />
+                    </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="*,*" IsVisible="{Binding IsEditMode}">
+                        <VerticalStackLayout Grid.Column="0" Spacing="6">
+                            <Label Text="Created" Style="{StaticResource FieldLabel}" />
+                            <Label Text="{Binding CreatedAt}" FontSize="12" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" Spacing="6">
+                            <Label Text="Updated" Style="{StaticResource FieldLabel}" />
+                            <Label Text="{Binding UpdatedAt}" FontSize="12" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <Label Text="{Binding ErrorText}" TextColor="{DynamicResource ErrorColor}" FontSize="12"
+                           LineBreakMode="WordWrap"
+                           IsVisible="{Binding ErrorText, Converter={StaticResource IsNotEmpty}}" />
+
+                    <HorizontalStackLayout Spacing="10">
+                        <Button Text="{Binding IsEditMode, Converter={StaticResource WorkspaceFormSaveLabel}}"
+                                Command="{Binding SaveCommand}"
+                                Style="{StaticResource AccentButton}" />
+                        <Button Text="Cancel" Command="{Binding CancelCommand}"
+                                Style="{StaticResource GhostButton}" />
+                    </HorizontalStackLayout>
+
+                </VerticalStackLayout>
+            </Grid>
+        </ScrollView>
+
+        <!-- General Settings: Picker/Entry are left unstyled so each platform's native control
+             chrome shows through. -->
+        <ScrollView IsVisible="{Binding IsGeneralSettingsPageOpen}" Orientation="Vertical">
+            <Grid x:Name="SettingsFormHost" Padding="24,28" HorizontalOptions="Center">
+                <VerticalStackLayout BindingContext="{Binding SettingsForm}"
+                                     x:DataType="vm:SettingsFormViewModel"
+                                     MaximumWidthRequest="750" Spacing="18"
+                                     HorizontalOptions="Fill">
+
+                    <Label Text="General Settings" FontSize="18" FontAttributes="Bold" />
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Mode" Style="{StaticResource FieldLabel}" />
+                        <Picker ItemsSource="{Binding ModeOptions}" SelectedItem="{Binding Mode}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Colour Theme" Style="{StaticResource FieldLabel}" />
+                        <Picker ItemsSource="{Binding ColourThemeOptions}" SelectedItem="{Binding ColourTheme}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Data Folder" Style="{StaticResource FieldLabel}" />
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                            <Entry Grid.Column="0" Text="{Binding DataDirectory}" IsReadOnly="True" IsEnabled="False" />
+                            <ImageButton Grid.Column="1" Style="{StaticResource SquareIconButton}"
+                                         mi:MauiIcon.Value="{mi:Fluent Icon=DocumentCopy24, IconSize=16, IconColor={Binding IconColor}}"
+                                         Command="{Binding CopyDataDirectoryCommand}"
+                                         SemanticProperties.Description="Copy data folder path"
+                                         ToolTipProperties.Text="Copy path" />
+                            <ImageButton Grid.Column="2" Style="{StaticResource SquareIconButton}"
+                                         mi:MauiIcon.Value="{mi:Fluent Icon=OpenFolder24, IconSize=16, IconColor={Binding IconColor}}"
+                                         Command="{Binding OpenDataDirectoryCommand}"
+                                         SemanticProperties.Description="Open data folder"
+                                         ToolTipProperties.Text="Open in file explorer" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                </VerticalStackLayout>
+            </Grid>
+        </ScrollView>
+
+        <!-- Models follows the Python configuration contract. The engine currently has no model
+             configuration store or secrets service, so the draft intentionally has no Save button. -->
+        <ScrollView IsVisible="{Binding IsModelsSettingsPageOpen}" Orientation="Vertical">
+            <Grid x:Name="ModelsSettingsHost" Padding="24,28" HorizontalOptions="Center">
+                <VerticalStackLayout BindingContext="{Binding ModelSettingsForm}"
+                                     x:DataType="vm:ModelSettingsFormViewModel"
+                                     MaximumWidthRequest="750" Spacing="18" HorizontalOptions="Fill">
+                    <Label Text="Models" Style="{StaticResource SettingsSectionTitle}" />
+                    <Label Text="Model configuration persistence is not available in the engine yet; entered values remain only for this desktop session."
+                           TextColor="{DynamicResource SecondaryTextColor}" LineBreakMode="WordWrap" />
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Provider" Style="{StaticResource FieldLabel}" />
+                        <Picker ItemsSource="{Binding ProviderOptions}" SelectedItem="{Binding Provider}"
+                                Title="Select a provider" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Model" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding Model}" Placeholder="Enter the model key" Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="API Key" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding ApiKey}" IsPassword="True" Placeholder="Enter your API key"
+                               Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding IsBaseUrlVisible}">
+                        <Label Text="Base URL (OpenAI-compatible API)" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding BaseUrl}" Placeholder="{Binding BaseUrlPlaceholder}"
+                               Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Alias" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding Alias}" Placeholder="A memorable name for this configuration"
+                               Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Context Window (tokens)" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding ContextWindow}" Keyboard="Numeric" Placeholder="Default: 8192"
+                               Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Grid>
+        </ScrollView>
+
+        <!-- Tool Registry has a persisted schema, but no desktop CRUD route exists yet. Name,
+             description, and status are included because those are required/represented by its
+             migration in addition to the Python configuration fields. -->
+        <ScrollView IsVisible="{Binding IsToolsSettingsPageOpen}" Orientation="Vertical">
+            <Grid x:Name="ToolsSettingsHost" Padding="24,28" HorizontalOptions="Center">
+                <VerticalStackLayout BindingContext="{Binding ToolSettingsForm}"
+                                     x:DataType="vm:ToolSettingsFormViewModel"
+                                     MaximumWidthRequest="750" Spacing="18" HorizontalOptions="Fill">
+                    <Label Text="Tools" Style="{StaticResource SettingsSectionTitle}" />
+                    <Label Text="Tool configuration endpoints are not available in the engine yet; entered values remain only for this desktop session."
+                           TextColor="{DynamicResource SecondaryTextColor}" LineBreakMode="WordWrap" />
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Name" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding Name}" Placeholder="Required registry name" Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Alias" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding Alias}" Placeholder="Memorable name for this tool" Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Description" Style="{StaticResource FieldLabel}" />
+                        <Editor Text="{Binding Description}" Placeholder="Optional description" AutoSize="TextChanges"
+                                Style="{StaticResource FormEditor}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Tool Type" Style="{StaticResource FieldLabel}" />
+                        <Picker ItemsSource="{Binding ToolTypeOptions}" SelectedItem="{Binding ToolType}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="10" IsVisible="{Binding IsScriptTool}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Language" Style="{StaticResource FieldLabel}" />
+                            <Picker ItemsSource="{Binding ScriptLanguageOptions}" SelectedItem="{Binding ScriptLanguage}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Script Path" Style="{StaticResource FieldLabel}" />
+                            <Entry Text="{Binding ScriptPath}" Placeholder="Absolute or relative script path"
+                                   Style="{StaticResource FormEntry}" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding IsEndpointTool}">
+                        <Label Text="Endpoint URL" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding EndpointUrl}" Placeholder="https://…" Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Authentication" Style="{StaticResource FieldLabel}" />
+                        <Picker ItemsSource="{Binding AuthTypeOptions}" SelectedItem="{Binding AuthType}" Title="None" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="10" IsVisible="{Binding IsApiKeyAuthentication}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Environment Variable Name" Style="{StaticResource FieldLabel}" />
+                            <Entry Text="{Binding AuthEnvVar}" Placeholder="e.g. MY_TOOL_API_KEY"
+                                   Style="{StaticResource FormEntry}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="API Key" Style="{StaticResource FieldLabel}" />
+                            <Entry Text="{Binding ApiKey}" IsPassword="True" Placeholder="Stored by a future secrets service"
+                                   Style="{StaticResource FormEntry}" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                    <Label Text="OAuth is handled externally through environment variables."
+                           Style="{StaticResource MutedLabel}" IsVisible="{Binding IsOAuthAuthentication}" />
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Status" Style="{StaticResource FieldLabel}" />
+                        <Picker ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding Status}" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Grid>
+        </ScrollView>
+
+        <!-- Skills combine editable registry fields with validation-derived status and tool data. -->
+        <ScrollView IsVisible="{Binding IsSkillsSettingsPageOpen}" Orientation="Vertical">
+            <Grid x:Name="SkillsSettingsHost" Padding="24,28" HorizontalOptions="Center">
+                <VerticalStackLayout BindingContext="{Binding SkillSettingsForm}"
+                                     x:DataType="vm:SkillSettingsFormViewModel"
+                                     MaximumWidthRequest="750" Spacing="18" HorizontalOptions="Fill">
+                    <Label Text="Skills" Style="{StaticResource SettingsSectionTitle}" />
+                    <Label Text="Skill configuration and validation endpoints are not available in the engine yet; entered values remain only for this desktop session."
+                           TextColor="{DynamicResource SecondaryTextColor}" LineBreakMode="WordWrap" />
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Name" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding Name}" Placeholder="Required registry name" Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Alias" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding Alias}" Placeholder="Memorable name for this skill" Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Description" Style="{StaticResource FieldLabel}" />
+                        <Editor Text="{Binding Description}" Placeholder="Optional description" AutoSize="TextChanges"
+                                Style="{StaticResource FormEditor}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Source Type" Style="{StaticResource FieldLabel}" />
+                        <Picker ItemsSource="{Binding SourceTypeOptions}" SelectedItem="{Binding SourceType}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Source" Style="{StaticResource FieldLabel}" />
+                        <Entry Text="{Binding Source}" Placeholder="Folder path, zip path, or URL / Git source"
+                               Style="{StaticResource FormEntry}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Validation Status" Style="{StaticResource FieldLabel}" />
+                        <Label Text="{Binding Status}" Style="{StaticResource SettingsFieldValueLabel}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding IsValidated}">
+                        <Label Text="Required Tools" Style="{StaticResource FieldLabel}" />
+                        <Label Text="{Binding RequiredTools}" Style="{StaticResource SettingsFieldValueLabel}" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Grid>
+        </ScrollView>
+
+        <ScrollView IsVisible="{Binding IsAboutSettingsPageOpen}" Orientation="Vertical">
+            <Grid x:Name="AboutSettingsHost" Padding="24,28" HorizontalOptions="Center">
+                <VerticalStackLayout BindingContext="{Binding AboutSettings}"
+                                     x:DataType="vm:AboutSettingsViewModel"
+                                     MaximumWidthRequest="750" Spacing="14" HorizontalOptions="Fill">
+                    <Label Text="About" Style="{StaticResource SettingsSectionTitle}" />
+                    <Label Text="Subconscious" FontSize="20" FontAttributes="Bold" />
+                    <Label Text="Subconscious is a distributed agentic AI application for creating agents that work across your devices."
+                           Style="{StaticResource SettingsFieldValueLabel}" LineBreakMode="WordWrap" />
+                    <Label Text="Version" Style="{StaticResource SettingsFieldLabel}" />
+                    <Label Text="{Binding Version}" Style="{StaticResource SettingsFieldValueLabel}" />
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="Website" Command="{Binding OpenWebsiteCommand}" Style="{StaticResource GhostButton}" />
+                        <Button Text="License" Command="{Binding OpenLicenseCommand}" Style="{StaticResource GhostButton}" />
+                        <Button Text="Report an Issue" Command="{Binding ReportIssueCommand}" Style="{StaticResource GhostButton}" />
+                    </HorizontalStackLayout>
+                    <Label Text="Automatic update checks and installation are not available in the desktop client yet."
+                           Style="{StaticResource MutedLabel}" LineBreakMode="WordWrap" />
+                    <Label Text="© 2026 Subconscious" Style="{StaticResource MutedLabel}" />
+                </VerticalStackLayout>
+            </Grid>
+        </ScrollView>
+
+    </Grid>
+
+</ContentView>

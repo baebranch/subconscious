@@ -1,23 +1,58 @@
-﻿namespace Subconscious.Mobile;
+﻿using System.Collections.ObjectModel;
+
+namespace Subconscious.Mobile;
 
 public partial class MainPage : ContentPage
 {
-	int count = 0;
+	/// <summary>Backs the CollectionView in MainPage.xaml. ObservableCollection raises
+	/// CollectionChanged itself, so the UI updates on Add without any extra plumbing.</summary>
+	public ObservableCollection<ChatMessage> Messages { get; } = new();
 
 	public MainPage()
 	{
 		InitializeComponent();
+
+		// MainPage acts as its own (minimal) view model for this dummy slice —
+		// no separate class needed just to expose one collection.
+		BindingContext = this;
+
+		Messages.Add(new ChatMessage("Hey! Ask me anything and I'll echo it back for now.", isFromUser: false));
 	}
 
-	private void OnCounterClicked(object? sender, EventArgs e)
+	private async void OnSendClicked(object? sender, EventArgs e)
 	{
-		count += 10;
+		var text = MessageEditor.Text?.Trim();
+		if (string.IsNullOrEmpty(text))
+		{
+			return;
+		}
 
-		if (count == 1)
-			CounterBtn.Text = $"Clicked {count} time";
-		else
-			CounterBtn.Text = $"Clicked {count} times";
+		MessageEditor.Text = string.Empty;
 
-		SemanticScreenReader.Announce(CounterBtn.Text);
+		Messages.Add(new ChatMessage(text, isFromUser: true));
+		ScrollToLatest();
+
+		var reply = await EchoAsync(text);
+
+		Messages.Add(new ChatMessage(reply, isFromUser: false));
+		ScrollToLatest();
+	}
+
+	/// <summary>
+	/// Placeholder "bot" response. Swap this out for a real call into Subconscious.Engine
+	/// once the mobile client is wired up to it — the rest of the chat UI won't need to change.
+	/// </summary>
+	private static async Task<string> EchoAsync(string message)
+	{
+		await Task.Delay(300); // small delay so it reads like a real round trip
+		return $"Echo: {message}";
+	}
+
+	private void ScrollToLatest()
+	{
+		if (Messages.Count > 0)
+		{
+			MessagesView.ScrollTo(Messages[^1], position: ScrollToPosition.End, animate: true);
+		}
 	}
 }
