@@ -300,18 +300,26 @@ public sealed class EngineClient : IAsyncDisposable
     public Task<List<ModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default) =>
         ListAsync<ModelInfo>("models", cancellationToken);
 
-    public async Task<PanelConfigurationSetting> GetPanelConfigurationAsync(CancellationToken cancellationToken = default)
+    /// <summary>Reads generic app-state settings, optionally scoped by key, tag, and client.</summary>
+    public Task<List<AppStateSetting>> GetSettingsAsync(
+        string? key = null,
+        string? tag = null,
+        string? client = null,
+        CancellationToken cancellationToken = default)
     {
-        const string path = "settings/panel-configuration";
-        using var response = await Http.GetAsync(path, cancellationToken);
-        return await ReadAsync<PanelConfigurationSetting>(response, HttpMethod.Get, path, cancellationToken)
-            ?? throw new EngineApiException(HttpMethod.Get, path, response.StatusCode, "empty response body");
+        var parameters = new List<string>();
+        if (key is not null) parameters.Add($"key={Uri.EscapeDataString(key)}");
+        if (tag is not null) parameters.Add($"tag={Uri.EscapeDataString(tag)}");
+        if (client is not null) parameters.Add($"client={Uri.EscapeDataString(client)}");
+        var path = parameters.Count == 0 ? "settings" : $"settings?{string.Join("&", parameters)}";
+        return ListAsync<AppStateSetting>(path, cancellationToken);
     }
 
-    public Task<PanelConfigurationSetting> UpdatePanelConfigurationAsync(string configuration, CancellationToken cancellationToken = default) =>
-        SendJsonAsync<PanelConfigurationSetting, UpdatePanelConfigurationRequest>(
-            HttpMethod.Put, "settings/panel-configuration",
-            new UpdatePanelConfigurationRequest { Configuration = configuration }, cancellationToken);
+    /// <summary>Upserts a batch of generic app-state settings in one engine request.</summary>
+    public Task<List<AppStateSetting>> UpdateSettingsAsync(
+        IReadOnlyList<AppStateSetting> settings, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<List<AppStateSetting>, IReadOnlyList<AppStateSetting>>(
+            HttpMethod.Put, "settings", settings, cancellationToken);
 
     public Task<List<ModelConfiguration>> ListModelConfigurationsAsync(CancellationToken cancellationToken = default) =>
         ListAsync<ModelConfiguration>("model-configurations", cancellationToken);

@@ -93,13 +93,11 @@ public sealed record WsFrame
 }
 
 
-/// <summary>Panel configuration read from the engine-backed <c>app_state</c> setting.</summary>
-public sealed record PanelConfigurationSetting
+/// <summary>A generic setting persisted by the engine's client- and tag-scoped app-state API.</summary>
+public sealed record AppStateSetting
 {
-    [JsonPropertyName("configuration")] public required string Configuration { get; init; }
-}
-
-public sealed record UpdatePanelConfigurationRequest
-{
-    [JsonPropertyName("configuration")] public required string Configuration { get; init; }
+    [JsonPropertyName("key")] public required string Key { get; init; }
+    [JsonPropertyName("value")] public required string Value { get; init; }
+    [JsonPropertyName("tag")] public string? Tag { get; init; }
+    [JsonPropertyName("client")] public string? Client { get; init; }
 }

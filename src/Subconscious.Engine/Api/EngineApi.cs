@@ -33,7 +33,7 @@ public static class EngineMiddleware
         MapMessageEndpoints(app);
         MapModelEndpoints(app);
         MapModelConfigurationEndpoints(app);
-        MapPanelConfigurationEndpoints(app);
+        MapSettingsEndpoints(app);
 
         // Engine-initiated broadcast feed (thread.created/thread.updated/message.created) —
         // the piece AG-UI's request/response run model can't express (translation.md §4.5).
@@ -159,55 +159,73 @@ public static class EngineMiddleware
         });
     }
 
-    private static readonly HashSet<string> ValidPanelConfigurations =
-    [
-        "ContextChatMain",
-        "ChatContextMain",
-        "ContextMainChat",
-        "ChatMainContext",
-        "MainContextChat",
-        "MainChatContext",
-    ];
-
-    private static void MapPanelConfigurationEndpoints(WebApplication app)
+    /// <summary>Exposes the generic <c>app_state</c> table. Clients scope their settings with
+    /// <c>tag</c> and <c>client</c>; individual client models own value validation.</summary>
+    private static void MapSettingsEndpoints(WebApplication app)
     {
-        const string key = "panel_configuration";
-        const string tag = "ui_state";
-        const string defaultConfiguration = "ContextChatMain";
-
-        app.MapGet("/api/v1/settings/panel-configuration", async (SubconsciousDbContext db, CancellationToken ct) =>
+        app.MapGet("/api/v1/settings", async (
+            string? key, string? tag, string? client, SubconsciousDbContext db, CancellationToken ct) =>
         {
-            var configuration = await db.AppState
-                .Where(state => state.Key == key && state.Tag == tag)
-                .Select(state => state.Value)
-                .SingleOrDefaultAsync(ct);
-
-            return Results.Ok(new PanelConfigurationDto
+            var query = db.AppState.AsNoTracking();
+            if (key is not null)
             {
-                Configuration = configuration ?? defaultConfiguration,
-            });
+                query = query.Where(setting => setting.Key == key);
+            }
+            if (tag is not null)
+            {
+                query = query.Where(setting => setting.Tag == tag);
+            }
+            if (client is not null)
+            {
+                query = query.Where(setting => setting.Client == client);
+            }
+
+            var settings = await query.OrderBy(setting => setting.Id)
+                .Select(setting => new AppStateSettingDto
+                {
+                    Key = setting.Key,
+                    Value = setting.Value,
+                    Tag = setting.Tag,
+                    Client = setting.Client,
+                })
+                .ToListAsync(ct);
+            return Results.Ok(settings);
         });
 
-        app.MapPut("/api/v1/settings/panel-configuration", async (
-            UpdatePanelConfigurationRequest request, SubconsciousDbContext db, CancellationToken ct) =>
+        app.MapPut("/api/v1/settings", async (
+            IReadOnlyList<AppStateSettingDto> settings, SubconsciousDbContext db, CancellationToken ct) =>
         {
-            if (!ValidPanelConfigurations.Contains(request.Configuration))
+            if (settings.Count == 0
+                || settings.Any(setting => string.IsNullOrWhiteSpace(setting.Key) || setting.Value is null)
+                || settings.GroupBy(setting => new { setting.Key, setting.Tag, setting.Client }).Any(group => group.Count() > 1))
             {
-                return Results.BadRequest(new { error = "Unsupported panel configuration." });
+                return Results.BadRequest(new { error = "Settings must have a key, value, and unique key/tag/client scope." });
             }
 
-            var state = await db.AppState.SingleOrDefaultAsync(item => item.Key == key && item.Tag == tag, ct);
-            if (state is null)
+            foreach (var setting in settings)
             {
-                db.AppState.Add(new AppState { Key = key, Tag = tag, Value = request.Configuration });
-            }
-            else
-            {
-                state.Value = request.Configuration;
+                var state = await db.AppState.SingleOrDefaultAsync(existing =>
+                    existing.Key == setting.Key
+                    && existing.Tag == setting.Tag
+                    && existing.Client == setting.Client, ct);
+                if (state is null)
+                {
+                    db.AppState.Add(new AppState
+                    {
+                        Key = setting.Key,
+                        Value = setting.Value,
+                        Tag = setting.Tag,
+                        Client = setting.Client,
+                    });
+                }
+                else
+                {
+                    state.Value = setting.Value;
+                }
             }
 
             await db.SaveChangesAsync(ct);
-            return Results.Ok(new PanelConfigurationDto { Configuration = request.Configuration });
+            return Results.Ok(settings);
         });
     }
 

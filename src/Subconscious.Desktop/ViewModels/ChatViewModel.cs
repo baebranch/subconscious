@@ -257,6 +257,32 @@ public sealed partial class ChatViewModel : ViewModelBase
         await RefreshThreadsAsync();
     }
 
+    /// <summary>Restores the persisted workspace filter and reloads the selected thread's
+    /// chronological message history after the engine has supplied its workspace list.</summary>
+    public async Task RestoreSelectionAsync(string? activeWorkspaceUuid, string? selectedThreadUuid, bool showAllThreads)
+    {
+        try
+        {
+            if (showAllThreads)
+            {
+                await ClearWorkspaceSelectionAsync();
+            }
+            else if (Workspaces.FirstOrDefault(workspace => workspace.Uuid == activeWorkspaceUuid) is { } workspace)
+            {
+                await SelectWorkspaceAsync(workspace);
+            }
+
+            if (Threads.FirstOrDefault(thread => thread.Uuid == selectedThreadUuid) is { } thread)
+            {
+                await SelectThreadAsync(thread);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Connected — couldn't restore chat state: {ex.Message}";
+        }
+    }
+
     /// <summary>Selects a thread immediately so its context row highlights, then replaces the
     /// chat panel with its persisted history in chronological order.</summary>
     [RelayCommand]

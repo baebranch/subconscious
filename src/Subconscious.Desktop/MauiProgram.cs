@@ -34,6 +34,7 @@ public static class MauiProgram
         builder.Services.AddSingleton(_ => new LayoutStateStore(DevMode));
         builder.Services.AddSingleton(_ => new ThemeStateStore(DevMode));
         builder.Services.AddSingleton<PanelConfigurationStore>();
+        builder.Services.AddSingleton<DesktopUiStateStore>();
         builder.Services.AddSingleton<ThemeService>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainPage>();

@@ -41,17 +41,18 @@ public sealed partial class MainViewModel : ViewModelBase
     public const double DefaultChatPanelWidth = 380;
     public const double DefaultContextPanelWidth = 360;
 
-    private readonly LayoutStateStore _layoutStore;
-    private readonly LayoutState _layout;
+    private readonly DesktopUiStateStore _desktopUiStateStore;
     private readonly PanelConfigurationStore _panelConfigurationStore;
     private readonly ThemeService _theme;
 
     private double _chatPanelWidth;
     private double _contextPanelWidth;
     private long _themeRevision;
+    private string? _selectedWorkspaceUuid;
+    private SettingsPage _lastSettingsPage = SettingsPage.General;
+    private CancellationTokenSource? _desktopStateSaveDelay;
 
-    /// <summary>Set while the constructor seeds properties from the persisted layout, so restoring
-    /// state doesn't immediately write it straight back out.</summary>
+    /// <summary>Prevents restoration and first-run initialization from overwriting stored state.</summary>
     private bool _restoring;
 
     public ChatViewModel Chat { get; } = new();
@@ -100,29 +101,34 @@ public sealed partial class MainViewModel : ViewModelBase
         }
     }
 
-    public MainViewModel(LayoutStateStore layoutStore, PanelConfigurationStore panelConfigurationStore, ThemeService theme)
+    public MainViewModel(
+        DesktopUiStateStore desktopUiStateStore,
+        PanelConfigurationStore panelConfigurationStore,
+        ThemeService theme)
     {
-        _layoutStore = layoutStore;
-        _layout = layoutStore.Load();
+        _desktopUiStateStore = desktopUiStateStore;
         _panelConfigurationStore = panelConfigurationStore;
         _theme = theme;
         _theme.Changed += OnThemeChanged;
-        Chat.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(ChatViewModel.CurrentThread))
-            {
-                OnPropertyChanged(nameof(ActiveThreadUuid));
-            }
-        };
+        Chat.PropertyChanged += OnChatPropertyChanged;
 
-        _restoring = true;
-        _chatPanelWidth = Math.Clamp(_layout.ChatPanelWidth, MinChatPanelWidth, MaxChatPanelWidth);
-        _contextPanelWidth = Math.Clamp(_layout.ContextPanelWidth, MinContextPanelWidth, MaxContextPanelWidth);
-        IsContextPanelOpen = _layout.IsContextPanelOpen;
-        CurrentContextSection = Enum.TryParse<ContextPanelSection>(_layout.ContextSection, out var section)
-            ? section
-            : ContextPanelSection.Threads;
-        _restoring = false;
+        _chatPanelWidth = DefaultChatPanelWidth;
+        _contextPanelWidth = DefaultContextPanelWidth;
+    }
+
+    private void OnChatPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ChatViewModel.CurrentThread))
+        {
+            OnPropertyChanged(nameof(ActiveThreadUuid));
+        }
+
+        if (e.PropertyName is nameof(ChatViewModel.CurrentThread)
+            or nameof(ChatViewModel.CurrentWorkspace)
+            or nameof(ChatViewModel.ComposerText))
+        {
+            QueueDesktopStateSave();
+        }
     }
 
     // ── Panel sizing ──────────────────────────────────────────────────────────
@@ -152,21 +158,8 @@ public sealed partial class MainViewModel : ViewModelBase
     /// toggled off, so the center panel takes the space back.</summary>
     public double EffectiveContextPanelWidth => IsContextPanelOpen ? ContextPanelWidth : 0;
 
-    /// <summary>Writes the current layout to disk. Called when a drag finishes rather than on
-    /// every pixel of movement.</summary>
-    public void SaveLayout()
-    {
-        if (_restoring)
-        {
-            return;
-        }
-
-        _layout.ChatPanelWidth = ChatPanelWidth;
-        _layout.ContextPanelWidth = ContextPanelWidth;
-        _layout.IsContextPanelOpen = IsContextPanelOpen;
-        _layout.ContextSection = CurrentContextSection.ToString();
-        _layoutStore.Save(_layout);
-    }
+    /// <summary>Queues a coalesced write to the engine after a completed layout change.</summary>
+    public void SaveLayout() => QueueDesktopStateSave();
 
     /// <summary>Restores both dividers to their design defaults — bound to a double-click on
     /// either divider, the usual desktop convention.</summary>
@@ -178,23 +171,106 @@ public sealed partial class MainViewModel : ViewModelBase
         SaveLayout();
     }
 
-    /// <summary>Loads the engine-backed panel configuration after the local API is available.
-    /// A failed read leaves the default layout usable while the engine reconnects.</summary>
-    public async Task LoadPanelConfigurationAsync(bool dev)
+    /// <summary>Initializes chat and restores the Desktop client's engine-backed UI state.</summary>
+    public async Task InitializeEngineBackedStateAsync(bool dev)
     {
+        _restoring = true;
         try
         {
-            var configuration = await _panelConfigurationStore.LoadAsync(dev);
-            _restoring = true;
-            PanelConfiguration = configuration;
-        }
-        catch (Exception)
-        {
-            // Layout remains usable with the default when the local engine is unavailable.
+            await Chat.InitializeAsync(dev);
+            await LoadPanelConfigurationAsync(dev);
+
+            DesktopUiState state;
+            try
+            {
+                state = await _desktopUiStateStore.LoadAsync(dev);
+            }
+            catch (Exception)
+            {
+                return;
+            }
+
+            if (Enum.TryParse<ContextPanelSection>(state.CurrentContext, out var context)
+                && Enum.IsDefined(context))
+            {
+                CurrentContextSection = context;
+            }
+            IsContextPanelOpen = state.ContextVisible;
+            ChatPanelWidth = state.ChatPanelWidth;
+            ContextPanelWidth = state.ContextPanelWidth;
+            Chat.ComposerText = state.ChatboxText;
+            _selectedWorkspaceUuid = state.SelectedWorkspaceUuid;
+            if (Enum.TryParse<SettingsPage>(state.SelectedSetting, out var setting)
+                && Enum.IsDefined(setting))
+            {
+                _lastSettingsPage = setting;
+            }
+
+            await Chat.RestoreSelectionAsync(
+                state.ActiveWorkspaceUuid,
+                state.SelectedThreadUuid,
+                state.ShowAllThreads);
+            OpenMainPanelForCurrentContext();
         }
         finally
         {
             _restoring = false;
+        }
+    }
+
+    private async Task LoadPanelConfigurationAsync(bool dev)
+    {
+        try
+        {
+            PanelConfiguration = await _panelConfigurationStore.LoadAsync(dev);
+        }
+        catch (Exception)
+        {
+            // A failed read leaves the default arrangement usable while the engine reconnects.
+        }
+    }
+
+    private DesktopUiState CreateDesktopUiState() => new()
+    {
+        CurrentView = WorkspaceForm is not null ? "Workspace" : ActiveSettingsPage is not null ? "Settings" : "Idle",
+        CurrentContext = CurrentContextSection.ToString(),
+        ContextVisible = IsContextPanelOpen,
+        ChatPanelWidth = ChatPanelWidth,
+        ContextPanelWidth = ContextPanelWidth,
+        ActiveWorkspaceUuid = Chat.CurrentWorkspace?.Uuid,
+        ShowAllThreads = Chat.CurrentWorkspace is null,
+        SelectedThreadUuid = Chat.CurrentThread?.Uuid,
+        SelectedWorkspaceUuid = _selectedWorkspaceUuid,
+        SelectedSetting = _lastSettingsPage.ToString(),
+        ChatboxText = Chat.ComposerText,
+    };
+
+    private void QueueDesktopStateSave()
+    {
+        if (_restoring)
+        {
+            return;
+        }
+
+        _desktopStateSaveDelay?.Cancel();
+        var delay = _desktopStateSaveDelay = new CancellationTokenSource();
+        _ = PersistDesktopStateAsync(delay.Token);
+    }
+
+    private async Task PersistDesktopStateAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(300), cancellationToken);
+            await _desktopUiStateStore.SaveAsync(CreateDesktopUiState(), MauiProgram.DevMode, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer UI state superseded this coalesced write.
+        }
+        catch (Exception)
+        {
+            // Local interaction remains responsive if the engine is transiently unavailable.
         }
     }
 
@@ -276,15 +352,46 @@ public sealed partial class MainViewModel : ViewModelBase
     private void ToggleContextPanel() => IsContextPanelOpen = !IsContextPanelOpen;
 
     [RelayCommand]
-    private void SelectContextSection(ContextPanelSection section) => CurrentContextSection = section;
+    private void SelectContextSection(ContextPanelSection section) => OpenContextSection(section);
 
-    /// <summary>Selects a Context Panel section from the persistent navigation rail and makes the
-    /// panel visible when it was previously closed.</summary>
+    /// <summary>Selects a Context Panel section from the persistent navigation rail, opens the
+    /// panel, and restores that section's last main-panel destination.</summary>
     [RelayCommand]
     private void OpenContextSection(ContextPanelSection section)
     {
         CurrentContextSection = section;
         IsContextPanelOpen = true;
+        OpenMainPanelForCurrentContext();
+    }
+
+    private void OpenMainPanelForCurrentContext()
+    {
+        switch (CurrentContextSection)
+        {
+            case ContextPanelSection.Workspaces:
+                OpenSelectedWorkspace();
+                break;
+            case ContextPanelSection.Settings:
+                OpenSettingsPage(_lastSettingsPage);
+                break;
+            default:
+                CloseWorkspaceForm();
+                CloseSettingsPage();
+                break;
+        }
+    }
+
+    private void OpenSelectedWorkspace()
+    {
+        var workspace = Chat.Workspaces.FirstOrDefault(candidate => candidate.Uuid == _selectedWorkspaceUuid);
+        if (workspace is null)
+        {
+            CloseWorkspaceForm();
+            CloseSettingsPage();
+            return;
+        }
+
+        OpenWorkspaceForm(new WorkspaceFormViewModel(Chat, workspace));
     }
 
     // ── Center panel: workspace form ──────────────────────────────────────────
@@ -313,6 +420,7 @@ public sealed partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsWorkspaceFormOpen));
         OnPropertyChanged(nameof(ActiveWorkspaceUuid));
         OnPropertyChanged(nameof(IsCenterPanelIdle));
+        QueueDesktopStateSave();
     }
 
     /// <summary>Opens the center panel's form for creating a new workspace — invoked by the
@@ -328,13 +436,22 @@ public sealed partial class MainViewModel : ViewModelBase
     private void OpenWorkspaceForm(WorkspaceFormViewModel form)
     {
         CloseSettingsPage();
+        if (form.Uuid is not null)
+        {
+            _selectedWorkspaceUuid = form.Uuid;
+        }
 
         form.Saved += OnWorkspaceFormSaved;
         form.Cancelled += OnWorkspaceFormCancelled;
         WorkspaceForm = form;
     }
 
-    private void OnWorkspaceFormSaved(object? sender, Workspace workspace) => CloseWorkspaceForm();
+    private void OnWorkspaceFormSaved(object? sender, Workspace workspace)
+    {
+        _selectedWorkspaceUuid = workspace.Uuid;
+        CloseWorkspaceForm();
+        QueueDesktopStateSave();
+    }
 
     private void OnWorkspaceFormCancelled(object? sender, EventArgs e) => CloseWorkspaceForm();
 
@@ -363,12 +480,17 @@ public sealed partial class MainViewModel : ViewModelBase
 
     partial void OnActiveSettingsPageChanged(SettingsPage? value)
     {
+        if (value is { } page)
+        {
+            _lastSettingsPage = page;
+        }
         OnPropertyChanged(nameof(IsGeneralSettingsPageOpen));
         OnPropertyChanged(nameof(IsModelsSettingsPageOpen));
         OnPropertyChanged(nameof(IsToolsSettingsPageOpen));
         OnPropertyChanged(nameof(IsSkillsSettingsPageOpen));
         OnPropertyChanged(nameof(IsAboutSettingsPageOpen));
         OnPropertyChanged(nameof(IsCenterPanelIdle));
+        QueueDesktopStateSave();
     }
 
     /// <summary>The backing form for the General settings page. The other pages are intentionally

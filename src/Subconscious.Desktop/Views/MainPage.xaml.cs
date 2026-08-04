@@ -72,11 +72,8 @@ public partial class MainPage : ContentPage
         _ = InitializeEngineBackedStateAsync();
     }
 
-    private async Task InitializeEngineBackedStateAsync()
-    {
-        await _viewModel.Chat.InitializeAsync(MauiProgram.DevMode);
-        await _viewModel.LoadPanelConfigurationAsync(MauiProgram.DevMode);
-    }
+    private Task InitializeEngineBackedStateAsync() =>
+        _viewModel.InitializeEngineBackedStateAsync(MauiProgram.DevMode);
 
     // ── Divider drags ─────────────────────────────────────────────────────────
 
