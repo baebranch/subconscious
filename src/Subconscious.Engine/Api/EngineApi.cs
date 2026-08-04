@@ -1,5 +1,9 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Subconscious.Engine.Api.DTOs;
+using Subconscious.Engine.Data;
+using Subconscious.Engine.Data.Entities;
+using Subconscious.Engine.Configuration;
 using Subconscious.Engine.Api.Events;
 using Subconscious.Engine.Api.Services;
 using Subconscious.Engine.Api.WebSocket;
@@ -28,6 +32,8 @@ public static class EngineMiddleware
         MapThreadEndpoints(app);
         MapMessageEndpoints(app);
         MapModelEndpoints(app);
+        MapModelConfigurationEndpoints(app);
+        MapPanelConfigurationEndpoints(app);
 
         // Engine-initiated broadcast feed (thread.created/thread.updated/message.created) —
         // the piece AG-UI's request/response run model can't express (translation.md §4.5).
@@ -153,11 +159,132 @@ public static class EngineMiddleware
         });
     }
 
+    private static readonly HashSet<string> ValidPanelConfigurations =
+    [
+        "ContextChatMain",
+        "ChatContextMain",
+        "ContextMainChat",
+        "ChatMainContext",
+        "MainContextChat",
+        "MainChatContext",
+    ];
+
+    private static void MapPanelConfigurationEndpoints(WebApplication app)
+    {
+        const string key = "panel_configuration";
+        const string tag = "ui_state";
+        const string defaultConfiguration = "ContextChatMain";
+
+        app.MapGet("/api/v1/settings/panel-configuration", async (SubconsciousDbContext db, CancellationToken ct) =>
+        {
+            var configuration = await db.AppState
+                .Where(state => state.Key == key && state.Tag == tag)
+                .Select(state => state.Value)
+                .SingleOrDefaultAsync(ct);
+
+            return Results.Ok(new PanelConfigurationDto
+            {
+                Configuration = configuration ?? defaultConfiguration,
+            });
+        });
+
+        app.MapPut("/api/v1/settings/panel-configuration", async (
+            UpdatePanelConfigurationRequest request, SubconsciousDbContext db, CancellationToken ct) =>
+        {
+            if (!ValidPanelConfigurations.Contains(request.Configuration))
+            {
+                return Results.BadRequest(new { error = "Unsupported panel configuration." });
+            }
+
+            var state = await db.AppState.SingleOrDefaultAsync(item => item.Key == key && item.Tag == tag, ct);
+            if (state is null)
+            {
+                db.AppState.Add(new AppState { Key = key, Tag = tag, Value = request.Configuration });
+            }
+            else
+            {
+                state.Value = request.Configuration;
+            }
+
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new PanelConfigurationDto { Configuration = request.Configuration });
+        });
+    }
+
+    private static void MapModelConfigurationEndpoints(WebApplication app)
+    {
+        // Model credentials remain in data.enc. These bearer-authenticated routes return only
+        // redacted metadata; ApiKey is accepted solely by POST/PUT and never serialized back.
+        app.MapGet("/api/v1/model-configurations", async (IModelConfigurationStore store, CancellationToken ct) =>
+        {
+            try
+            {
+                return (IResult)Results.Ok(await store.ListAsync(ct));
+            }
+            catch (ModelConfigurationStoreException exception)
+            {
+                return StorageProblem(exception);
+            }
+        });
+
+        app.MapPost("/api/v1/model-configurations", async (UpsertModelConfigurationRequest request, IModelConfigurationStore store, CancellationToken ct) =>
+        {
+            try
+            {
+                var created = await store.CreateAsync(request, ct);
+                return (IResult)Results.Created($"/api/v1/model-configurations/{Uri.EscapeDataString(created.Id)}", created);
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { error = exception.Message });
+            }
+            catch (ModelConfigurationStoreException exception)
+            {
+                return StorageProblem(exception);
+            }
+        });
+
+        app.MapPut("/api/v1/model-configurations/{id}", async (string id, UpsertModelConfigurationRequest request, IModelConfigurationStore store, CancellationToken ct) =>
+        {
+            try
+            {
+                var updated = await store.UpdateAsync(id, request, ct);
+                return updated is null ? Results.NotFound() : Results.Ok(updated);
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { error = exception.Message });
+            }
+            catch (ModelConfigurationStoreException exception)
+            {
+                return StorageProblem(exception);
+            }
+        });
+
+        app.MapDelete("/api/v1/model-configurations/{id}", async (string id, IModelConfigurationStore store, CancellationToken ct) =>
+        {
+            try
+            {
+                return await store.DeleteAsync(id, ct) ? Results.NoContent() : Results.NotFound();
+            }
+            catch (ModelConfigurationStoreException exception)
+            {
+                return StorageProblem(exception);
+            }
+        });
+    }
+
+    private static IResult StorageProblem(ModelConfigurationStoreException exception) =>
+        Results.Problem(
+            detail: exception.Message,
+            statusCode: StatusCodes.Status503ServiceUnavailable,
+            title: "Encrypted model configuration is unavailable.");
+
     private static void MapModelEndpoints(WebApplication app)
     {
-        // No model-config store exists yet (translation.md Phase 1 secrets store is still
-        // open) — for now this always includes the Echo dev model so a client can complete
-        // an end-to-end chat turn without any provider credentials configured.
+        // This catalog keeps the credential-free Echo model available for development chat. User
+        // model settings are exposed through /model-configurations so secrets cannot leak into
+        // callers that only need chat model metadata.
         app.MapGet("/api/v1/models", () => Results.Ok(new[]
         {
             new ModelDto

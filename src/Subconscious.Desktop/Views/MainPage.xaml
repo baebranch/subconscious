@@ -140,7 +140,7 @@
                          InputTransparent="True" Color="{DynamicResource DividerColor}" />
             </Grid>
 
-            <views:ContextPanelView Grid.Column="1" IsVisible="{Binding IsContextPanelOpen}" />
+            <views:ContextPanelView x:Name="ContextPanel" Grid.Column="1" IsVisible="{Binding IsContextPanelOpen}" />
 
             <!-- The column remains 6px wide for an easy drag target; only this centered rule is
                  painted, so the divider itself reads as a 1px line. -->
@@ -158,7 +158,7 @@
                 </Grid.GestureRecognizers>
             </Grid>
 
-            <views:ChatPanelView Grid.Column="3" BindingContext="{Binding Chat}" />
+            <views:ChatPanelView x:Name="ChatPanel" Grid.Column="3" BindingContext="{Binding Chat}" />
 
             <Grid x:Name="ChatSplitter" Grid.Column="4" Style="{StaticResource PanelSplitter}"
                   SemanticProperties.Description="Resize chat panel"
@@ -174,7 +174,7 @@
                 </Grid.GestureRecognizers>
             </Grid>
 
-            <views:MainPanelView Grid.Column="5" />
+            <views:MainPanelView x:Name="MainPanel" Grid.Column="5" />
 
         </Grid>
 

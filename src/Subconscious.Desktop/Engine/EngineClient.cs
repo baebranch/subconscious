@@ -96,7 +96,17 @@ public sealed class EngineClient : IAsyncDisposable
 
     public bool IsConnected => _ws?.State == WebSocketState.Open;
 
+    /// <summary>True after engine discovery created the bearer-authenticated REST client.</summary>
+    public bool IsRestConnected => _http is not null;
+
     public async Task ConnectAsync(bool dev)
+    {
+        await ConnectRestAsync(dev);
+        await OpenSocketAsync();
+    }
+
+    /// <summary>Connect only the REST client. Settings pages do not need a second WebSocket.</summary>
+    public async Task ConnectRestAsync(bool dev)
     {
         _closing = false;
         _info = await EngineDiscovery.DiscoverAsync(dev);
@@ -106,8 +116,6 @@ public sealed class EngineClient : IAsyncDisposable
             BaseAddress = new Uri($"http://{_info.Host}:{_info.Port}/api/v1/"),
         };
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _info.Token);
-
-        await OpenSocketAsync();
     }
 
     private async Task OpenSocketAsync()
@@ -291,6 +299,42 @@ public sealed class EngineClient : IAsyncDisposable
 
     public Task<List<ModelInfo>> ListModelsAsync(CancellationToken cancellationToken = default) =>
         ListAsync<ModelInfo>("models", cancellationToken);
+
+    public async Task<PanelConfigurationSetting> GetPanelConfigurationAsync(CancellationToken cancellationToken = default)
+    {
+        const string path = "settings/panel-configuration";
+        using var response = await Http.GetAsync(path, cancellationToken);
+        return await ReadAsync<PanelConfigurationSetting>(response, HttpMethod.Get, path, cancellationToken)
+            ?? throw new EngineApiException(HttpMethod.Get, path, response.StatusCode, "empty response body");
+    }
+
+    public Task<PanelConfigurationSetting> UpdatePanelConfigurationAsync(string configuration, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<PanelConfigurationSetting, UpdatePanelConfigurationRequest>(
+            HttpMethod.Put, "settings/panel-configuration",
+            new UpdatePanelConfigurationRequest { Configuration = configuration }, cancellationToken);
+
+    public Task<List<ModelConfiguration>> ListModelConfigurationsAsync(CancellationToken cancellationToken = default) =>
+        ListAsync<ModelConfiguration>("model-configurations", cancellationToken);
+
+    public Task<ModelConfiguration> CreateModelConfigurationAsync(UpsertModelConfigurationRequest request, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<ModelConfiguration, UpsertModelConfigurationRequest>(
+            HttpMethod.Post, "model-configurations", request, cancellationToken);
+
+    public Task<ModelConfiguration> UpdateModelConfigurationAsync(string id, UpsertModelConfigurationRequest request, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<ModelConfiguration, UpsertModelConfigurationRequest>(
+            HttpMethod.Put, $"model-configurations/{Uri.EscapeDataString(id)}", request, cancellationToken);
+
+    public async Task<bool> DeleteModelConfigurationAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var path = $"model-configurations/{Uri.EscapeDataString(id)}";
+        using var response = await Http.DeleteAsync(path, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+        await ReadAsync<object>(response, HttpMethod.Delete, path, cancellationToken);
+        return true;
+    }
 
     /// <summary>GET a collection. An empty body is an empty list rather than an error — a missing
     /// list and an empty one mean the same thing to every caller here.</summary>

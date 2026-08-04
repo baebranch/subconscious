@@ -44,6 +44,30 @@ public sealed record ModelInfo
     [JsonPropertyName("description")] public string? Description { get; init; }
 }
 
+/// <summary>Redacted encrypted model configuration metadata from the engine.</summary>
+public sealed record ModelConfiguration
+{
+    [JsonPropertyName("id")] public required string Id { get; init; }
+    [JsonPropertyName("provider")] public required string Provider { get; init; }
+    [JsonPropertyName("model")] public required string Model { get; init; }
+    [JsonPropertyName("alias")] public string? Alias { get; init; }
+    [JsonPropertyName("baseUrl")] public string? BaseUrl { get; init; }
+    [JsonPropertyName("contextWindow")] public int? ContextWindow { get; init; }
+    [JsonPropertyName("hasApiKey")] public bool HasApiKey { get; init; }
+}
+
+/// <summary>Write-only API-key payload for an encrypted model configuration.</summary>
+public sealed record UpsertModelConfigurationRequest
+{
+    [JsonPropertyName("provider")] public required string Provider { get; init; }
+    [JsonPropertyName("model")] public required string Model { get; init; }
+    [JsonPropertyName("alias")] public string? Alias { get; init; }
+    [JsonPropertyName("baseUrl")] public string? BaseUrl { get; init; }
+    [JsonPropertyName("contextWindow")] public int? ContextWindow { get; init; }
+    [JsonPropertyName("apiKey")] public string? ApiKey { get; init; }
+    [JsonPropertyName("clearApiKey")] public bool ClearApiKey { get; init; }
+}
+
 public sealed record CreateWorkspaceRequest
 {
     [JsonPropertyName("name")] public required string Name { get; init; }
@@ -66,4 +90,16 @@ public sealed record WsFrame
     [JsonPropertyName("type")] public required string Type { get; init; }
     [JsonPropertyName("id")] public string? Id { get; init; }
     [JsonPropertyName("data")] public System.Text.Json.JsonElement? Data { get; init; }
+}
+
+
+/// <summary>Panel configuration read from the engine-backed <c>app_state</c> setting.</summary>
+public sealed record PanelConfigurationSetting
+{
+    [JsonPropertyName("configuration")] public required string Configuration { get; init; }
+}
+
+public sealed record UpdatePanelConfigurationRequest
+{
+    [JsonPropertyName("configuration")] public required string Configuration { get; init; }
 }

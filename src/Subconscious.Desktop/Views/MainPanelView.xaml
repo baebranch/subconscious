@@ -4,6 +4,7 @@
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
              x:Class="Subconscious.Desktop.Views.MainPanelView"
+             x:Name="MainPanelRoot"
              x:DataType="vm:MainViewModel"
              BackgroundColor="{DynamicResource SurfaceColor}">
 
@@ -105,6 +106,15 @@
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Spacing="6">
+                        <Label Text="Panel configuration" Style="{StaticResource FieldLabel}" />
+                        <Picker ItemsSource="{Binding BindingContext.PanelConfigurationOptions, Source={x:Reference MainPanelRoot}}"
+                                ItemDisplayBinding="{Binding DisplayName}"
+                                SelectedItem="{Binding BindingContext.SelectedPanelConfiguration, Source={x:Reference MainPanelRoot}, Mode=TwoWay}"
+                                SemanticProperties.Description="Choose the order of the chat, context, and main panels"
+                                ToolTipProperties.Text="Choose panel order" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
                         <Label Text="Data Folder" Style="{StaticResource FieldLabel}" />
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                             <Entry Grid.Column="0" Text="{Binding DataDirectory}" IsReadOnly="True" IsEnabled="False" />
@@ -125,45 +135,111 @@
             </Grid>
         </ScrollView>
 
-        <!-- Models follows the Python configuration contract. The engine currently has no model
-             configuration store or secrets service, so the draft intentionally has no Save button. -->
+        <!-- Model configurations are loaded from the engine's encrypted data.enc store. The API
+             returns only redacted metadata; API-key input is write-only. -->
         <ScrollView IsVisible="{Binding IsModelsSettingsPageOpen}" Orientation="Vertical">
             <Grid x:Name="ModelsSettingsHost" Padding="24,28" HorizontalOptions="Center">
                 <VerticalStackLayout BindingContext="{Binding ModelSettingsForm}"
                                      x:DataType="vm:ModelSettingsFormViewModel"
                                      MaximumWidthRequest="750" Spacing="18" HorizontalOptions="Fill">
-                    <Label Text="Models" Style="{StaticResource SettingsSectionTitle}" />
-                    <Label Text="Model configuration persistence is not available in the engine yet; entered values remain only for this desktop session."
-                           TextColor="{DynamicResource SecondaryTextColor}" LineBreakMode="WordWrap" />
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                        <Label Text="Models" Style="{StaticResource SettingsSectionTitle}" />
+                        <Button Grid.Column="1" Text="Reload" Command="{Binding LoadCommand}"
+                                Style="{StaticResource GhostButton}"
+                                SemanticProperties.Description="Reload encrypted model configurations"
+                                ToolTipProperties.Text="Reload configurations" />
+                        <Button Grid.Column="2" Text="New configuration" Command="{Binding AddConfigurationCommand}"
+                                Style="{StaticResource AccentButton}"
+                                SemanticProperties.Description="Add a new model configuration"
+                                ToolTipProperties.Text="New model configuration" />
+                    </Grid>
+                    <Label Text="Configurations are stored encrypted by the local engine. Saved API keys are never returned to this app."
+                           Style="{StaticResource MutedLabel}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding ErrorText}" TextColor="{DynamicResource ErrorColor}" FontSize="12"
+                           LineBreakMode="WordWrap" IsVisible="{Binding ErrorText, Converter={StaticResource IsNotEmpty}}" />
 
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Provider" Style="{StaticResource FieldLabel}" />
-                        <Picker ItemsSource="{Binding ProviderOptions}" SelectedItem="{Binding Provider}"
-                                Title="Select a provider" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Model" Style="{StaticResource FieldLabel}" />
-                        <Entry Text="{Binding Model}" Placeholder="Enter the model key" Style="{StaticResource FormEntry}" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="API Key" Style="{StaticResource FieldLabel}" />
-                        <Entry Text="{Binding ApiKey}" IsPassword="True" Placeholder="Enter your API key"
-                               Style="{StaticResource FormEntry}" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6" IsVisible="{Binding IsBaseUrlVisible}">
-                        <Label Text="Base URL (OpenAI-compatible API)" Style="{StaticResource FieldLabel}" />
-                        <Entry Text="{Binding BaseUrl}" Placeholder="{Binding BaseUrlPlaceholder}"
-                               Style="{StaticResource FormEntry}" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Alias" Style="{StaticResource FieldLabel}" />
-                        <Entry Text="{Binding Alias}" Placeholder="A memorable name for this configuration"
-                               Style="{StaticResource FormEntry}" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Context Window (tokens)" Style="{StaticResource FieldLabel}" />
-                        <Entry Text="{Binding ContextWindow}" Keyboard="Numeric" Placeholder="Default: 8192"
-                               Style="{StaticResource FormEntry}" />
+                    <Label Text="No model configurations yet. Add one to get started."
+                           Style="{StaticResource MutedLabel}" HorizontalOptions="Center"
+                           Margin="0,28" IsVisible="{Binding Configurations.Count, Converter={StaticResource IsEmpty}}" />
+
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Configurations}" Spacing="10">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ModelConfigurationViewModel">
+                                <Border BackgroundColor="{DynamicResource PanelBackgroundColor}"
+                                        Stroke="{DynamicResource DividerColor}" StrokeThickness="1"
+                                        StrokeShape="RoundRectangle 7" Padding="0">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Grid Padding="14,12" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10"
+                                              SemanticProperties.Description="{Binding DisplayName}"
+                                              ToolTipProperties.Text="Open model configuration">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ToggleExpandedCommand}" />
+                                            </Grid.GestureRecognizers>
+                                            <mi:MauiIcon Icon="{mi:Fluent Icon=ChevronRight24}" IconSize="18"
+                                                         IconColor="{DynamicResource SecondaryTextColor}"
+                                                         IsVisible="{Binding IsExpanded, Converter={StaticResource InvertedBool}}"
+                                                         VerticalOptions="Center" />
+                                            <mi:MauiIcon Icon="{mi:Fluent Icon=ChevronDown24}" IconSize="18"
+                                                         IconColor="{DynamicResource SecondaryTextColor}"
+                                                         IsVisible="{Binding IsExpanded}"
+                                                         VerticalOptions="Center" />
+                                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                                <Label Text="{Binding DisplayName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding Summary}" Style="{StaticResource MutedLabel}"
+                                                       LineBreakMode="TailTruncation" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="2" Text="Edit" Style="{StaticResource MutedLabel}"
+                                                   VerticalOptions="Center" />
+                                        </Grid>
+
+                                        <BoxView HeightRequest="1" Color="{DynamicResource DividerColor}"
+                                                 IsVisible="{Binding IsExpanded}" />
+                                        <VerticalStackLayout Padding="14,16" Spacing="14" IsVisible="{Binding IsExpanded}">
+                                            <VerticalStackLayout Spacing="6">
+                                                <Label Text="Alias" Style="{StaticResource FieldLabel}" />
+                                                <Entry Text="{Binding Alias}" Placeholder="A memorable name for this configuration"
+                                                       Style="{StaticResource FormEntry}" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="6">
+                                                <Label Text="Provider" Style="{StaticResource FieldLabel}" />
+                                                <Picker ItemsSource="{Binding ProviderOptions}" SelectedItem="{Binding Provider}"
+                                                        Title="Select a provider" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="6">
+                                                <Label Text="Model" Style="{StaticResource FieldLabel}" />
+                                                <Entry Text="{Binding Model}" Placeholder="Enter the model key" Style="{StaticResource FormEntry}" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="6">
+                                                <Label Text="API Key" Style="{StaticResource FieldLabel}" />
+                                                <Entry Text="{Binding ApiKey}" IsPassword="True" Placeholder="Enter a replacement API key"
+                                                       Style="{StaticResource FormEntry}" />
+                                                <Label Text="An API key is already saved. Leave this blank to keep it."
+                                                       Style="{StaticResource MutedLabel}" FontSize="12"
+                                                       IsVisible="{Binding HasApiKey}" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="6" IsVisible="{Binding IsBaseUrlVisible}">
+                                                <Label Text="Base URL (OpenAI-compatible API)" Style="{StaticResource FieldLabel}" />
+                                                <Entry Text="{Binding BaseUrl}" Placeholder="{Binding BaseUrlPlaceholder}"
+                                                       Style="{StaticResource FormEntry}" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="6">
+                                                <Label Text="Context Window (tokens)" Style="{StaticResource FieldLabel}" />
+                                                <Entry Text="{Binding ContextWindow}" Keyboard="Numeric" Placeholder="Default: 8192"
+                                                       Style="{StaticResource FormEntry}" />
+                                            </VerticalStackLayout>
+                                            <Label Text="{Binding ErrorText}" TextColor="{DynamicResource ErrorColor}" FontSize="12"
+                                                   LineBreakMode="WordWrap" IsVisible="{Binding ErrorText, Converter={StaticResource IsNotEmpty}}" />
+                                            <HorizontalStackLayout Spacing="10">
+                                                <Button Text="Save" Command="{Binding SaveCommand}" Style="{StaticResource AccentButton}"
+                                                        SemanticProperties.Description="Save model configuration" />
+                                                <Button Text="Delete" Command="{Binding DeleteCommand}" Style="{StaticResource GhostButton}"
+                                                        SemanticProperties.Description="Delete model configuration" />
+                                            </HorizontalStackLayout>
+                                        </VerticalStackLayout>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
                     </VerticalStackLayout>
                 </VerticalStackLayout>
             </Grid>

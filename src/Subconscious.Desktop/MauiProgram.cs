@@ -33,6 +33,7 @@ public static class MauiProgram
         // through DI too so it gets the same MainViewModel instance the store was loaded into.
         builder.Services.AddSingleton(_ => new LayoutStateStore(DevMode));
         builder.Services.AddSingleton(_ => new ThemeStateStore(DevMode));
+        builder.Services.AddSingleton<PanelConfigurationStore>();
         builder.Services.AddSingleton<ThemeService>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainPage>();

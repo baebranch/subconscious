@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Subconscious.Engine.Agents;
+using Subconscious.Engine.Configuration;
 using Subconscious.Engine.Api.Events;
 using Subconscious.Engine.Api.Services;
 using Subconscious.Engine.Api.WebSocket;
@@ -17,6 +18,8 @@ public static class EngineServiceExtensions
     public static IServiceCollection AddEngineServices(this IServiceCollection services)
     {
         services.AddSingleton<IEventBus, EventBus>();
+        services.AddSingleton<IFernetKeyProvider, WindowsCredentialManagerFernetKeyProvider>();
+        services.AddSingleton<IModelConfigurationStore, EncryptedModelConfigurationStore>();
         services.AddSingleton<ProviderTable>();
         services.AddSingleton<ToolDispatcher>();
         services.AddSingleton<HandshakeService>();

@@ -43,6 +43,7 @@ public sealed partial class MainViewModel : ViewModelBase
 
     private readonly LayoutStateStore _layoutStore;
     private readonly LayoutState _layout;
+    private readonly PanelConfigurationStore _panelConfigurationStore;
     private readonly ThemeService _theme;
 
     private double _chatPanelWidth;
@@ -55,9 +56,8 @@ public sealed partial class MainViewModel : ViewModelBase
 
     public ChatViewModel Chat { get; } = new();
 
-    // These forms model the fields defined by the Python UI and engine migrations. They retain
-    // page-local input while navigating; persistence is enabled only once engine CRUD endpoints
-    // and a secrets store are available.
+    // Model configurations are persisted by the engine in encrypted data.enc; tool and skill
+    // forms remain page-local until their matching engine APIs are implemented.
     public ModelSettingsFormViewModel ModelSettingsForm { get; } = new();
     public ToolSettingsFormViewModel ToolSettingsForm { get; } = new();
     public SkillSettingsFormViewModel SkillSettingsForm { get; } = new();
@@ -81,10 +81,30 @@ public sealed partial class MainViewModel : ViewModelBase
     /// newly replaced palette resources immediately.</summary>
     public long ThemeRevision => _themeRevision;
 
-    public MainViewModel(LayoutStateStore layoutStore, ThemeService theme)
+    /// <summary>The six persisted full arrangements available from General Settings.</summary>
+    public IReadOnlyList<PanelConfigurationOption> PanelConfigurationOptions => PanelConfigurationCatalog.Options;
+
+    [ObservableProperty]
+    private PanelConfiguration _panelConfiguration = PanelConfiguration.ContextChatMain;
+
+    /// <summary>The picker-facing representation of <see cref="PanelConfiguration"/>.</summary>
+    public PanelConfigurationOption? SelectedPanelConfiguration
+    {
+        get => PanelConfigurationCatalog.OptionFor(PanelConfiguration);
+        set
+        {
+            if (value is { } option)
+            {
+                PanelConfiguration = option.Value;
+            }
+        }
+    }
+
+    public MainViewModel(LayoutStateStore layoutStore, PanelConfigurationStore panelConfigurationStore, ThemeService theme)
     {
         _layoutStore = layoutStore;
         _layout = layoutStore.Load();
+        _panelConfigurationStore = panelConfigurationStore;
         _theme = theme;
         _theme.Changed += OnThemeChanged;
         Chat.PropertyChanged += (_, e) =>
@@ -156,6 +176,48 @@ public sealed partial class MainViewModel : ViewModelBase
         ChatPanelWidth = DefaultChatPanelWidth;
         ContextPanelWidth = DefaultContextPanelWidth;
         SaveLayout();
+    }
+
+    /// <summary>Loads the engine-backed panel configuration after the local API is available.
+    /// A failed read leaves the default layout usable while the engine reconnects.</summary>
+    public async Task LoadPanelConfigurationAsync(bool dev)
+    {
+        try
+        {
+            var configuration = await _panelConfigurationStore.LoadAsync(dev);
+            _restoring = true;
+            PanelConfiguration = configuration;
+        }
+        catch (Exception)
+        {
+            // Layout remains usable with the default when the local engine is unavailable.
+        }
+        finally
+        {
+            _restoring = false;
+        }
+    }
+
+    partial void OnPanelConfigurationChanged(PanelConfiguration value)
+    {
+        OnPropertyChanged(nameof(SelectedPanelConfiguration));
+        if (!_restoring)
+        {
+            _ = PersistPanelConfigurationAsync(value);
+        }
+    }
+
+    private async Task PersistPanelConfigurationAsync(PanelConfiguration configuration)
+    {
+        try
+        {
+            await _panelConfigurationStore.SaveAsync(configuration, MauiProgram.DevMode);
+        }
+        catch (Exception)
+        {
+            // Applying the user's local selection is more important than surfacing a transient
+            // engine connection error from a non-blocking settings Picker interaction.
+        }
     }
 
     // ── Context panel ─────────────────────────────────────────────────────────
@@ -333,6 +395,10 @@ public sealed partial class MainViewModel : ViewModelBase
             var form = new SettingsFormViewModel(_theme, DataDirectory);
             form.Closed += OnSettingsFormClosed;
             SettingsForm = form;
+        }
+        else if (page == SettingsPage.Models)
+        {
+            _ = ModelSettingsForm.LoadAsync();
         }
     }
 

@@ -67,9 +67,15 @@ public partial class MainPage : ContentPage
         }
         _engineStarted = true;
 
-        // Fire-and-forget: the panels render immediately with "Connecting…" status; InitializeAsync
-        // updates them once the engine handshake completes.
-        _ = _viewModel.Chat.InitializeAsync(MauiProgram.DevMode);
+        // Fire-and-forget: the panels render immediately with "Connecting…" status; initialization
+        // then loads the engine-backed panel configuration once the local API is reachable.
+        _ = InitializeEngineBackedStateAsync();
+    }
+
+    private async Task InitializeEngineBackedStateAsync()
+    {
+        await _viewModel.Chat.InitializeAsync(MauiProgram.DevMode);
+        await _viewModel.LoadPanelConfigurationAsync(MauiProgram.DevMode);
     }
 
     // ── Divider drags ─────────────────────────────────────────────────────────
@@ -93,6 +99,58 @@ public partial class MainPage : ContentPage
     private static void SetSplitterLineColor(BoxView dividerLine, string resourceKey) =>
         dividerLine.SetDynamicResource(BoxView.ColorProperty, resourceKey);
 
+    /// <summary>Returns the non-main panel whose width a physical divider controls. Each of the
+    /// two side panels is assigned exactly one divider in every supported panel order.</summary>
+    private PanelKind GetControlledPanel(Divider divider, PanelKind[]? order = null)
+    {
+        order ??= PanelConfigurationCatalog.OrderFor(_viewModel.PanelConfiguration);
+        return divider switch
+        {
+            Divider.Context => order[0] == PanelKind.Main ? order[1] : order[0],
+            Divider.Chat => order[2] == PanelKind.Main ? order[1] : order[2],
+            _ => throw new InvalidOperationException("A non-divider cannot control a panel."),
+        };
+    }
+
+    private static Grid SplitterFor(Divider divider, Grid contextSplitter, Grid chatSplitter) =>
+        divider == Divider.Context ? contextSplitter : chatSplitter;
+
+    private Grid SplitterFor(Divider divider) => SplitterFor(divider, ContextSplitter, ChatSplitter);
+
+    private static void UpdateSplitterAccessibility(Grid splitter, PanelKind panel)
+    {
+        var panelName = panel.ToString().ToLowerInvariant();
+        SemanticProperties.SetDescription(splitter, $"Resize {panelName} panel");
+        ToolTipProperties.SetText(splitter, $"Drag to resize {panelName} panel · double-click to reset");
+    }
+
+    private bool IsPanelLeftOfDivider(Divider divider, PanelKind panel)
+    {
+        var order = PanelConfigurationCatalog.OrderFor(_viewModel.PanelConfiguration);
+        var panelIndex = Array.IndexOf(order, panel);
+        var dividerAfterIndex = divider == Divider.Context ? 0 : 1;
+        return panelIndex <= dividerAfterIndex;
+    }
+
+    private double WidthOf(PanelKind panel) => panel switch
+    {
+        PanelKind.Chat => _viewModel.ChatPanelWidth,
+        PanelKind.Context => _viewModel.ContextPanelWidth,
+        _ => throw new InvalidOperationException("The main panel has flexible width."),
+    };
+
+    private void SetPanelWidth(PanelKind panel, double requested)
+    {
+        if (panel == PanelKind.Chat)
+        {
+            SetChatPanelWidth(requested);
+        }
+        else if (panel == PanelKind.Context)
+        {
+            SetContextPanelWidth(requested);
+        }
+    }
+
     private void BeginDrag(Divider divider, PointerEventArgs e)
     {
         if (e.GetPosition(PanelsGrid) is not { } position)
@@ -102,12 +160,10 @@ public partial class MainPage : ContentPage
 
         _dragging = divider;
         _dragStartPointerX = position.X;
-        _dragStartWidth = divider == Divider.Chat
-            ? _viewModel.ChatPanelWidth
-            : _viewModel.ContextPanelWidth;
+        _dragStartWidth = WidthOf(GetControlledPanel(divider));
 
         // Keeps the moves coming to the divider even when the pointer outruns its 6px width.
-        PointerCapture.Capture(e, sender: divider == Divider.Chat ? ChatSplitter : ContextSplitter);
+        PointerCapture.Capture(e, sender: SplitterFor(divider));
     }
 
     private void OnPanelsPointerMoved(object? sender, PointerEventArgs e)
@@ -117,24 +173,17 @@ public partial class MainPage : ContentPage
             return;
         }
 
+        var panel = GetControlledPanel(_dragging);
         var delta = position.X - _dragStartPointerX;
-
-        if (_dragging == Divider.Chat)
-        {
-            SetChatPanelWidth(_dragStartWidth + delta);
-        }
-        else
-        {
-            // The context panel now sits to the left of its divider, so dragging right widens it.
-            SetContextPanelWidth(_dragStartWidth + delta);
-        }
+        var direction = IsPanelLeftOfDivider(_dragging, panel) ? 1 : -1;
+        SetPanelWidth(panel, _dragStartWidth + direction * delta);
     }
 
     private void OnPanelsPointerReleased(object? sender, PointerEventArgs e)
     {
         if (_dragging != Divider.None)
         {
-            PointerCapture.Release(e, _dragging == Divider.Chat ? ChatSplitter : ContextSplitter);
+            PointerCapture.Release(e, SplitterFor(_dragging));
         }
 
         EndDrag();
@@ -146,7 +195,7 @@ public partial class MainPage : ContentPage
         {
             // A capture can be interrupted by leaving the application window. Release it before
             // ending the drag so the next divider press starts from a clean pointer state.
-            PointerCapture.Release(e, _dragging == Divider.Chat ? ChatSplitter : ContextSplitter);
+            PointerCapture.Release(e, SplitterFor(_dragging));
         }
 
         EndDrag();
@@ -203,8 +252,8 @@ public partial class MainPage : ContentPage
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         // Opening a persisted context panel can otherwise apply its old width before the current
-        // window has had a chance to reserve the center panel's minimum. Clamp the right panel
-        // first, then the chat panel, matching the SizeChanged ordering.
+        // window has had a chance to reserve the main panel's minimum. Clamp the two fixed-width
+        // panels before remeasuring whichever position the selected configuration assigns them.
         if (e.PropertyName == nameof(MainViewModel.IsContextPanelOpen) && _viewModel.IsContextPanelOpen)
         {
             SetContextPanelWidth(_viewModel.ContextPanelWidth);
@@ -213,31 +262,61 @@ public partial class MainPage : ContentPage
 
         if (e.PropertyName is nameof(MainViewModel.ChatPanelWidth)
             or nameof(MainViewModel.ContextPanelWidth)
-            or nameof(MainViewModel.IsContextPanelOpen))
+            or nameof(MainViewModel.IsContextPanelOpen)
+            or nameof(MainViewModel.PanelConfiguration))
         {
             ApplyPanelWidths();
         }
     }
 
-    /// <summary>Pushes the view model's widths into the grid. Column widths are set from code
-    /// rather than bound: <c>ColumnDefinition</c> isn't part of the visual tree, so it never
-    /// inherits a BindingContext.</summary>
+    /// <summary>Assigns each panel to its configured grid slot and applies its saved width. The
+    /// main panel is the flexible column; chat and context retain independently persisted widths
+    /// wherever the selected arrangement places them.</summary>
     private void ApplyPanelWidths()
     {
         var open = _viewModel.IsContextPanelOpen;
+        var order = PanelConfigurationCatalog.OrderFor(_viewModel.PanelConfiguration);
 
-        PanelsGrid.ColumnDefinitions[1].Width = new GridLength(_viewModel.EffectiveContextPanelWidth);
-        PanelsGrid.ColumnDefinitions[2].Width = new GridLength(open ? SplitterThickness : 0);
-        PanelsGrid.ColumnDefinitions[3].Width = new GridLength(_viewModel.ChatPanelWidth);
-        PanelsGrid.ColumnDefinitions[4].Width = new GridLength(SplitterThickness);
+        for (var index = 0; index < order.Length; index++)
+        {
+            var column = 1 + index * 2;
+            var panel = order[index];
+            PanelsGrid.ColumnDefinitions[column].Width = panel switch
+            {
+                PanelKind.Chat => new GridLength(_viewModel.ChatPanelWidth),
+                PanelKind.Context => new GridLength(open ? _viewModel.ContextPanelWidth : 0),
+                PanelKind.Main => GridLength.Star,
+                _ => GridLength.Star,
+            };
 
-        ContextSplitter.IsVisible = open;
+            switch (panel)
+            {
+                case PanelKind.Chat:
+                    Grid.SetColumn(ChatPanel, column);
+                    break;
+                case PanelKind.Context:
+                    Grid.SetColumn(ContextPanel, column);
+                    break;
+                case PanelKind.Main:
+                    Grid.SetColumn(MainPanel, column);
+                    break;
+            }
+        }
 
-        // Changing ColumnDefinition.Width does move the splitter immediately, but WinUI does not
-        // always schedule a measure for the descendant panel trees while a pointer stream is
-        // active. Mark the owning grid dirty after every complete width update so chat, main, and
-        // context content reflows in the drag's next render pass instead of waiting for another
-        // UI interaction.
+        var firstControlledPanel = GetControlledPanel(Divider.Context, order);
+        var secondControlledPanel = GetControlledPanel(Divider.Chat, order);
+        var firstSplitterVisible = open || firstControlledPanel != PanelKind.Context;
+        var secondSplitterVisible = open || secondControlledPanel != PanelKind.Context;
+
+        PanelsGrid.ColumnDefinitions[2].Width = new GridLength(firstSplitterVisible ? SplitterThickness : 0);
+        PanelsGrid.ColumnDefinitions[4].Width = new GridLength(secondSplitterVisible ? SplitterThickness : 0);
+        ContextSplitter.IsVisible = firstSplitterVisible;
+        ChatSplitter.IsVisible = secondSplitterVisible;
+        UpdateSplitterAccessibility(ContextSplitter, firstControlledPanel);
+        UpdateSplitterAccessibility(ChatSplitter, secondControlledPanel);
+
+        // Changing ColumnDefinition.Width does move the splitters immediately, but WinUI does not
+        // always schedule a measure for descendant panel trees while a pointer stream is active.
         PanelsGrid.InvalidateMeasure();
     }
 }
