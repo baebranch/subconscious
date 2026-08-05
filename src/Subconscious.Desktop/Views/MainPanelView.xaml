@@ -106,6 +106,15 @@
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Spacing="6">
+                        <Label Text="Sidebar position" Style="{StaticResource FieldLabel}" />
+                        <Picker ItemsSource="{Binding BindingContext.SidebarPositionOptions, Source={x:Reference MainPanelRoot}}"
+                                ItemDisplayBinding="{Binding DisplayName}"
+                                SelectedItem="{Binding BindingContext.SelectedSidebarPosition, Source={x:Reference MainPanelRoot}, Mode=TwoWay}"
+                                SemanticProperties.Description="Choose whether the sidebar appears on the left or right"
+                                ToolTipProperties.Text="Choose sidebar position" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
                         <Label Text="Panel configuration" Style="{StaticResource FieldLabel}" />
                         <Picker ItemsSource="{Binding BindingContext.PanelConfigurationOptions, Source={x:Reference MainPanelRoot}}"
                                 ItemDisplayBinding="{Binding DisplayName}"

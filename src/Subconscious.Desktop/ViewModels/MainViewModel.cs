@@ -43,6 +43,7 @@ public sealed partial class MainViewModel : ViewModelBase
 
     private readonly DesktopUiStateStore _desktopUiStateStore;
     private readonly PanelConfigurationStore _panelConfigurationStore;
+    private readonly SidebarPositionStore _sidebarPositionStore;
     private readonly ThemeService _theme;
 
     private double _chatPanelWidth;
@@ -101,13 +102,34 @@ public sealed partial class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>The two persisted edges available for the navigation rail.</summary>
+    public IReadOnlyList<SidebarPositionOption> SidebarPositionOptions => SidebarPositionCatalog.Options;
+
+    [ObservableProperty]
+    private SidebarPosition _sidebarPosition = SidebarPosition.Left;
+
+    /// <summary>The picker-facing representation of <see cref="SidebarPosition"/>.</summary>
+    public SidebarPositionOption? SelectedSidebarPosition
+    {
+        get => SidebarPositionCatalog.OptionFor(SidebarPosition);
+        set
+        {
+            if (value is { } option)
+            {
+                SidebarPosition = option.Value;
+            }
+        }
+    }
+
     public MainViewModel(
         DesktopUiStateStore desktopUiStateStore,
         PanelConfigurationStore panelConfigurationStore,
+        SidebarPositionStore sidebarPositionStore,
         ThemeService theme)
     {
         _desktopUiStateStore = desktopUiStateStore;
         _panelConfigurationStore = panelConfigurationStore;
+        _sidebarPositionStore = sidebarPositionStore;
         _theme = theme;
         _theme.Changed += OnThemeChanged;
         Chat.PropertyChanged += OnChatPropertyChanged;
@@ -193,6 +215,7 @@ public sealed partial class MainViewModel : ViewModelBase
                 state?.ShowAllThreads ?? false,
                 restoreSelection: state is not null);
             await LoadPanelConfigurationAsync(dev);
+            await LoadSidebarPositionAsync(dev);
 
             if (state is not null)
             {
@@ -240,6 +263,18 @@ public sealed partial class MainViewModel : ViewModelBase
         catch (Exception)
         {
             // A failed read leaves the default arrangement usable while the engine reconnects.
+        }
+    }
+
+    private async Task LoadSidebarPositionAsync(bool dev)
+    {
+        try
+        {
+            SidebarPosition = await _sidebarPositionStore.LoadAsync(dev);
+        }
+        catch (Exception)
+        {
+            // A failed read leaves the default left-side rail usable while the engine reconnects.
         }
     }
 
@@ -304,11 +339,33 @@ public sealed partial class MainViewModel : ViewModelBase
         }
     }
 
+    partial void OnSidebarPositionChanged(SidebarPosition value)
+    {
+        OnPropertyChanged(nameof(SelectedSidebarPosition));
+        if (!_restoring)
+        {
+            _ = PersistSidebarPositionAsync(value);
+        }
+    }
+
     private async Task PersistPanelConfigurationAsync(PanelConfiguration configuration)
     {
         try
         {
             await _panelConfigurationStore.SaveAsync(configuration, MauiProgram.DevMode);
+        }
+        catch (Exception)
+        {
+            // Applying the user's local selection is more important than surfacing a transient
+            // engine connection error from a non-blocking settings Picker interaction.
+        }
+    }
+
+    private async Task PersistSidebarPositionAsync(SidebarPosition position)
+    {
+        try
+        {
+            await _sidebarPositionStore.SaveAsync(position, MauiProgram.DevMode);
         }
         catch (Exception)
         {

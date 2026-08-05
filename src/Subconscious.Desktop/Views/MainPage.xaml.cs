@@ -17,8 +17,10 @@ namespace Subconscious.Desktop.Views;
 /// </summary>
 public partial class MainPage : ContentPage
 {
-    /// <summary>Fixed width of the persistent left navigation rail, including its 1px divider.</summary>
-    private const double SidebarWidth = 41;
+    /// <summary>Fixed total width of the persistent navigation rail, including its 1px divider.</summary>
+    private const double SidebarContentWidth = 40;
+    private const double SidebarDividerWidth = 1;
+    private const double SidebarWidth = SidebarContentWidth + SidebarDividerWidth;
 
     /// <summary>Divider width. Also the grab area — wide enough to hit with a mouse, narrow
     /// enough to still read as a divider line.</summary>
@@ -260,10 +262,33 @@ public partial class MainPage : ContentPage
         if (e.PropertyName is nameof(MainViewModel.ChatPanelWidth)
             or nameof(MainViewModel.ContextPanelWidth)
             or nameof(MainViewModel.IsContextPanelOpen)
-            or nameof(MainViewModel.PanelConfiguration))
+            or nameof(MainViewModel.PanelConfiguration)
+            or nameof(MainViewModel.SidebarPosition))
         {
             ApplyPanelWidths();
         }
+    }
+
+    private void ApplySidebarPosition()
+    {
+        var isRight = _viewModel.SidebarPosition == SidebarPosition.Right;
+        var contentColumn = isRight ? 1 : 0;
+        var dividerColumn = isRight ? 0 : 1;
+
+        // The content panels retain their existing three slots. The outer slots reserve the rail
+        // on exactly one side, so moving it does not change any saved panel configuration.
+        PanelsGrid.ColumnDefinitions[0].Width = new GridLength(isRight ? 0 : SidebarWidth);
+        PanelsGrid.ColumnDefinitions[6].Width = new GridLength(isRight ? SidebarWidth : 0);
+        Grid.SetColumn(SidebarRail, isRight ? 6 : 0);
+
+        // Keep the painted divider facing the content panels: it follows the rail on the right
+        // edge when left-aligned and on the left edge when right-aligned.
+        SidebarRail.ColumnDefinitions[0].Width = new GridLength(isRight ? SidebarDividerWidth : SidebarContentWidth);
+        SidebarRail.ColumnDefinitions[1].Width = new GridLength(isRight ? SidebarContentWidth : SidebarDividerWidth);
+        Grid.SetColumn(SidebarTopButtons, contentColumn);
+        Grid.SetColumn(SidebarGroupDivider, contentColumn);
+        Grid.SetColumn(SidebarBottomButtons, contentColumn);
+        Grid.SetColumn(SidebarRailDivider, dividerColumn);
     }
 
     /// <summary>Assigns each panel to its configured grid slot and applies its saved width. The
@@ -271,6 +296,8 @@ public partial class MainPage : ContentPage
     /// wherever the selected arrangement places them.</summary>
     private void ApplyPanelWidths()
     {
+        ApplySidebarPosition();
+
         var open = _viewModel.IsContextPanelOpen;
         var order = PanelConfigurationCatalog.OrderFor(_viewModel.PanelConfiguration);
 

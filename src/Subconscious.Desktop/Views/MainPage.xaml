@@ -21,7 +21,7 @@
              persisted layout in code-behind before the first frame. -->
         <!-- The parent grid is the sole move/release handler. Pointer capture keeps routed moves
              flowing to it after the pointer has left the 6px splitter hit target. -->
-        <Grid x:Name="PanelsGrid" Grid.Row="1" ColumnDefinitions="41,360,6,380,6,*"
+        <Grid x:Name="PanelsGrid" Grid.Row="1" ColumnDefinitions="41,360,6,380,6,*,41"
               SizeChanged="OnPanelsGridSizeChanged">
             <Grid.GestureRecognizers>
                 <PointerGestureRecognizer PointerMoved="OnPanelsPointerMoved"
@@ -38,9 +38,9 @@
                  4px outer inset and 4px gaps, leaving the full-height divider free to reach the
                  bottom edge. The Context toggle remains an action; the remaining icons select
                  and open their Context Panel section. -->
-            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto" ColumnDefinitions="40,1"
+            <Grid x:Name="SidebarRail" Grid.Column="0" RowDefinitions="Auto,*,Auto" ColumnDefinitions="40,1"
                   BackgroundColor="{DynamicResource PanelBackgroundColor}">
-                <VerticalStackLayout Grid.Row="0" Grid.Column="0" Padding="4,4,4,0" Spacing="4">
+                <VerticalStackLayout x:Name="SidebarTopButtons" Grid.Row="0" Grid.Column="0" Padding="4,4,4,0" Spacing="4">
                     <!-- Sidebar buttons -->
                     <Border Style="{StaticResource SidebarRailButton}"
                             SemanticProperties.Description="Toggle context panel"
@@ -93,11 +93,11 @@
                 </VerticalStackLayout>
 
                 <!-- Separate the pinned settings/account group from the main navigation. -->
-                <BoxView Grid.Row="1" HeightRequest="1" Margin="4,0,4,0"
+                <BoxView x:Name="SidebarGroupDivider" Grid.Row="1" Grid.Column="0" HeightRequest="1" Margin="4,0,4,0"
                          VerticalOptions="End" InputTransparent="True"
                          Color="{DynamicResource DividerColor}" />
 
-                <VerticalStackLayout Grid.Row="2" Padding="4" Spacing="4">
+                <VerticalStackLayout x:Name="SidebarBottomButtons" Grid.Row="2" Grid.Column="0" Padding="4" Spacing="4">
                     <Border Style="{StaticResource SidebarRailButton}"
                             BackgroundColor="{Binding IsSettingsSectionSelected, Converter={StaticResource NavRowBackgroundColor}}"
                             SemanticProperties.Description="Settings" ToolTipProperties.Text="Settings">
@@ -138,7 +138,7 @@
                 </VerticalStackLayout>
 
                 <!-- This divider occupies its own column, preserving 40px of rail content. -->
-                <BoxView Grid.RowSpan="3" Grid.Column="1" WidthRequest="1" HorizontalOptions="Center"
+                <BoxView x:Name="SidebarRailDivider" Grid.RowSpan="3" Grid.Column="1" WidthRequest="1" HorizontalOptions="Center"
                          InputTransparent="True" Color="{DynamicResource DividerColor}" />
             </Grid>
 
