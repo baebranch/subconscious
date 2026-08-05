@@ -38,9 +38,9 @@ public partial class ChatPanelView : ContentView
         Dispatcher.Dispatch(() => MessagesView.ScrollTo(newest, position: ScrollToPosition.End, animate: false));
     }
 
-    private async void OnCopyMessageClicked(object? sender, EventArgs e)
+    private async void OnCopyMessageTapped(object? sender, TappedEventArgs e)
     {
-        if (sender is ImageButton { BindingContext: MessageViewModel message })
+        if (sender is Border { BindingContext: MessageViewModel message })
         {
             await Clipboard.Default.SetTextAsync(message.Content);
         }

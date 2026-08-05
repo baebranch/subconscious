@@ -109,6 +109,7 @@ public class WorkspaceService : IWorkspaceService
     {
         return new WorkspaceDto
         {
+            Id = workspace.Id,
             Uuid = workspace.Uuid,
             Name = workspace.Name,
             Description = workspace.Description,

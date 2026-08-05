@@ -46,6 +46,7 @@ public static class DatabaseMigrator
                 logger?.LogInformation("Schema check: applied {Count} additive change(s) while baselining.", applied.Count);
             }
 
+            await BackfillLegacyDesktopUiStateAsync(db, cancellationToken);
             await StampAllMigrationsAsync(db, cancellationToken);
         }
 
@@ -114,6 +115,26 @@ public static class DatabaseMigrator
         {
             var insertScript = historyRepository.GetInsertScript(new HistoryRow(migrationId, productVersion));
             await db.Database.ExecuteSqlRawAsync(insertScript, cancellationToken);
+        }
+    }
+
+    /// <summary>Runs data compatibility work skipped when a legacy Python database is baselined
+    /// instead of replaying migrations over its existing tables.</summary>
+    private static async Task BackfillLegacyDesktopUiStateAsync(SubconsciousDbContext db, CancellationToken cancellationToken)
+    {
+        var statements = new[]
+        {
+            "DELETE FROM app_state WHERE tag = 'ui_state' AND client IS NULL AND EXISTS (SELECT 1 FROM app_state scoped WHERE scoped.key = app_state.key AND scoped.tag = app_state.tag AND scoped.client = 'desktop');",
+            "UPDATE app_state SET client = 'desktop' WHERE tag = 'ui_state' AND client IS NULL;",
+            "INSERT INTO app_state (key, value, tag, client) SELECT 'ui_active_workspace_id', CAST(workspaces.id AS TEXT), legacy.tag, legacy.client FROM app_state legacy JOIN workspaces ON workspaces.uuid = legacy.value WHERE legacy.key = 'ui_active_workspace_uuid' AND legacy.tag = 'ui_state' AND legacy.client = 'desktop' AND NOT EXISTS (SELECT 1 FROM app_state canonical WHERE canonical.key = 'ui_active_workspace_id' AND canonical.tag = legacy.tag AND canonical.client = legacy.client);",
+            "INSERT INTO app_state (key, value, tag, client) SELECT 'ui_selected_workspace_id', CAST(workspaces.id AS TEXT), legacy.tag, legacy.client FROM app_state legacy JOIN workspaces ON workspaces.uuid = legacy.value WHERE legacy.key = 'ui_selected_workspace_uuid' AND legacy.tag = 'ui_state' AND legacy.client = 'desktop' AND NOT EXISTS (SELECT 1 FROM app_state canonical WHERE canonical.key = 'ui_selected_workspace_id' AND canonical.tag = legacy.tag AND canonical.client = legacy.client);",
+            "INSERT INTO app_state (key, value, tag, client) SELECT 'ui_selected_thread_id', CAST(threads.id AS TEXT), legacy.tag, legacy.client FROM app_state legacy JOIN threads ON threads.uuid = legacy.value WHERE legacy.key = 'ui_selected_thread_uuid' AND legacy.tag = 'ui_state' AND legacy.client = 'desktop' AND NOT EXISTS (SELECT 1 FROM app_state canonical WHERE canonical.key = 'ui_selected_thread_id' AND canonical.tag = legacy.tag AND canonical.client = legacy.client);",
+            "DELETE FROM app_state WHERE tag = 'ui_state' AND client = 'desktop' AND key IN ('ui_active_workspace_uuid', 'ui_selected_workspace_uuid', 'ui_selected_thread_uuid');",
+        };
+
+        foreach (var statement in statements)
+        {
+            await db.Database.ExecuteSqlRawAsync(statement, cancellationToken);
         }
     }
 

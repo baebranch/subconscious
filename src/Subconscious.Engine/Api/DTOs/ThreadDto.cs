@@ -5,6 +5,8 @@ namespace Subconscious.Engine.Api.DTOs;
 /// </summary>
 public record ThreadDto
 {
+    /// <summary>Stable database identifier retained for app-state compatibility.</summary>
+    public required int Id { get; init; }
     public required string Uuid { get; init; }
     public required string WorkspaceUuid { get; init; }
     public string? Title { get; init; }

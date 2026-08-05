@@ -8,6 +8,7 @@ namespace Subconscious.Desktop.Engine;
 
 public sealed record Workspace
 {
+    [JsonPropertyName("id")] public int Id { get; init; }
     [JsonPropertyName("uuid")] public required string Uuid { get; init; }
     [JsonPropertyName("name")] public required string Name { get; init; }
     [JsonPropertyName("description")] public string? Description { get; init; }
@@ -18,6 +19,7 @@ public sealed record Workspace
 
 public sealed record ThreadInfo
 {
+    [JsonPropertyName("id")] public int Id { get; init; }
     [JsonPropertyName("uuid")] public required string Uuid { get; init; }
     [JsonPropertyName("workspaceUuid")] public required string WorkspaceUuid { get; init; }
     [JsonPropertyName("title")] public string? Title { get; init; }

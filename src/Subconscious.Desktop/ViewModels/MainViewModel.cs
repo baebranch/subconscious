@@ -48,7 +48,7 @@ public sealed partial class MainViewModel : ViewModelBase
     private double _chatPanelWidth;
     private double _contextPanelWidth;
     private long _themeRevision;
-    private string? _selectedWorkspaceUuid;
+    private int? _selectedWorkspaceId;
     private SettingsPage _lastSettingsPage = SettingsPage.General;
     private CancellationTokenSource? _desktopStateSaveDelay;
 
@@ -111,6 +111,7 @@ public sealed partial class MainViewModel : ViewModelBase
         _theme = theme;
         _theme.Changed += OnThemeChanged;
         Chat.PropertyChanged += OnChatPropertyChanged;
+        Chat.SelectionChanged += (_, _) => PersistDesktopStateImmediately();
 
         _chatPanelWidth = DefaultChatPanelWidth;
         _contextPanelWidth = DefaultContextPanelWidth;
@@ -123,9 +124,7 @@ public sealed partial class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(ActiveThreadUuid));
         }
 
-        if (e.PropertyName is nameof(ChatViewModel.CurrentThread)
-            or nameof(ChatViewModel.CurrentWorkspace)
-            or nameof(ChatViewModel.ComposerText))
+        if (e.PropertyName == nameof(ChatViewModel.ComposerText))
         {
             QueueDesktopStateSave();
         }
@@ -171,50 +170,64 @@ public sealed partial class MainViewModel : ViewModelBase
         SaveLayout();
     }
 
-    /// <summary>Initializes chat and restores the Desktop client's engine-backed UI state.</summary>
+    /// <summary>Initializes chat from the saved selection, then restores the remaining Desktop UI state.</summary>
     public async Task InitializeEngineBackedStateAsync(bool dev)
     {
+        DesktopUiState? state = null;
         _restoring = true;
         try
         {
-            await Chat.InitializeAsync(dev);
-            await LoadPanelConfigurationAsync(dev);
-
-            DesktopUiState state;
             try
             {
                 state = await _desktopUiStateStore.LoadAsync(dev);
             }
             catch (Exception)
             {
-                return;
+                // Chat remains usable with default state if the local settings API is unavailable.
             }
 
-            if (Enum.TryParse<ContextPanelSection>(state.CurrentContext, out var context)
-                && Enum.IsDefined(context))
-            {
-                CurrentContextSection = context;
-            }
-            IsContextPanelOpen = state.ContextVisible;
-            ChatPanelWidth = state.ChatPanelWidth;
-            ContextPanelWidth = state.ContextPanelWidth;
-            Chat.ComposerText = state.ChatboxText;
-            _selectedWorkspaceUuid = state.SelectedWorkspaceUuid;
-            if (Enum.TryParse<SettingsPage>(state.SelectedSetting, out var setting)
-                && Enum.IsDefined(setting))
-            {
-                _lastSettingsPage = setting;
-            }
+            await Chat.InitializeAsync(
+                dev,
+                state?.ActiveWorkspaceId,
+                state?.SelectedThreadId,
+                state?.ShowAllThreads ?? false,
+                restoreSelection: state is not null);
+            await LoadPanelConfigurationAsync(dev);
 
-            await Chat.RestoreSelectionAsync(
-                state.ActiveWorkspaceUuid,
-                state.SelectedThreadUuid,
-                state.ShowAllThreads);
-            OpenMainPanelForCurrentContext();
+            if (state is not null)
+            {
+                var contextValue = string.IsNullOrWhiteSpace(state.CurrentContext)
+                    ? state.CurrentView
+                    : state.CurrentContext;
+                if (Enum.TryParse<ContextPanelSection>(contextValue, ignoreCase: true, out var context)
+                    && Enum.IsDefined(context))
+                {
+                    CurrentContextSection = context;
+                }
+                IsContextPanelOpen = state.ContextVisible;
+                ChatPanelWidth = state.ChatPanelWidth;
+                ContextPanelWidth = state.ContextPanelWidth;
+                Chat.ComposerText = state.ChatboxText;
+                _selectedWorkspaceId = state.SelectedWorkspaceId;
+                if (Enum.TryParse<SettingsPage>(state.SelectedSetting, ignoreCase: true, out var setting)
+                    && Enum.IsDefined(setting))
+                {
+                    _lastSettingsPage = setting;
+                }
+
+                OpenMainPanelForCurrentContext();
+            }
         }
         finally
         {
             _restoring = false;
+        }
+
+        // If a saved workspace/thread was deleted or unavailable, Chat selected a valid fallback.
+        // Persist that outcome immediately so subsequent restarts do not repeat the failed restore.
+        if (Chat.WorkspacesError is null)
+        {
+            PersistDesktopStateImmediately();
         }
     }
 
@@ -232,20 +245,25 @@ public sealed partial class MainViewModel : ViewModelBase
 
     private DesktopUiState CreateDesktopUiState() => new()
     {
-        CurrentView = WorkspaceForm is not null ? "Workspace" : ActiveSettingsPage is not null ? "Settings" : "Idle",
-        CurrentContext = CurrentContextSection.ToString(),
+        CurrentView = CurrentContextSection.ToString().ToLowerInvariant(),
+        CurrentContext = CurrentContextSection.ToString().ToLowerInvariant(),
         ContextVisible = IsContextPanelOpen,
         ChatPanelWidth = ChatPanelWidth,
         ContextPanelWidth = ContextPanelWidth,
-        ActiveWorkspaceUuid = Chat.CurrentWorkspace?.Uuid,
+        ActiveWorkspaceId = Chat.CurrentWorkspace?.Id,
         ShowAllThreads = Chat.CurrentWorkspace is null,
-        SelectedThreadUuid = Chat.CurrentThread?.Uuid,
-        SelectedWorkspaceUuid = _selectedWorkspaceUuid,
-        SelectedSetting = _lastSettingsPage.ToString(),
+        SelectedThreadId = Chat.CurrentThread?.Id,
+        SelectedWorkspaceId = _selectedWorkspaceId,
+        SelectedSetting = _lastSettingsPage.ToString().ToLowerInvariant(),
         ChatboxText = Chat.ComposerText,
     };
 
-    private void QueueDesktopStateSave()
+    private void QueueDesktopStateSave() => ScheduleDesktopStateSave(TimeSpan.FromMilliseconds(300));
+
+    /// <summary>Writes a completed workspace/thread selection without waiting for the composer debounce.</summary>
+    private void PersistDesktopStateImmediately() => ScheduleDesktopStateSave(TimeSpan.Zero);
+
+    private void ScheduleDesktopStateSave(TimeSpan delay)
     {
         if (_restoring)
         {
@@ -253,15 +271,18 @@ public sealed partial class MainViewModel : ViewModelBase
         }
 
         _desktopStateSaveDelay?.Cancel();
-        var delay = _desktopStateSaveDelay = new CancellationTokenSource();
-        _ = PersistDesktopStateAsync(delay.Token);
+        var cancellation = _desktopStateSaveDelay = new CancellationTokenSource();
+        _ = PersistDesktopStateAsync(delay, cancellation.Token);
     }
 
-    private async Task PersistDesktopStateAsync(CancellationToken cancellationToken)
+    private async Task PersistDesktopStateAsync(TimeSpan delay, CancellationToken cancellationToken)
     {
         try
         {
-            await Task.Delay(TimeSpan.FromMilliseconds(300), cancellationToken);
+            if (delay > TimeSpan.Zero)
+            {
+                await Task.Delay(delay, cancellationToken);
+            }
             await _desktopUiStateStore.SaveAsync(CreateDesktopUiState(), MauiProgram.DevMode, cancellationToken);
         }
         catch (OperationCanceledException)
@@ -362,6 +383,7 @@ public sealed partial class MainViewModel : ViewModelBase
         CurrentContextSection = section;
         IsContextPanelOpen = true;
         OpenMainPanelForCurrentContext();
+        PersistDesktopStateImmediately();
     }
 
     private void OpenMainPanelForCurrentContext()
@@ -383,7 +405,7 @@ public sealed partial class MainViewModel : ViewModelBase
 
     private void OpenSelectedWorkspace()
     {
-        var workspace = Chat.Workspaces.FirstOrDefault(candidate => candidate.Uuid == _selectedWorkspaceUuid);
+        var workspace = Chat.Workspaces.FirstOrDefault(candidate => candidate.Id == _selectedWorkspaceId);
         if (workspace is null)
         {
             CloseWorkspaceForm();
@@ -436,21 +458,22 @@ public sealed partial class MainViewModel : ViewModelBase
     private void OpenWorkspaceForm(WorkspaceFormViewModel form)
     {
         CloseSettingsPage();
-        if (form.Uuid is not null)
+        if (form.Id is > 0)
         {
-            _selectedWorkspaceUuid = form.Uuid;
+            _selectedWorkspaceId = form.Id;
         }
 
         form.Saved += OnWorkspaceFormSaved;
         form.Cancelled += OnWorkspaceFormCancelled;
         WorkspaceForm = form;
+        PersistDesktopStateImmediately();
     }
 
     private void OnWorkspaceFormSaved(object? sender, Workspace workspace)
     {
-        _selectedWorkspaceUuid = workspace.Uuid;
+        _selectedWorkspaceId = workspace.Id;
         CloseWorkspaceForm();
-        QueueDesktopStateSave();
+        PersistDesktopStateImmediately();
     }
 
     private void OnWorkspaceFormCancelled(object? sender, EventArgs e) => CloseWorkspaceForm();

@@ -107,6 +107,7 @@ public class ThreadService : IThreadService
     {
         return new ThreadDto
         {
+            Id = thread.Id,
             Uuid = thread.Uuid,
             WorkspaceUuid = workspaceUuid,
             Title = thread.Title,

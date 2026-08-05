@@ -182,6 +182,30 @@
         </Setter>
     </Style>
 
+    <!-- A bubble-local copy action is a real visual container rather than a platform ImageButton,
+         avoiding WinUI's default border. It stays transparent normally and takes the semantic
+         hover tint only while pointed at. -->
+    <Style x:Key="BubbleCopyButton" TargetType="Border">
+        <Setter Property="WidthRequest" Value="24" />
+        <Setter Property="HeightRequest" Value="24" />
+        <Setter Property="Padding" Value="4" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 4" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource HoverColor}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
     <!-- Persistent left-rail navigation: a 32px icon target with a 4px margin on each side inside
          the 40px rail. Individual tabs bind their normal background to selection; this style
          supplies only shape and hover. -->

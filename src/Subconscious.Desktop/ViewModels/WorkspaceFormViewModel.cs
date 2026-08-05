@@ -16,8 +16,11 @@ public sealed partial class WorkspaceFormViewModel : ViewModelBase
 {
     private readonly ChatViewModel _chat;
 
-    /// <summary>Null in create mode; the workspace's uuid in edit mode.</summary>
+    /// <summary>Null in create mode; the workspace's UUID in edit mode.</summary>
     public string? Uuid { get; }
+
+    /// <summary>Database identifier used by the fixture-compatible UI state.</summary>
+    public int? Id { get; }
 
     public bool IsEditMode => Uuid is not null;
 
@@ -57,6 +60,7 @@ public sealed partial class WorkspaceFormViewModel : ViewModelBase
     {
         _chat = chat;
         Uuid = workspace.Uuid;
+        Id = workspace.Id;
         CreatedAt = workspace.CreatedAt;
         UpdatedAt = workspace.UpdatedAt;
         Name = workspace.Name;

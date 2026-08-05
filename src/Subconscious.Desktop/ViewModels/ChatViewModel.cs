@@ -28,6 +28,9 @@ public sealed partial class ChatViewModel : ViewModelBase
     public ObservableCollection<Workspace> Workspaces { get; } = [];
     public ObservableCollection<WorkspaceSelectorItem> WorkspaceSelectorItems { get; } = [];
 
+    /// <summary>Raised after a workspace/thread selection has completed and is ready to persist.</summary>
+    public event EventHandler? SelectionChanged;
+
     /// <summary>Incremented after semantic resources are replaced so consumers such as the
     /// WebView transcript can explicitly regenerate their captured palette.</summary>
     public long ThemeRevision => _themeRevision;
@@ -86,7 +89,12 @@ public sealed partial class ChatViewModel : ViewModelBase
     [ObservableProperty]
     private string? _workspacesError;
 
-    public async Task InitializeAsync(bool dev)
+    public async Task InitializeAsync(
+        bool dev,
+        int? activeWorkspaceId = null,
+        int? selectedThreadId = null,
+        bool showAllThreads = false,
+        bool restoreSelection = false)
     {
         // Raised from the WebSocket receive loop, so marshal to the UI thread before touching
         // bound properties.
@@ -113,7 +121,12 @@ public sealed partial class ChatViewModel : ViewModelBase
         IsConnected = true;
         StatusText = "Connected";
 
-        await LoadWorkspacesAsync();
+        await LoadWorkspacesCoreAsync(activateInitialSelection: false);
+        if (!restoreSelection
+            || !await RestoreSelectionAsync(activeWorkspaceId, selectedThreadId, showAllThreads))
+        {
+            await ActivateInitialWorkspaceAsync();
+        }
     }
 
     /// <summary>
@@ -125,7 +138,9 @@ public sealed partial class ChatViewModel : ViewModelBase
     /// thread endpoint) must not blank out a list that loaded perfectly well.
     /// </summary>
     [RelayCommand]
-    private async Task LoadWorkspacesAsync()
+    private Task LoadWorkspacesAsync() => LoadWorkspacesCoreAsync(activateInitialSelection: true);
+
+    private async Task LoadWorkspacesCoreAsync(bool activateInitialSelection)
     {
         IsLoadingWorkspaces = true;
         WorkspacesError = null;
@@ -149,7 +164,10 @@ public sealed partial class ChatViewModel : ViewModelBase
             IsLoadingWorkspaces = false;
         }
 
-        await ActivateInitialWorkspaceAsync();
+        if (activateInitialSelection)
+        {
+            await ActivateInitialWorkspaceAsync();
+        }
     }
 
     /// <summary>Rebuilds the native Picker's choices after a workspace mutation. The first row is
@@ -247,6 +265,12 @@ public sealed partial class ChatViewModel : ViewModelBase
         {
             await SelectThreadAsync(target);
         }
+        else
+        {
+            // A successful workspace selection is still durable even if thread creation did not
+            // yield a selectable row.
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     /// <summary>Clears the workspace filter and displays the threads from every workspace,
@@ -255,11 +279,13 @@ public sealed partial class ChatViewModel : ViewModelBase
     {
         CurrentWorkspace = null;
         await RefreshThreadsAsync();
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Restores the persisted workspace filter and reloads the selected thread's
-    /// chronological message history after the engine has supplied its workspace list.</summary>
-    public async Task RestoreSelectionAsync(string? activeWorkspaceUuid, string? selectedThreadUuid, bool showAllThreads)
+    /// <summary>Applies a persisted workspace filter and selected thread after the workspace
+    /// list has loaded. Returns false only when the saved workspace no longer exists or loading
+    /// the saved selection failed, so callers can deliberately fall back to the first workspace.</summary>
+    public async Task<bool> RestoreSelectionAsync(int? activeWorkspaceId, int? selectedThreadId, bool showAllThreads)
     {
         try
         {
@@ -267,19 +293,26 @@ public sealed partial class ChatViewModel : ViewModelBase
             {
                 await ClearWorkspaceSelectionAsync();
             }
-            else if (Workspaces.FirstOrDefault(workspace => workspace.Uuid == activeWorkspaceUuid) is { } workspace)
+            else if (Workspaces.FirstOrDefault(workspace => workspace.Id == activeWorkspaceId) is { } workspace)
             {
                 await SelectWorkspaceAsync(workspace);
             }
+            else
+            {
+                return false;
+            }
 
-            if (Threads.FirstOrDefault(thread => thread.Uuid == selectedThreadUuid) is { } thread)
+            if (Threads.FirstOrDefault(thread => thread.Id == selectedThreadId) is { } thread)
             {
                 await SelectThreadAsync(thread);
             }
+
+            return true;
         }
         catch (Exception ex)
         {
             StatusText = $"Connected — couldn't restore chat state: {ex.Message}";
+            return false;
         }
     }
 
@@ -303,6 +336,8 @@ public sealed partial class ChatViewModel : ViewModelBase
         {
             StatusText = $"Couldn't load thread: {ex.Message}";
         }
+
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]

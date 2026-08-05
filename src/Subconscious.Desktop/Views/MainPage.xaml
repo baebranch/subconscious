@@ -21,7 +21,7 @@
              persisted layout in code-behind before the first frame. -->
         <!-- The parent grid is the sole move/release handler. Pointer capture keeps routed moves
              flowing to it after the pointer has left the 6px splitter hit target. -->
-        <Grid x:Name="PanelsGrid" Grid.Row="1" ColumnDefinitions="40,360,6,380,6,*"
+        <Grid x:Name="PanelsGrid" Grid.Row="1" ColumnDefinitions="41,360,6,380,6,*"
               SizeChanged="OnPanelsGridSizeChanged">
             <Grid.GestureRecognizers>
                 <PointerGestureRecognizer PointerMoved="OnPanelsPointerMoved"
@@ -34,12 +34,14 @@
                 <DynamicResource Key="SurfaceColor" />
             </Grid.BackgroundColor>
 
-            <!-- Fixed 40px rail. The stack layouts own the 4px outer inset and 4px gaps, leaving
-                 the full-height divider free to reach the bottom edge. The Context toggle remains
-                 an action; the remaining icons select and open their Context Panel section. -->
-            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto"
+            <!-- Fixed 40px content rail plus a 1px trailing divider. The stack layouts own the
+                 4px outer inset and 4px gaps, leaving the full-height divider free to reach the
+                 bottom edge. The Context toggle remains an action; the remaining icons select
+                 and open their Context Panel section. -->
+            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto" ColumnDefinitions="40,1"
                   BackgroundColor="{DynamicResource PanelBackgroundColor}">
-                <VerticalStackLayout Grid.Row="0" Padding="4,4,4,0" Spacing="4">
+                <VerticalStackLayout Grid.Row="0" Grid.Column="0" Padding="4,4,4,0" Spacing="4">
+                    <!-- Sidebar buttons -->
                     <Border Style="{StaticResource SidebarRailButton}"
                             SemanticProperties.Description="Toggle context panel"
                             ToolTipProperties.Text="Toggle context panel">
@@ -135,8 +137,8 @@
                     </Border>
                 </VerticalStackLayout>
 
-                <!-- This overlay is outside the padded button layouts, so it touches both edges. -->
-                <BoxView Grid.RowSpan="3" WidthRequest="1" HorizontalOptions="End"
+                <!-- This divider occupies its own column, preserving 40px of rail content. -->
+                <BoxView Grid.RowSpan="3" Grid.Column="1" WidthRequest="1" HorizontalOptions="Center"
                          InputTransparent="True" Color="{DynamicResource DividerColor}" />
             </Grid>
 

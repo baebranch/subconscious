@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
+             xmlns:views="clr-namespace:Subconscious.Desktop.Views"
              x:Class="Subconscious.Desktop.Views.ChatPanelView"
              x:Name="ChatPanelRoot"
              x:DataType="vm:ChatViewModel"
@@ -40,34 +41,88 @@
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:MessageViewModel">
-                    <Border MaximumWidthRequest="420"
-                            Padding="10,8"
-                            StrokeThickness="0"
-                            BackgroundColor="{DynamicResource AssistantBubbleColor}"
-                            HorizontalOptions="{Binding IsUser, Converter={StaticResource BubbleAlignment}}">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="10" />
-                        </Border.StrokeShape>
-                        <Border.Triggers>
-                            <DataTrigger TargetType="Border" Binding="{Binding IsUser}" Value="True">
-                                <Setter Property="BackgroundColor" Value="{DynamicResource UserBubbleColor}" />
-                            </DataTrigger>
-                        </Border.Triggers>
-                        <VerticalStackLayout Spacing="0">
-                            <!-- Bubble colour conveys the participant; sender labels are intentionally omitted. -->
-                            <Label Text="{Binding Content}" LineBreakMode="WordWrap" />
-                            <Grid Margin="0,6,0,0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
-                                <Label Grid.Column="1" Text="{Binding Timestamp}" Style="{StaticResource MutedLabel}"
-                                       FontSize="11" VerticalOptions="Center" />
-                                <ImageButton Grid.Column="2" Style="{StaticResource SquareIconButton}"
-                                             WidthRequest="24" HeightRequest="24"
-                                             mi:MauiIcon.Value="{mi:Fluent Icon=Copy24, IconSize=15, IconColor={Binding Source={x:Reference ChatPanelRoot}, Path=BindingContext.IconColor}}"
-                                             Clicked="OnCopyMessageClicked"
-                                             SemanticProperties.Description="Copy message"
-                                             ToolTipProperties.Text="Copy message" />
-                            </Grid>
-                        </VerticalStackLayout>
-                    </Border>
+                    <!-- CollectionView stretches its root item. This transparent wrapper owns that
+                         full row; the contained Border measures to its content then aligns to the
+                         sender/responder edge, capped at 525px. -->
+                    <Grid>
+                        <Border MaximumWidthRequest="525"
+                                Padding="10,8"
+                                StrokeThickness="0"
+                                BackgroundColor="{DynamicResource AssistantBubbleColor}"
+                                HorizontalOptions="{Binding IsUser, Converter={StaticResource BubbleAlignment}}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="5" />
+                            </Border.StrokeShape>
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding IsUser}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource UserBubbleColor}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <VerticalStackLayout Spacing="0" HorizontalOptions="Start">
+                                <!-- All non-tool content is parsed by Markdig and rendered with native,
+                                     semantic-resource-aware controls rather than raw Markdown text. -->
+                                <views:MarkdownMessageView Markdown="{Binding Content}"
+                                                           HorizontalOptions="Start"
+                                                           IsVisible="{Binding IsTool, Converter={StaticResource InvertedBool}}" />
+
+                                <!-- A collapsed tool is precisely one compact header row. Expanding it
+                                     reveals its structured JSON sections within a height-capped scroll area. -->
+                                <VerticalStackLayout IsVisible="{Binding IsTool}" Spacing="0" HorizontalOptions="Start">
+                                    <Grid Padding="0" ColumnDefinitions="Auto,Auto" ColumnSpacing="6">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding ToggleToolExpandedCommand}" />
+                                        </Grid.GestureRecognizers>
+                                        <Label Text="{Binding ToolTitle}" FontAttributes="Bold"
+                                               LineBreakMode="NoWrap" VerticalOptions="Center" />
+                                        <!-- Segoe Fluent Icons supplies the familiar Windows expand/collapse chevrons. -->
+                                        <Label Grid.Column="1" Text="{Binding ToolExpansionGlyph}"
+                                               FontFamily="Segoe Fluent Icons" FontSize="12"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+                                    <ScrollView IsVisible="{Binding IsToolExpanded}"
+                                                Margin="0,8,0,0"
+                                                MaximumHeightRequest="260"
+                                                Orientation="Vertical">
+                                        <VerticalStackLayout Spacing="8">
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="Input" Style="{StaticResource MutedLabel}" />
+                                                <Label Text="{Binding ToolInput}" FontFamily="monospace"
+                                                       LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                            <BoxView HeightRequest="1" Color="{DynamicResource DividerColor}"
+                                                     IsVisible="{Binding ToolOutput, Converter={StaticResource IsNotEmpty}}" />
+                                            <VerticalStackLayout Spacing="2"
+                                                                 IsVisible="{Binding ToolOutput, Converter={StaticResource IsNotEmpty}}">
+                                                <Label Text="Output" Style="{StaticResource MutedLabel}" />
+                                                <Label Text="{Binding ToolOutput}" FontFamily="monospace"
+                                                       LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                        </VerticalStackLayout>
+                                    </ScrollView>
+                                </VerticalStackLayout>
+
+                                <!-- A horizontal, content-sized footer avoids the former star column
+                                     that forced even a short message to consume the whole row. Tools
+                                     deliberately have no footer so their collapsed form remains one line. -->
+                                <HorizontalStackLayout IsVisible="{Binding IsTool, Converter={StaticResource InvertedBool}}"
+                                                       Margin="0,6,0,0"
+                                                       Spacing="6"
+                                                       HorizontalOptions="End">
+                                    <Label Text="{Binding Timestamp}" Style="{StaticResource MutedLabel}"
+                                           FontSize="11" VerticalOptions="Center" />
+                                    <Border Style="{StaticResource BubbleCopyButton}"
+                                            SemanticProperties.Description="Copy message"
+                                            ToolTipProperties.Text="Copy message">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnCopyMessageTapped" />
+                                        </Border.GestureRecognizers>
+                                        <Image InputTransparent="True"
+                                               mi:MauiIcon.Value="{mi:Fluent Icon=Copy24, IconSize=15, IconColor={Binding Source={x:Reference ChatPanelRoot}, Path=BindingContext.IconColor}}" />
+                                    </Border>
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>

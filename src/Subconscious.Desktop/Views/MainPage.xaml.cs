@@ -17,8 +17,8 @@ namespace Subconscious.Desktop.Views;
 /// </summary>
 public partial class MainPage : ContentPage
 {
-    /// <summary>Fixed width of the persistent left navigation rail.</summary>
-    private const double SidebarWidth = 40;
+    /// <summary>Fixed width of the persistent left navigation rail, including its 1px divider.</summary>
+    private const double SidebarWidth = 41;
 
     /// <summary>Divider width. Also the grab area — wide enough to hit with a mouse, narrow
     /// enough to still read as a divider line.</summary>

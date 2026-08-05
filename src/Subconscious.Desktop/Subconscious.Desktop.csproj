@@ -81,6 +81,8 @@
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<!-- Parse chat markdown into native, theme-aware MAUI controls; pinned to keep Desktop builds reproducible. -->
+		<PackageReference Include="Markdig" Version="0.40.0" />
 		<!-- Same icon set the Mobile client uses, so both clients draw from one visual language
 		     instead of the hand-rolled Rectangle/Ellipse glyphs the Avalonia version had. -->
 		<PackageReference Include="AathifMahir.Maui.MauiIcons.Fluent" Version="6.0.0" />
