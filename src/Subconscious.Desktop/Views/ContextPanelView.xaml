@@ -136,69 +136,65 @@
                             Style="{StaticResource GhostButton}" HorizontalOptions="Start" />
                 </VerticalStackLayout>
 
-                <!-- Tapping an inner card opens its settings form. Keeping selection disabled
-                     avoids WinUI's full-item PointerOver/selection container around the card. -->
-                <CollectionView Grid.Row="2" x:Name="WorkspacesView"
-                                ItemsSource="{Binding Chat.Workspaces}"
-                                SelectionMode="None"
-                                VerticalOptions="Fill"
-                                Margin="0,0,0,0"
-                                IsVisible="{Binding Chat.WorkspacesError, Converter={StaticResource IsEmpty}}">
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="4" />
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.EmptyView>
-                        <!-- Only reachable once a load has finished without error, so this now
-                             genuinely means "the engine has none". -->
-                        <Label Text="No workspaces yet." Style="{StaticResource MutedLabel}"
-                               HorizontalOptions="Center" VerticalOptions="Center" />
-                    </CollectionView.EmptyView>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="engine:Workspace">
-                            <Grid Padding="12,0,12,8">
+                <!-- A direct stack avoids the WinUI CollectionView item container, so card spacing
+                     and hover visuals are owned solely by this view. -->
+                <ScrollView Grid.Row="2"
+                            VerticalOptions="Fill"
+                            IsVisible="{Binding Chat.WorkspacesError, Converter={StaticResource IsEmpty}}">
+                    <VerticalStackLayout Padding="12,0,12,8" Spacing="8"
+                                         BindableLayout.ItemsSource="{Binding Chat.Workspaces}">
+                        <BindableLayout.EmptyView>
+                            <!-- Only reachable once a load has finished without error, so this now
+                                 genuinely means "the engine has none". -->
+                            <Label Text="No workspaces yet." Style="{StaticResource MutedLabel}"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                        </BindableLayout.EmptyView>
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="engine:Workspace">
                                 <Border Style="{StaticResource ContextWorkspaceRow}"
                                         SemanticProperties.Description="{Binding Name}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Path=BindingContext.EditWorkspaceCommand,
-                                                                        Source={x:Reference ContextPanelRoot}}"
-                                                          CommandParameter="{Binding .}" />
-                                </Border.GestureRecognizers>
-                                <Border.BackgroundColor>
-                                    <MultiBinding Converter="{StaticResource WorkspaceRowBackgroundColor}">
-                                        <Binding Path="Uuid" />
-                                        <Binding Path="BindingContext.ActiveWorkspaceUuid"
-                                                 Source="{x:Reference ContextPanelRoot}" />
-                                        <Binding Path="BindingContext.ThemeRevision"
-                                                 Source="{x:Reference ContextPanelRoot}" />
-                                    </MultiBinding>
-                                </Border.BackgroundColor>
-                                <Grid ColumnDefinitions="12,*">
-                                    <Border Grid.Column="0" WidthRequest="4" HeightRequest="28"
-                                            HorizontalOptions="Center" VerticalOptions="Center"
-                                            StrokeThickness="0" StrokeShape="RoundRectangle 2">
-                                        <Border.BackgroundColor>
-                                            <MultiBinding Converter="{StaticResource WorkspaceRowIndicatorColor}">
-                                                <Binding Path="Uuid" />
-                                                <Binding Path="BindingContext.ActiveWorkspaceUuid"
-                                                         Source="{x:Reference ContextPanelRoot}" />
-                                                <Binding Path="BindingContext.ThemeRevision"
-                                                         Source="{x:Reference ContextPanelRoot}" />
-                                            </MultiBinding>
-                                        </Border.BackgroundColor>
-                                    </Border>
-                                    <VerticalStackLayout Grid.Column="1" Padding="12,0,12,8" Spacing="2" VerticalOptions="Center">
-                                        <Label Text="{Binding Name}" FontSize="13" MaxLines="1"
-                                               LineBreakMode="TailTruncation" />
-                                        <Label Text="{Binding Description}" Style="{StaticResource MutedLabel}"
-                                               FontSize="11" MaxLines="2" LineBreakMode="TailTruncation"
-                                               IsVisible="{Binding Description, Converter={StaticResource IsNotEmpty}}" />
-                                    </VerticalStackLayout>
-                                </Grid>
-                            </Border>
-                            </Grid>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Path=BindingContext.EditWorkspaceCommand,
+                                                                            Source={x:Reference ContextPanelRoot}}"
+                                                              CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
+                                    <Border.BackgroundColor>
+                                        <MultiBinding Converter="{StaticResource WorkspaceRowBackgroundColor}">
+                                            <Binding Path="Uuid" />
+                                            <Binding Path="BindingContext.ActiveWorkspaceUuid"
+                                                     Source="{x:Reference ContextPanelRoot}" />
+                                            <Binding Path="BindingContext.ThemeRevision"
+                                                     Source="{x:Reference ContextPanelRoot}" />
+                                        </MultiBinding>
+                                    </Border.BackgroundColor>
+                                    <Grid ColumnDefinitions="12,*">
+                                        <Border Grid.Column="0" WidthRequest="4" HeightRequest="28"
+                                                HorizontalOptions="Center" VerticalOptions="Center"
+                                                StrokeThickness="0" StrokeShape="RoundRectangle 2">
+                                            <Border.BackgroundColor>
+                                                <MultiBinding Converter="{StaticResource WorkspaceRowIndicatorColor}">
+                                                    <Binding Path="Uuid" />
+                                                    <Binding Path="BindingContext.ActiveWorkspaceUuid"
+                                                             Source="{x:Reference ContextPanelRoot}" />
+                                                    <Binding Path="BindingContext.ThemeRevision"
+                                                             Source="{x:Reference ContextPanelRoot}" />
+                                                </MultiBinding>
+                                            </Border.BackgroundColor>
+                                        </Border>
+                                        <VerticalStackLayout Grid.Column="1" Padding="12,0,12,8" Spacing="2"
+                                                             VerticalOptions="Center">
+                                            <Label Text="{Binding Name}" FontSize="13" MaxLines="1"
+                                                   LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding Description}" Style="{StaticResource MutedLabel}"
+                                                   FontSize="11" MaxLines="2" LineBreakMode="TailTruncation"
+                                                   IsVisible="{Binding Description, Converter={StaticResource IsNotEmpty}}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </ScrollView>
 
             </Grid>
 
