@@ -65,19 +65,34 @@
                                                            HorizontalOptions="Start"
                                                            IsVisible="{Binding IsTool, Converter={StaticResource InvertedBool}}" />
 
-                                <!-- A collapsed tool is precisely one compact header row. Expanding it
-                                     reveals its structured JSON sections within a height-capped scroll area. -->
+                                <!-- Collapsed tools stay on one compact metadata row. The chevron
+                                     alone toggles detail, keeping the adjacent copy action independent. -->
                                 <VerticalStackLayout IsVisible="{Binding IsTool}" Spacing="0" HorizontalOptions="Start">
-                                    <Grid Padding="0" ColumnDefinitions="Auto,Auto" ColumnSpacing="6">
-                                        <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding ToggleToolExpandedCommand}" />
-                                        </Grid.GestureRecognizers>
+                                    <Grid Padding="0" ColumnDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="6">
                                         <Label Text="{Binding ToolTitle}" FontAttributes="Bold"
                                                LineBreakMode="NoWrap" VerticalOptions="Center" />
-                                        <!-- Segoe Fluent Icons supplies the familiar Windows expand/collapse chevrons. -->
-                                        <Label Grid.Column="1" Text="{Binding ToolExpansionGlyph}"
-                                               FontFamily="Segoe Fluent Icons" FontSize="12"
+                                        <Label Grid.Column="1" Text="{Binding Timestamp}"
+                                               Style="{StaticResource MutedLabel}" FontSize="11"
                                                VerticalOptions="Center" />
+                                        <Border Grid.Column="2" Style="{StaticResource BubbleCopyButton}"
+                                                SemanticProperties.Description="Copy tool message"
+                                                ToolTipProperties.Text="Copy tool message">
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnCopyMessageTapped" />
+                                            </Border.GestureRecognizers>
+                                            <Image InputTransparent="True"
+                                                   mi:MauiIcon.Value="{mi:Fluent Icon=Copy24, IconSize=15, IconColor={Binding Source={x:Reference ChatPanelRoot}, Path=BindingContext.IconColor}}" />
+                                        </Border>
+                                        <!-- Segoe Fluent Icons supplies the familiar Windows expand/collapse chevrons. -->
+                                        <Label Grid.Column="3" Text="{Binding ToolExpansionGlyph}"
+                                               FontFamily="Segoe Fluent Icons" FontSize="12"
+                                               VerticalOptions="Center"
+                                               SemanticProperties.Description="Show or hide tool details"
+                                               ToolTipProperties.Text="Show or hide tool details">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ToggleToolExpandedCommand}" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
                                     </Grid>
                                     <ScrollView IsVisible="{Binding IsToolExpanded}"
                                                 Margin="0,8,0,0"

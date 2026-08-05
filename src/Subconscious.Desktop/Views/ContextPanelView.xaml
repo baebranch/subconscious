@@ -19,9 +19,10 @@
             <!-- The native selector changes the active workspace in-place. Selecting a workspace
                  reloads its thread collection; the compact list below keeps only thread titles. -->
             <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsThreadsSectionSelected}">
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="16,12,16,8">
-                    <Label Grid.Column="0" Text="Threads" FontSize="13" FontAttributes="Bold"
-                           VerticalOptions="Center" />
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="12,8,12,8"
+                      HeightRequest="32" MinimumHeightRequest="32">
+                    <Label Grid.Column="0" Text="Threads" FontSize="14" FontAttributes="Bold"
+                           VerticalOptions="Fill" VerticalTextAlignment="Center" />
                     <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
                         <mi:MauiIcon Icon="{mi:Fluent Icon=Folder24}" IconSize="16"
                                      IconColor="{Binding IconColor}" VerticalOptions="Center" />
@@ -37,10 +38,13 @@
                     </HorizontalStackLayout>
                 </Grid>
 
+                <!-- The collection reaches the panel edge, while each row owns the horizontal
+                     gutter so WinUI's overlay scrollbar is flush with the ContextPanel border. -->
                 <CollectionView Grid.Row="1"
                                 ItemsSource="{Binding Chat.Threads}"
                                 SelectionMode="None"
-                                Margin="8,0,8,8">
+                                VerticalOptions="Fill"
+                                Margin="0,0,0,0">
                     <CollectionView.ItemsLayout>
                         <LinearItemsLayout Orientation="Vertical" ItemSpacing="4" />
                     </CollectionView.ItemsLayout>
@@ -50,8 +54,9 @@
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="engine:ThreadInfo">
-                            <Border Style="{StaticResource ContextNavigationRow}"
-                                    SemanticProperties.Description="{Binding Title}"
+                            <Grid Padding="12,0,12,0">
+                                <Border Style="{StaticResource ContextNavigationRow}"
+                                        SemanticProperties.Description="{Binding Title}"
                                     ToolTipProperties.Text="{Binding Title}">
                                 <Border.BackgroundColor>
                                     <MultiBinding Converter="{StaticResource ThreadRowBackgroundColor}">
@@ -89,6 +94,7 @@
                                            MaxLines="1" LineBreakMode="TailTruncation" />
                                 </Grid>
                             </Border>
+                            </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
@@ -100,9 +106,11 @@
                  engine that couldn't be asked are very different things to be looking at. -->
             <Grid RowDefinitions="Auto,Auto,*" IsVisible="{Binding IsWorkspacesSectionSelected}">
 
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="16,12,16,8">
-                    <Label Grid.Column="0" Text="Workspaces" FontSize="13" FontAttributes="Bold"
-                           VerticalOptions="Center" />
+                <!-- Worksapces Context Title Row -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="12,8,12,8"
+                      HeightRequest="32" MinimumHeightRequest="32">
+                    <Label Grid.Column="0" Text="Workspaces" FontSize="14" FontAttributes="Bold"
+                           VerticalOptions="Fill" VerticalTextAlignment="Center" />
                     <ImageButton Grid.Column="1" Style="{StaticResource SquareIconButton}"
                                  mi:MauiIcon.Value="{mi:Fluent Icon=Add24, IconSize=16, IconColor={Binding IconColor}}"
                                  Command="{Binding NewWorkspaceCommand}"
@@ -110,7 +118,7 @@
                                  ToolTipProperties.Text="New workspace" />
                 </Grid>
 
-                <HorizontalStackLayout Grid.Row="1" Margin="16,0,16,8" Spacing="8"
+                <HorizontalStackLayout Grid.Row="1" Margin="12,8,12,8" Spacing="8"
                                        IsVisible="{Binding Chat.IsLoadingWorkspaces}">
                     <ActivityIndicator IsRunning="{Binding Chat.IsLoadingWorkspaces}"
                                        Color="{DynamicResource AccentColor}"
@@ -118,23 +126,23 @@
                     <Label Text="Loading workspaces…" Style="{StaticResource MutedLabel}" VerticalOptions="Center" />
                 </HorizontalStackLayout>
 
-                <VerticalStackLayout Grid.Row="2" Margin="16,4,16,8" Spacing="10"
+                <VerticalStackLayout Grid.Row="2" Margin="12,8,12,8" Spacing="8"
                                      VerticalOptions="Start"
                                      IsVisible="{Binding Chat.WorkspacesError, Converter={StaticResource IsNotEmpty}}">
-                    <Label Text="Couldn't load workspaces" FontSize="13" FontAttributes="Bold" />
+                    <Label Text="Couldn't load workspaces" FontSize="14" FontAttributes="Bold" />
                     <Label Text="{Binding Chat.WorkspacesError}" Style="{StaticResource MutedLabel}"
                            TextColor="{DynamicResource ErrorColor}" LineBreakMode="WordWrap" />
                     <Button Text="Retry" Command="{Binding Chat.LoadWorkspacesCommand}"
                             Style="{StaticResource GhostButton}" HorizontalOptions="Start" />
                 </VerticalStackLayout>
 
-                <!-- Selecting a row opens it in the center panel's form; see the code-behind,
-                     which clears the selection again so the same row can be re-opened. -->
+                <!-- Tapping an inner card opens its settings form. Keeping selection disabled
+                     avoids WinUI's full-item PointerOver/selection container around the card. -->
                 <CollectionView Grid.Row="2" x:Name="WorkspacesView"
                                 ItemsSource="{Binding Chat.Workspaces}"
-                                SelectionMode="Single"
-                                SelectionChanged="OnWorkspaceSelected"
-                                Margin="8,0,8,8"
+                                SelectionMode="None"
+                                VerticalOptions="Fill"
+                                Margin="0,0,0,0"
                                 IsVisible="{Binding Chat.WorkspacesError, Converter={StaticResource IsEmpty}}">
                     <CollectionView.ItemsLayout>
                         <LinearItemsLayout Orientation="Vertical" ItemSpacing="4" />
@@ -147,8 +155,14 @@
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="engine:Workspace">
-                            <Border Style="{StaticResource ContextWorkspaceRow}"
-                                    SemanticProperties.Description="{Binding Name}">
+                            <Grid Padding="12,0,12,8">
+                                <Border Style="{StaticResource ContextWorkspaceRow}"
+                                        SemanticProperties.Description="{Binding Name}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Path=BindingContext.EditWorkspaceCommand,
+                                                                        Source={x:Reference ContextPanelRoot}}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
                                 <Border.BackgroundColor>
                                     <MultiBinding Converter="{StaticResource WorkspaceRowBackgroundColor}">
                                         <Binding Path="Uuid" />
@@ -172,8 +186,7 @@
                                             </MultiBinding>
                                         </Border.BackgroundColor>
                                     </Border>
-                                    <VerticalStackLayout Grid.Column="1" Padding="0,7,8,7" Spacing="2"
-                                                         VerticalOptions="Center">
+                                    <VerticalStackLayout Grid.Column="1" Padding="12,0,12,8" Spacing="2" VerticalOptions="Center">
                                         <Label Text="{Binding Name}" FontSize="13" MaxLines="1"
                                                LineBreakMode="TailTruncation" />
                                         <Label Text="{Binding Description}" Style="{StaticResource MutedLabel}"
@@ -182,6 +195,7 @@
                                     </VerticalStackLayout>
                                 </Grid>
                             </Border>
+                            </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
@@ -191,9 +205,12 @@
             <!-- Settings mirrors the Python client's five settings modes. A selected row marks
                  the page currently hosted by MainPanelView, not merely the Settings top-level tab. -->
             <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsSettingsSectionSelected}">
-                <Label Grid.Row="0" Text="Settings" FontSize="13" FontAttributes="Bold"
-                       Margin="16,12,16,8" />
-                <VerticalStackLayout Grid.Row="1" Padding="8,0,8,8" Spacing="8">
+                <Grid Grid.Row="0" Margin="12,8,12,8" HeightRequest="32" MinimumHeightRequest="32">
+                    <Label Text="Settings" FontSize="14" FontAttributes="Bold"
+                           VerticalOptions="Fill" VerticalTextAlignment="Center" />
+                </Grid>
+                <ScrollView Grid.Row="1" VerticalOptions="Fill">
+                    <VerticalStackLayout Padding="12,0,12,8" Spacing="8">
                     <Border Style="{StaticResource ContextNavigationRow}"
                             BackgroundColor="{Binding IsGeneralSettingsPageOpen, Converter={StaticResource NavRowBackgroundColor}}"
                             SemanticProperties.Description="General Settings"
@@ -274,12 +291,15 @@
                             <Label Grid.Column="1" Text="About" FontSize="13" VerticalOptions="Center" />
                         </Grid>
                     </Border>
-                </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </ScrollView>
             </Grid>
 
             <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsAccountSectionSelected}">
-                <Label Grid.Row="0" Text="Account" FontSize="13" FontAttributes="Bold"
-                       Margin="16,12,16,8" />
+                <Grid Grid.Row="0" Margin="12,8,12,8" HeightRequest="32" MinimumHeightRequest="32">
+                    <Label Text="Account" FontSize="14" FontAttributes="Bold"
+                           VerticalOptions="Fill" VerticalTextAlignment="Center" />
+                </Grid>
                 <VerticalStackLayout Grid.Row="1" VerticalOptions="Center" HorizontalOptions="Center" Spacing="8">
                     <Label Text="Account details — coming soon" Style="{StaticResource MutedLabel}"
                            HorizontalOptions="Center" />

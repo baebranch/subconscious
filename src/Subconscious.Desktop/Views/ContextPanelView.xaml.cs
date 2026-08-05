@@ -12,23 +12,6 @@ public partial class ContextPanelView : ContentView
         InitializeComponent();
     }
 
-    /// <summary>Opens the selected workspace's settings form. Changing the chat's active
-    /// workspace is deliberately handled only by the Threads header dropdown.</summary>
-    private void OnWorkspaceSelected(object? sender, SelectionChangedEventArgs e)
-    {
-        if (e.CurrentSelection.FirstOrDefault() is not Workspace workspace)
-        {
-            return;
-        }
-
-        WorkspacesView.SelectedItem = null;
-
-        if (BindingContext is MainViewModel viewModel)
-        {
-            viewModel.EditWorkspaceCommand.Execute(workspace);
-        }
-    }
-
     /// <summary>Loads the workspace selected from the Threads header's native dropdown, or clears
     /// its filter when the explicit All workspaces item is selected.</summary>
     private async void OnWorkspacePickerSelectedIndexChanged(object? sender, EventArgs e)

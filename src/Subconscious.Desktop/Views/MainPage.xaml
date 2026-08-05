@@ -21,7 +21,7 @@
              persisted layout in code-behind before the first frame. -->
         <!-- The parent grid is the sole move/release handler. Pointer capture keeps routed moves
              flowing to it after the pointer has left the 6px splitter hit target. -->
-        <Grid x:Name="PanelsGrid" Grid.Row="1" ColumnDefinitions="41,360,6,380,6,*,41"
+        <Grid x:Name="PanelsGrid" Grid.Row="1" ColumnDefinitions="41,360,1,380,1,*,41"
               SizeChanged="OnPanelsGridSizeChanged">
             <Grid.GestureRecognizers>
                 <PointerGestureRecognizer PointerMoved="OnPanelsPointerMoved"
@@ -144,8 +144,9 @@
 
             <views:ContextPanelView x:Name="ContextPanel" Grid.Column="1" IsVisible="{Binding IsContextPanelOpen}" />
 
-            <!-- The column remains 6px wide for an easy drag target; only this centered rule is
-                 painted, so the divider itself reads as a 1px line. -->
+            <!-- Each grid column reserves only the painted 1px divider. The 6px transparent
+                 splitter overlay is centered on that rule, remaining an easy drag target without
+                 keeping either panel's scrollbar away from the divider. -->
             <Grid x:Name="ContextSplitter" Grid.Column="2" Style="{StaticResource PanelSplitter}"
                   SemanticProperties.Description="Resize context panel"
                   ToolTipProperties.Text="Drag to resize · double-click to reset">

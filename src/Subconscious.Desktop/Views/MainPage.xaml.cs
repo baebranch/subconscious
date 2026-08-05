@@ -22,9 +22,9 @@ public partial class MainPage : ContentPage
     private const double SidebarDividerWidth = 1;
     private const double SidebarWidth = SidebarContentWidth + SidebarDividerWidth;
 
-    /// <summary>Divider width. Also the grab area — wide enough to hit with a mouse, narrow
-    /// enough to still read as a divider line.</summary>
-    private const double SplitterThickness = 6;
+    /// <summary>Width reserved by each painted divider in the grid layout. The wider drag target
+    /// is a transparent overlay defined by <c>PanelSplitter</c>.</summary>
+    private const double DividerThickness = 1;
 
     /// <summary>The center (utility) panel never shrinks below this, whatever the dividers do.</summary>
     private const double MinCenterPanelWidth = 320;
@@ -244,7 +244,7 @@ public partial class MainPage : ContentPage
             return double.MaxValue;
         }
 
-        var dividers = SplitterThickness * (_viewModel.IsContextPanelOpen ? 2 : 1);
+        var dividers = DividerThickness * (_viewModel.IsContextPanelOpen ? 2 : 1);
         return available - SidebarWidth - MinCenterPanelWidth - dividers;
     }
 
@@ -332,8 +332,8 @@ public partial class MainPage : ContentPage
         var firstSplitterVisible = open || firstControlledPanel != PanelKind.Context;
         var secondSplitterVisible = open || secondControlledPanel != PanelKind.Context;
 
-        PanelsGrid.ColumnDefinitions[2].Width = new GridLength(firstSplitterVisible ? SplitterThickness : 0);
-        PanelsGrid.ColumnDefinitions[4].Width = new GridLength(secondSplitterVisible ? SplitterThickness : 0);
+        PanelsGrid.ColumnDefinitions[2].Width = new GridLength(firstSplitterVisible ? DividerThickness : 0);
+        PanelsGrid.ColumnDefinitions[4].Width = new GridLength(secondSplitterVisible ? DividerThickness : 0);
         ContextSplitter.IsVisible = firstSplitterVisible;
         ChatSplitter.IsVisible = secondSplitterVisible;
         UpdateSplitterAccessibility(ContextSplitter, firstControlledPanel);

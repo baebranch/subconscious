@@ -128,10 +128,13 @@
         <Setter Property="Padding" Value="16,8" />
     </Style>
 
-    <!-- The splitter grid is a 6px transparent hit target. Its input-transparent child is the
-         only painted part, preserving a precise 1px divider. MainPage switches that rule to the
-         accent color while the pointer is over it. -->
+    <!-- The grid reserves only the painted 1px divider. This 6px transparent overlay is centered
+         on that rule and raised above neighboring panels so it remains an easy drag target.
+         MainPage switches the input-transparent rule to the accent color on hover. -->
     <Style x:Key="PanelSplitter" TargetType="Grid">
+        <Setter Property="WidthRequest" Value="6" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+        <Setter Property="ZIndex" Value="1" />
         <Setter Property="BackgroundColor" Value="Transparent" />
     </Style>
 

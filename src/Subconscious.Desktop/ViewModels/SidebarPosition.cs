@@ -17,8 +17,8 @@ public static class SidebarPositionCatalog
 {
     public static IReadOnlyList<SidebarPositionOption> Options { get; } =
     [
-        new(SidebarPosition.Left, "left"),
-        new(SidebarPosition.Right, "right"),
+        new(SidebarPosition.Left, "Left"),
+        new(SidebarPosition.Right, "Right"),
     ];
 
     public static SidebarPositionOption OptionFor(SidebarPosition position) =>
