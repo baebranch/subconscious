@@ -40,7 +40,7 @@ public sealed class MarkdownMessageView : ContentView
     {
         HeadingBlock heading => CreateHeading(heading),
         ParagraphBlock paragraph => CreateParagraph(paragraph),
-        FencedCodeBlock fencedCode => CreateCodeBlock(fencedCode.Lines.ToString()),
+        FencedCodeBlock fencedCode => CreateFencedCodeBlock(fencedCode),
         CodeBlock code => CreateCodeBlock(code.Lines.ToString()),
         QuoteBlock quote => CreateQuote(quote),
         ListBlock list => CreateList(list),
@@ -102,20 +102,109 @@ public sealed class MarkdownMessageView : ContentView
         return layout;
     }
 
-    private static View CreateCodeBlock(string code)
+    private static View CreateFencedCodeBlock(FencedCodeBlock fencedCode)
     {
-        var label = CreateText(code);
-        label.FontFamily = "monospace";
-        label.LineBreakMode = LineBreakMode.NoWrap;
-        var codeBorder = new Border
+        var info = fencedCode.Info?.ToString()?.Trim() ?? string.Empty;
+        var language = info.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return CreateCodeBlockFrame(fencedCode.Lines.ToString(), language, showHeader: true);
+    }
+
+    private static View CreateCodeBlock(string code) =>
+        CreateCodeBlockFrame(code, CodeSyntaxHighlighter.GuessLanguage(code), showHeader: true);
+
+    private static View CreateCodeBlockFrame(string code, string? language, bool showHeader)
+    {
+        var label = CodeSyntaxHighlighter.CreateLabel(code, language);
+
+        var codeBody = new Border
         {
             Padding = 8,
             StrokeThickness = 0,
-            StrokeShape = new RoundRectangle { CornerRadius = 4 },
             Content = new ScrollView { Orientation = ScrollOrientation.Both, Content = label },
         };
-        codeBorder.SetDynamicResource(BackgroundColorProperty, "PanelBackgroundColor");
-        return codeBorder;
+        codeBody.SetDynamicResource(BackgroundColorProperty, "PanelBackgroundColor");
+
+        if (!showHeader)
+        {
+            var plainFrame = new Border
+            {
+                StrokeThickness = 1,
+                StrokeShape = new RoundRectangle { CornerRadius = 5 },
+                Content = codeBody,
+            };
+            plainFrame.SetDynamicResource(Border.StrokeProperty, "DividerBrush");
+            return plainFrame;
+        }
+
+        var languageLabel = CreateText(string.IsNullOrWhiteSpace(language) ? "Code" : language);
+        languageLabel.FontFamily = "monospace";
+        languageLabel.FontSize = 11;
+        languageLabel.VerticalOptions = LayoutOptions.Center;
+        languageLabel.SetDynamicResource(Label.TextColorProperty, "SecondaryTextColor");
+
+        var copyButton = CreateCodeCopyButton(code);
+
+        var header = new Grid { Padding = new Thickness(8, 4), ColumnDefinitions = new ColumnDefinitionCollection { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) } };
+        header.SetDynamicResource(BackgroundColorProperty, "HoverColor");
+        header.Children.Add(languageLabel);
+        header.Children.Add(copyButton);
+        Grid.SetColumn(copyButton, 1);
+
+        var layout = new Grid();
+        layout.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        layout.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        layout.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        layout.Children.Add(header);
+        var divider = CreateDivider();
+        layout.Children.Add(divider);
+        Grid.SetRow(divider, 1);
+        layout.Children.Add(codeBody);
+        Grid.SetRow(codeBody, 2);
+
+        var frame = new Border
+        {
+            StrokeThickness = 1,
+            StrokeShape = new RoundRectangle { CornerRadius = 5 },
+            Content = layout,
+        };
+        frame.SetDynamicResource(Border.StrokeProperty, "DividerBrush");
+        return frame;
+    }
+
+    private static Border CreateCodeCopyButton(string code)
+    {
+        var icon = new Label
+        {
+            Text = "\uE8C8",
+            FontFamily = "Segoe Fluent Icons",
+            FontSize = 15,
+            HorizontalTextAlignment = TextAlignment.Center,
+            VerticalTextAlignment = TextAlignment.Center,
+            InputTransparent = true,
+        };
+        icon.SetDynamicResource(Label.TextColorProperty, "SecondaryTextColor");
+
+        var copyButton = new Border { Content = icon };
+        if (Application.Current?.Resources.TryGetValue("BubbleCopyButton", out var style) == true && style is Style borderStyle)
+        {
+            copyButton.Style = borderStyle;
+        }
+        else
+        {
+            copyButton.WidthRequest = 24;
+            copyButton.HeightRequest = 24;
+            copyButton.Padding = 4;
+            copyButton.StrokeThickness = 0;
+            copyButton.StrokeShape = new RoundRectangle { CornerRadius = 4 };
+        }
+
+        SemanticProperties.SetDescription(copyButton, "Copy code");
+        ToolTipProperties.SetText(copyButton, "Copy code");
+        copyButton.GestureRecognizers.Add(new TapGestureRecognizer
+        {
+            Command = new Command(async () => await Clipboard.Default.SetTextAsync(code)),
+        });
+        return copyButton;
     }
 
     private static View CreateTable(ContainerBlock table)
@@ -126,8 +215,11 @@ public sealed class MarkdownMessageView : ContentView
             return CreateText(ExtractText(table));
         }
 
+        // The DividerColor grid background is exposed through the 1px row/column gaps, forming
+        // stable native table rules without double-stroking shared cell edges.
         var columnCount = rows.Max(row => ChildrenOf(row).Count());
         var grid = new Grid { RowSpacing = 1, ColumnSpacing = 1 };
+        grid.SetDynamicResource(BackgroundColorProperty, "DividerColor");
         for (var column = 0; column < columnCount; column++)
         {
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
@@ -155,7 +247,16 @@ public sealed class MarkdownMessageView : ContentView
             }
         }
 
-        return new ScrollView { Orientation = ScrollOrientation.Horizontal, Content = grid };
+        var frame = new Border
+        {
+            Padding = 1,
+            StrokeThickness = 1,
+            StrokeShape = new RoundRectangle { CornerRadius = 5 },
+            Content = grid,
+        };
+        frame.SetDynamicResource(Border.StrokeProperty, "DividerBrush");
+        frame.SetDynamicResource(BackgroundColorProperty, "DividerColor");
+        return new ScrollView { Orientation = ScrollOrientation.Horizontal, Content = frame };
     }
 
     private static BoxView CreateDivider()

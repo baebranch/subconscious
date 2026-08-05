@@ -25,7 +25,7 @@
           Icon + Title are drawn by the TitleBar's own default template, so the leading edge looks
           the same as the header it replaces without any content of our own.
         -->
-        <TitleBar Title="Subconscious"
+        <TitleBar Title="{Binding Chat.StatusText, StringFormat='Subconscious — {0}'}"
                   Icon="{AppThemeBinding Light=dark_logo.png, Dark=light_logo.png}"
                   Padding="-4,0,0,0"
                   HeightRequest="32"

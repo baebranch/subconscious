@@ -1,5 +1,9 @@
 using MauiIcons.Fluent;
 using Microsoft.Extensions.Logging;
+#if WINDOWS
+using Microsoft.Maui.Handlers;
+using Subconscious.Desktop.Controls;
+#endif
 using Subconscious.Desktop.Services;
 using Subconscious.Desktop.ViewModels;
 using Subconscious.Desktop.Views;
@@ -23,6 +27,35 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .UseFluentMauiIcons()
+#if WINDOWS
+            // The chat composer owns its outline through ChatPanelView's Border. Removing the
+            // inner WinUI TextBox border avoids a doubled field while all other Editors retain
+            // their normal native form chrome.
+            .ConfigureMauiHandlers(_ =>
+            {
+                EditorHandler.Mapper.AppendToMapping(nameof(ChatComposerEditor), (handler, view) =>
+                {
+                    if (view is not ChatComposerEditor)
+                    {
+                        return;
+                    }
+
+                    // TextBox replaces its zero-width base border with a focused bottom rule via
+                    // theme resources. Override both states locally so the omnibox Border remains
+                    // the only field chrome, including while this native editor has focus.
+                    var transparent = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                        Windows.UI.Color.FromArgb(0, 0, 0, 0));
+                    var noBorder = new Microsoft.UI.Xaml.Thickness(0);
+                    handler.PlatformView.BorderBrush = transparent;
+                    handler.PlatformView.BorderThickness = noBorder;
+                    handler.PlatformView.Resources["TextControlBorderBrush"] = transparent;
+                    handler.PlatformView.Resources["TextControlBorderBrushPointerOver"] = transparent;
+                    handler.PlatformView.Resources["TextControlBorderBrushFocused"] = transparent;
+                    handler.PlatformView.Resources["TextControlBorderThemeThickness"] = noBorder;
+                    handler.PlatformView.Resources["TextControlBorderThemeThicknessFocused"] = noBorder;
+                });
+            })
+#endif
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
