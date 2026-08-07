@@ -12,9 +12,10 @@
       A persistent navigation rail sits beside the context | chat | main panels. The rail reuses
       Context Panel commands: selecting a destination also opens the Context Panel when necessary.
     -->
+    <!-- The content starts immediately below the MAUI caption. Its first physical pixel is the
+         shared divider, restoring the title-bar bottom border without creating another title row. -->
     <Grid RowDefinitions="1,*">
-
-        <BoxView Grid.Row="0" Color="{DynamicResource DividerColor}" />
+        <BoxView Grid.Row="0" Color="{DynamicResource DividerColor}" InputTransparent="True" />
 
         <!-- ── Navigation and panels ───────────────────────────────────────── -->
         <!-- Widths here are just the design defaults; the real values are applied from the

@@ -53,7 +53,11 @@ public record ToolRegisterFrame : WebSocketFrame
 /// </summary>
 public record ChatSendFrame : WebSocketFrame
 {
-    public required string ThreadUuid { get; init; }
+    /// <summary>Existing conversation to continue. Omit this for a local draft.</summary>
+    public string? ThreadUuid { get; init; }
+    /// <summary>Workspace for a local draft. The engine creates and titles the thread from its
+    /// opening message when this is supplied instead of <see cref="ThreadUuid"/>.</summary>
+    public string? WorkspaceUuid { get; init; }
     public required string Content { get; init; }
     public string? Role { get; init; } // defaults to "user"
     public string? ModelId { get; init; }

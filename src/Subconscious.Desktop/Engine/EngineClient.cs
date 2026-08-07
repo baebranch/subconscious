@@ -250,11 +250,19 @@ public sealed class EngineClient : IAsyncDisposable
         return _ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
     }
 
-    /// <summary>Send a chat message; the reply streams back via <see cref="ChatDelta"/>/<see cref="ChatDone"/>. Returns the turn's correlation id.</summary>
-    public string SendChat(string threadUuid, string content, string? modelId = null)
+    /// <summary>Send a chat message. An existing thread uses <paramref name="threadUuid"/>;
+    /// a local draft uses <paramref name="workspaceUuid"/>, which makes the engine create and
+    /// name its thread before streaming the response. Returns the turn's correlation id.</summary>
+    public string SendChat(string? threadUuid, string content, string? workspaceUuid = null, string? modelId = null)
     {
         var turnId = Guid.NewGuid().ToString("N");
-        _ = SendFrameAsync("chat.send", new { thread_uuid = threadUuid, content, model_id = modelId }, turnId);
+        _ = SendFrameAsync("chat.send", new
+        {
+            thread_uuid = threadUuid,
+            workspace_uuid = workspaceUuid,
+            content,
+            model_id = modelId,
+        }, turnId);
         return turnId;
     }
 
@@ -292,6 +300,14 @@ public sealed class EngineClient : IAsyncDisposable
             HttpMethod.Post,
             "threads",
             new CreateThreadRequest { WorkspaceUuid = workspaceUuid, Title = title },
+            cancellationToken);
+
+    /// <summary>Sets the explicit model override for a persisted thread.</summary>
+    public Task<ThreadInfo> UpdateThreadModelAsync(string threadUuid, string modelId, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<ThreadInfo, UpdateThreadRequest>(
+            HttpMethod.Put,
+            $"threads/{Uri.EscapeDataString(threadUuid)}",
+            new UpdateThreadRequest { DefaultModelId = modelId },
             cancellationToken);
 
     public Task<List<ChatMessage>> ListMessagesAsync(string threadUuid, CancellationToken cancellationToken = default) =>

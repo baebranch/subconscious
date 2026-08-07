@@ -22,10 +22,13 @@ public sealed partial class ChatViewModel : ViewModelBase
     private string? _activeTurnThread;
     private MessageViewModel? _streamingAssistantBubble;
     private long _themeRevision;
+    private bool _synchronizingSelectedModel;
+    private string? _draftModelId;
 
     public ObservableCollection<MessageViewModel> Messages { get; } = [];
     public ObservableCollection<ThreadInfo> Threads { get; } = [];
     public ObservableCollection<Workspace> Workspaces { get; } = [];
+    public ObservableCollection<ModelInfo> AvailableModels { get; } = [];
     public ObservableCollection<WorkspaceSelectorItem> WorkspaceSelectorItems { get; } = [];
 
     /// <summary>Raised after a workspace/thread selection has completed and is ready to persist.</summary>
@@ -40,6 +43,23 @@ public sealed partial class ChatViewModel : ViewModelBase
         && value is Color color
         ? color
         : Colors.Black;
+
+    /// <summary>Compact workspace context shown in the window title bar.</summary>
+    public string WorkspaceIndicatorText => CurrentWorkspace is { } workspace
+        ? $"Workspace: {workspace.Name}"
+        : "Workspace: All workspaces";
+
+    /// <summary>The workspace selected in the Threads context panel, suitable for the visible
+    /// title context as well as the native window's text-only system title.</summary>
+    public string ActiveWorkspaceName => CurrentWorkspace?.Name ?? "All workspaces";
+
+    /// <summary>Workspace context embedded in the native text-only window title.</summary>
+    public string TitleBarContextText => $"Subconscious — {ActiveWorkspaceName}";
+
+    /// <summary>Accessible native-window title used by the caption, taskbar, and system menu.
+    /// A small flat text bullet avoids the oversized glossy emoji while retaining one OS-owned
+    /// title bar. Standard Windows captions do not support embedded colored XAML shapes.</summary>
+    public string TitleBarText => $"{TitleBarContextText} — • {StatusText}";
 
     /// <summary>Raises the icon binding and the HTML-transcript palette revision after
     /// ThemeService replaces semantic runtime colors.</summary>
@@ -68,10 +88,52 @@ public sealed partial class ChatViewModel : ViewModelBase
     [ObservableProperty]
     private ThreadInfo? _currentThread;
 
+    [ObservableProperty]
+    private ModelInfo? _selectedModel;
+
+    /// <summary>Drafts keep their selected model locally until the first message creates a
+    /// persisted thread, so this selector is available as soon as a workspace is active.</summary>
+    public bool IsModelPickerEnabled => CurrentWorkspace is not null && !IsBusy && AvailableModels.Count > 0;
+
     partial void OnCurrentWorkspaceChanged(Workspace? value)
     {
         CurrentWorkspaceSelector = WorkspaceSelectorItems.FirstOrDefault(item => item.Workspace?.Uuid == value?.Uuid)
             ?? WorkspaceSelectorItems.FirstOrDefault();
+        OnPropertyChanged(nameof(WorkspaceIndicatorText));
+        OnPropertyChanged(nameof(ActiveWorkspaceName));
+        OnPropertyChanged(nameof(TitleBarContextText));
+        OnPropertyChanged(nameof(TitleBarText));
+        SyncSelectedModel();
+        SendCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsConnectedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(TitleBarText));
+        SendCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnStatusTextChanged(string value) => OnPropertyChanged(nameof(TitleBarText));
+
+    partial void OnSelectedModelChanged(ModelInfo? value)
+    {
+        if (_synchronizingSelectedModel || value is null)
+        {
+            return;
+        }
+
+        if (CurrentThread is { } thread)
+        {
+            if (thread.DefaultModelId != value.Id)
+            {
+                _ = UpdateThreadModelAsync(thread.Uuid, value.Id);
+            }
+            return;
+        }
+
+        // The first-send path uses this temporary override directly. The Engine stores it while
+        // materializing the draft, before executing the opening prompt.
+        _draftModelId = value.Id;
     }
 
     [ObservableProperty]
@@ -118,9 +180,10 @@ public sealed partial class ChatViewModel : ViewModelBase
             return;
         }
 
-        IsConnected = true;
-        StatusText = "Connected";
+        // The socket is usable only after the engine's hello acknowledgement. Leaving this false
+        // until that event makes the title-bar dot accurately red during startup/reconnects.
 
+        await LoadAvailableModelsAsync();
         await LoadWorkspacesCoreAsync(activateInitialSelection: false);
         if (!restoreSelection
             || !await RestoreSelectionAsync(activeWorkspaceId, selectedThreadId, showAllThreads))
@@ -139,6 +202,106 @@ public sealed partial class ChatViewModel : ViewModelBase
     /// </summary>
     [RelayCommand]
     private Task LoadWorkspacesAsync() => LoadWorkspacesCoreAsync(activateInitialSelection: true);
+
+    private async Task LoadAvailableModelsAsync()
+    {
+        AvailableModels.Clear();
+        try
+        {
+            var catalog = await _client.ListModelsAsync();
+            foreach (var model in catalog)
+            {
+                AvailableModels.Add(model);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Couldn't load chat models: {ex.Message}";
+            SyncSelectedModel();
+            return;
+        }
+
+        try
+        {
+            // A saved configuration's stable ID—not its underlying provider model name—is the
+            // selectable value. This keeps aliases/configurations distinct even when two entries
+            // target the same model and lets the Engine resolve the selected credentials safely.
+            var configurations = await _client.ListModelConfigurationsAsync();
+            foreach (var configuration in configurations)
+            {
+                if (AvailableModels.Any(model => model.Id == configuration.Id))
+                {
+                    continue;
+                }
+
+                AvailableModels.Add(new ModelInfo
+                {
+                    Id = configuration.Id,
+                    Name = string.IsNullOrWhiteSpace(configuration.Alias)
+                        ? configuration.Model
+                        : configuration.Alias,
+                    Provider = configuration.Provider,
+                    Description = configuration.BaseUrl,
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            // Do not silently make Echo appear to be the only usable model. In particular, an
+            // older Engine has no model-configurations endpoint and returns a clear 404 here.
+            // The built-in catalog remains usable, while the native title reports why saved
+            // model entries were not offered for this session.
+            StatusText = $"Configured models unavailable: {ex.Message}";
+        }
+
+        SyncSelectedModel();
+    }
+
+    private void SyncSelectedModel()
+    {
+        _synchronizingSelectedModel = true;
+        try
+        {
+            var effectiveModelId = _draftModelId
+                ?? CurrentThread?.DefaultModelId
+                ?? CurrentWorkspace?.DefaultModelId;
+            SelectedModel = AvailableModels.FirstOrDefault(model => model.Id == effectiveModelId)
+                ?? AvailableModels.FirstOrDefault();
+        }
+        finally
+        {
+            _synchronizingSelectedModel = false;
+        }
+
+        OnPropertyChanged(nameof(IsModelPickerEnabled));
+    }
+
+    private async Task<bool> UpdateThreadModelAsync(string threadUuid, string modelId)
+    {
+        try
+        {
+            var updated = await _client.UpdateThreadModelAsync(threadUuid, modelId);
+            var index = Threads.ToList().FindIndex(thread => thread.Uuid == updated.Uuid);
+            if (index >= 0)
+            {
+                Threads[index] = updated;
+            }
+
+            if (CurrentThread?.Uuid == updated.Uuid)
+            {
+                CurrentThread = updated;
+            }
+
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Couldn't change model: {ex.Message}";
+            SyncSelectedModel();
+            return false;
+        }
+    }
 
     private async Task LoadWorkspacesCoreAsync(bool activateInitialSelection)
     {
@@ -248,27 +411,21 @@ public sealed partial class ChatViewModel : ViewModelBase
     /// <summary>Changes the active workspace and loads its newest-first thread history.</summary>
     public async Task SelectWorkspaceAsync(Workspace workspace)
     {
-        CurrentWorkspace = workspace;
+        _draftModelId = null;
         CurrentThread = null;
+        CurrentWorkspace = workspace;
         Messages.Clear();
         await RefreshThreadsAsync();
 
         var target = Threads.FirstOrDefault();
-        if (target is null)
-        {
-            await _client.CreateThreadAsync(workspace.Uuid, "New Thread");
-            await RefreshThreadsAsync();
-            target = Threads.FirstOrDefault();
-        }
-
         if (target is not null)
         {
             await SelectThreadAsync(target);
         }
         else
         {
-            // A successful workspace selection is still durable even if thread creation did not
-            // yield a selectable row.
+            // A workspace with no history opens as an unsaved local draft. The engine receives
+            // no thread-create request until the user sends its first message.
             SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -277,6 +434,8 @@ public sealed partial class ChatViewModel : ViewModelBase
     /// newest first. The current thread remains selected when it is part of the aggregate list.</summary>
     public async Task ClearWorkspaceSelectionAsync()
     {
+        _draftModelId = null;
+        CurrentThread = null;
         CurrentWorkspace = null;
         await RefreshThreadsAsync();
         SelectionChanged?.Invoke(this, EventArgs.Empty);
@@ -321,6 +480,7 @@ public sealed partial class ChatViewModel : ViewModelBase
     [RelayCommand]
     public async Task SelectThreadAsync(ThreadInfo thread)
     {
+        _draftModelId = null;
         CurrentThread = thread;
         Messages.Clear();
 
@@ -343,18 +503,34 @@ public sealed partial class ChatViewModel : ViewModelBase
     [RelayCommand]
     private async Task NewThreadAsync()
     {
-        if (CurrentWorkspace is null)
+        if (IsBusy)
         {
             return;
         }
 
-        var createdThread = await _client.CreateThreadAsync(CurrentWorkspace.Uuid, "New Thread");
-        await RefreshThreadsAsync();
-
-        if (Threads.FirstOrDefault(thread => thread.Uuid == createdThread.Uuid) is { } thread)
+        // "All workspaces" has no owner for a draft. Prefer the first available workspace so the
+        // action always opens a usable composer instead of silently doing nothing.
+        var workspace = CurrentWorkspace ?? Workspaces.FirstOrDefault();
+        if (workspace is null)
         {
-            await SelectThreadAsync(thread);
+            return;
         }
+
+        if (CurrentWorkspace?.Uuid != workspace.Uuid)
+        {
+            CurrentWorkspace = workspace;
+            await RefreshThreadsAsync();
+        }
+
+        // A null thread is the explicit local-draft state: blank transcript, no title, and no
+        // backend write. The user can immediately choose a local model override for this draft.
+        _draftModelId = null;
+        CurrentThread = null;
+        Messages.Clear();
+        // CurrentThread can already be null when replacing one local draft with another, so its
+        // generated change hook may not run. Explicitly initialize the draft Picker every time.
+        SyncSelectedModel();
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Creates a workspace from the Workspaces panel's create form and adds it to the
@@ -393,7 +569,9 @@ public sealed partial class ChatViewModel : ViewModelBase
     private void Send()
     {
         var text = ComposerText.Trim();
-        if (text.Length == 0 || CurrentThread is null)
+        var threadUuid = CurrentThread?.Uuid;
+        var workspaceUuid = threadUuid is null ? CurrentWorkspace?.Uuid : null;
+        if (text.Length == 0 || (threadUuid is null && workspaceUuid is null))
         {
             return;
         }
@@ -405,15 +583,31 @@ public sealed partial class ChatViewModel : ViewModelBase
         Messages.Add(_streamingAssistantBubble);
 
         IsBusy = true;
-        _activeTurnThread = CurrentThread.Uuid;
-        _activeTurnId = _client.SendChat(CurrentThread.Uuid, text);
+        _activeTurnThread = threadUuid;
+        // For a local draft, the temporary selection is the source of truth for the opening
+        // prompt. The Engine stores it on the thread before executing that first turn.
+        var modelId = threadUuid is null ? _draftModelId ?? SelectedModel?.Id : SelectedModel?.Id;
+        _activeTurnId = _client.SendChat(threadUuid, text, workspaceUuid, modelId);
     }
 
-    private bool CanSend() => !IsBusy && CurrentThread is not null && ComposerText.Trim().Length > 0;
+    private bool CanSend() => IsConnected
+        && !IsBusy
+        && ComposerText.Trim().Length > 0
+        && (CurrentThread is not null || CurrentWorkspace is not null);
 
     partial void OnComposerTextChanged(string value) => SendCommand.NotifyCanExecuteChanged();
-    partial void OnIsBusyChanged(bool value) => SendCommand.NotifyCanExecuteChanged();
-    partial void OnCurrentThreadChanged(ThreadInfo? value) => SendCommand.NotifyCanExecuteChanged();
+
+    partial void OnIsBusyChanged(bool value)
+    {
+        SendCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsModelPickerEnabled));
+    }
+
+    partial void OnCurrentThreadChanged(ThreadInfo? value)
+    {
+        SyncSelectedModel();
+        SendCommand.NotifyCanExecuteChanged();
+    }
 
     [RelayCommand]
     private void Stop()
@@ -427,8 +621,11 @@ public sealed partial class ChatViewModel : ViewModelBase
         {
             return;
         }
-        // Engine events arrive on the WebSocket receive loop; bubble updates have to hop back to
-        // the UI thread (Avalonia's Dispatcher.UIThread.Post equivalent in MAUI).
+
+        // The engine's first delta resolves a local draft to its persisted thread UUID. No UI
+        // thread state is changed here; the completed turn refreshes history and applies the
+        // engine-assigned title after the assistant message has been saved.
+        _activeTurnThread ??= e.ThreadUuid;
         MainThread.BeginInvokeOnMainThread(() => _streamingAssistantBubble.AppendDelta(e.Delta));
     }
 
@@ -438,11 +635,35 @@ public sealed partial class ChatViewModel : ViewModelBase
         {
             return;
         }
+
+        var completedThreadUuid = _activeTurnThread ?? e.ThreadUuid;
         MainThread.BeginInvokeOnMainThread(() =>
         {
             ClearActiveTurn();
-            _ = RefreshThreadsAsync();
+            _ = CompleteTurnAsync(completedThreadUuid);
         });
+    }
+
+    private async Task CompleteTurnAsync(string threadUuid)
+    {
+        try
+        {
+            await RefreshThreadsAsync();
+            if (CurrentThread is null
+                && Threads.FirstOrDefault(thread => thread.Uuid == threadUuid) is { } materializedThread)
+            {
+                // The Engine has already persisted the draft model on the newly created thread.
+                // Clear the temporary override before joining that identity to the streamed UI.
+                _draftModelId = null;
+                CurrentThread = materializedThread;
+            }
+
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Couldn't refresh thread: {ex.Message}";
+        }
     }
 
     private void OnChatError(object? sender, ChatErrorEventArgs e)
@@ -467,7 +688,8 @@ public sealed partial class ChatViewModel : ViewModelBase
     }
 
     private bool BelongsToActiveTurn(string? turnId, string threadUuid) =>
-        threadUuid == _activeTurnThread && (turnId is null || turnId == _activeTurnId);
+        (string.IsNullOrEmpty(_activeTurnThread) || threadUuid == _activeTurnThread)
+        && (turnId is null || turnId == _activeTurnId);
 
     public async ValueTask DisposeAsync() => await _client.DisposeAsync();
 }

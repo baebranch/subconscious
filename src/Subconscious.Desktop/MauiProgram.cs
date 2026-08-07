@@ -35,7 +35,7 @@ public static class MauiProgram
             {
                 EditorHandler.Mapper.AppendToMapping(nameof(ChatComposerEditor), (handler, view) =>
                 {
-                    if (view is not ChatComposerEditor)
+                    if (view is not ChatComposerEditor composer)
                     {
                         return;
                     }
@@ -53,6 +53,30 @@ public static class MauiProgram
                     handler.PlatformView.Resources["TextControlBorderBrushFocused"] = transparent;
                     handler.PlatformView.Resources["TextControlBorderThemeThickness"] = noBorder;
                     handler.PlatformView.Resources["TextControlBorderThemeThicknessFocused"] = noBorder;
+
+                    // A multiline WinUI TextBox treats both key combinations as newline by
+                    // default. Consume plain Enter and invoke the bound send command; leave
+                    // Shift+Enter untouched so users can deliberately insert a line break.
+                    handler.PlatformView.PreviewKeyDown += (_, args) =>
+                    {
+                        if (args.Key != Windows.System.VirtualKey.Enter)
+                        {
+                            return;
+                        }
+
+                        var shiftState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
+                            Windows.System.VirtualKey.Shift);
+                        if ((shiftState & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0)
+                        {
+                            return;
+                        }
+
+                        args.Handled = true;
+                        if (composer.SubmitCommand?.CanExecute(null) == true)
+                        {
+                            composer.SubmitCommand.Execute(null);
+                        }
+                    };
                 });
             })
 #endif

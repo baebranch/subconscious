@@ -83,6 +83,12 @@ public sealed record CreateThreadRequest
     [JsonPropertyName("title")] public string? Title { get; init; }
 }
 
+/// <summary>Partial thread update used by the omnibox model selector.</summary>
+public sealed record UpdateThreadRequest
+{
+    [JsonPropertyName("defaultModelId")] public required string DefaultModelId { get; init; }
+}
+
 /// <summary>The <c>{ v, type, id?, data? }</c> WebSocket envelope, deserialized generically
 /// (data kept as a raw <see cref="System.Text.Json.JsonElement"/> and reified per frame type
 /// by the caller) since a single connection multiplexes many different frame shapes.</summary>

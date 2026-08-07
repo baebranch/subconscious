@@ -15,8 +15,10 @@
         <!-- ── Header: current thread title + new-thread button ────────────── -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="12,8,12,8"
               HeightRequest="32" MinimumHeightRequest="32">
+            <!-- A local draft deliberately has no title until its first message reaches the
+                 engine, which creates and names the persisted thread. -->
             <Label Grid.Column="0"
-                   Text="{Binding CurrentThread.Title, FallbackValue='Subconscious', TargetNullValue='Untitled thread'}"
+                   Text="{Binding CurrentThread.Title}"
                    FontSize="14" FontAttributes="Bold"
                    VerticalOptions="Fill" VerticalTextAlignment="Center" />
             <ImageButton Grid.Column="1" Style="{StaticResource SquareIconButton}"
@@ -159,16 +161,26 @@
                 <!-- This remains a native multiline editor: it begins compact, expands through
                      five lines, then uses the platform scrollbar for longer prompts. -->
                 <controls:ChatComposerEditor Grid.Row="0" Grid.ColumnSpan="2"
-                                             Text="{Binding ComposerText}"
+                                             Text="{Binding ComposerText, Mode=TwoWay}"
+                                             SubmitCommand="{Binding SendCommand}"
                                              Placeholder="Ask anything..."
                                              AutoSize="TextChanges"
                                              Style="{StaticResource ChatComposerEditor}"
-                                             SemanticProperties.Description="Chat message" />
+                                             SemanticProperties.Description="Chat message. Enter sends; Shift plus Enter inserts a new line." />
 
-                <!-- The secondary rail keeps the multiline hint and message actions compact
-                     without claiming unsupported model, attachment, slash-command, or voice functionality. -->
-                <Label Grid.Row="1" Text="Shift+Enter for a new line" Style="{StaticResource MutedLabel}"
-                       FontSize="11" VerticalOptions="Center" />
+                <!-- Draft selection is explicitly two-way: it is retained locally before a
+                     thread exists and sent with the opening prompt that materializes the thread. -->
+                <Picker Grid.Row="1"
+                        WidthRequest="120"
+                        HeightRequest="30"
+                        HorizontalOptions="Start"
+                        FontSize="11"
+                        ItemsSource="{Binding AvailableModels}"
+                        ItemDisplayBinding="{Binding Name}"
+                        SelectedItem="{Binding SelectedModel, Mode=TwoWay}"
+                        IsEnabled="{Binding IsModelPickerEnabled}"
+                        SemanticProperties.Description="Model for this thread"
+                        ToolTipProperties.Text="Select model for this thread" />
 
                 <ImageButton Grid.Row="1" Grid.Column="1" Style="{StaticResource SquareIconButton}"
                              mi:MauiIcon.Value="{mi:Fluent Icon=Send24, IconSize=16, IconColor={Binding IconColor}}"

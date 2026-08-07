@@ -20,9 +20,8 @@ namespace Subconscious.Desktop.Services;
 /// </summary>
 internal static class PlatformTheme
 {
-    /// <summary>Applies the selected light/dark mode to the native WinUI tree. Native controls
-    /// retain the Windows accent: WinUI exposes no supported per-application replacement for the
-    /// Picker popup's system selection marker.</summary>
+    /// <summary>Applies the selected light/dark mode to the native WinUI tree and makes its
+    /// caption bar use the same semantic surface and text colours as the MAUI content.</summary>
     public static void Apply(bool dark)
     {
 #if WINDOWS
@@ -30,6 +29,13 @@ internal static class PlatformTheme
         {
             return;
         }
+
+        // ThemeService writes these resources before calling us. The fallbacks keep first-window
+        // creation safe should this method run before the palette has been initialized.
+        var surface = GetColor(app, "SurfaceColor", dark ? "#2C2C2C" : "#FFFFFF");
+        var primaryText = GetColor(app, "PrimaryTextColor", dark ? "#F5F5F5" : "#1F1B2E");
+        var secondaryText = GetColor(app, "SecondaryTextColor", dark ? "#C4C4C4" : "#8A8698");
+        var hover = GetColor(app, "HoverColor", dark ? "#383838" : "#EFEEF4");
 
         foreach (var window in app.Windows)
         {
@@ -42,27 +48,46 @@ internal static class PlatformTheme
                         ? Microsoft.UI.Xaml.ElementTheme.Dark
                         : Microsoft.UI.Xaml.ElementTheme.Light;
 
-                    // The title-bar caption buttons are native AppWindow chrome rather than
-                    // part of the XAML visual tree, so RequestedTheme above cannot style them.
-                    // Set their theme explicitly to keep glyphs legible as the app switches
-                    // independently of the Windows device theme.
+                    // Keep MAUI's title surface inside the native caption region. Restoring a
+                    // separate standard caption would leave MAUI's AppTitle host below it and
+                    // produce two stacked bars.
                     if (Microsoft.UI.Windowing.AppWindowTitleBar.IsCustomizationSupported())
                     {
                         var titleBar = winUiWindow.AppWindow.TitleBar;
+                        titleBar.ExtendsContentIntoTitleBar = true;
+                        winUiWindow.ExtendsContentIntoTitleBar = true;
                         titleBar.PreferredTheme = dark
                             ? Microsoft.UI.Windowing.TitleBarTheme.Dark
                             : Microsoft.UI.Windowing.TitleBarTheme.Light;
 
-                        // PreferredTheme controls the caption-button state resources, but a custom
-                        // MAUI title bar can retain the old default glyph colour after a live switch.
-                        // Pin its idle/inactive glyphs to the selected app theme; hover/pressed
-                        // colours remain WinUI-managed and already track the selected theme.
-                        titleBar.ButtonForegroundColor = dark
-                            ? Windows.UI.Color.FromArgb(255, 255, 255, 255)
-                            : Windows.UI.Color.FromArgb(255, 0, 0, 0);
-                        titleBar.ButtonInactiveForegroundColor = dark
-                            ? Windows.UI.Color.FromArgb(255, 128, 128, 128)
-                            : Windows.UI.Color.FromArgb(255, 96, 96, 96);
+                        var nativeSurface = ToWindowsColor(surface);
+                        var nativePrimaryText = ToWindowsColor(primaryText);
+                        var nativeSecondaryText = ToWindowsColor(secondaryText);
+                        var nativeHover = ToWindowsColor(hover);
+                        var nativeSurfaceBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(nativeSurface);
+
+                        // MAUI's Windows title host reads this brush while it occupies the
+                        // extended caption region. Override both the backing resource and alias
+                        // so an already-created host repaints immediately with the app surface.
+                        Microsoft.UI.Xaml.Application.Current.Resources["ActualWinUITitleBarBrush"] = nativeSurfaceBrush;
+                        Microsoft.UI.Xaml.Application.Current.Resources["WinUITitleBarBrush"] = nativeSurfaceBrush;
+                        root.Resources["ActualWinUITitleBarBrush"] = nativeSurfaceBrush;
+                        root.Resources["WinUITitleBarBrush"] = nativeSurfaceBrush;
+
+                        // Caption buttons remain OS-owned and keep native hit testing, dragging,
+                        // snap layouts, and hover/pressed behavior.
+                        titleBar.BackgroundColor = nativeSurface;
+                        titleBar.InactiveBackgroundColor = nativeSurface;
+                        titleBar.ForegroundColor = nativePrimaryText;
+                        titleBar.InactiveForegroundColor = nativeSecondaryText;
+                        titleBar.ButtonBackgroundColor = nativeSurface;
+                        titleBar.ButtonInactiveBackgroundColor = nativeSurface;
+                        titleBar.ButtonForegroundColor = nativePrimaryText;
+                        titleBar.ButtonInactiveForegroundColor = nativeSecondaryText;
+                        titleBar.ButtonHoverBackgroundColor = nativeHover;
+                        titleBar.ButtonHoverForegroundColor = nativePrimaryText;
+                        titleBar.ButtonPressedBackgroundColor = nativeHover;
+                        titleBar.ButtonPressedForegroundColor = nativePrimaryText;
                     }
                 }
             }
@@ -74,4 +99,19 @@ internal static class PlatformTheme
         }
 #endif
     }
+
+#if WINDOWS
+    private static Color GetColor(Application app, string resourceKey, string fallback) =>
+        app.Resources.TryGetValue(resourceKey, out var resource) && resource is Color color
+            ? color
+            : Color.FromArgb(fallback);
+
+    private static Windows.UI.Color ToWindowsColor(Color color) => Windows.UI.Color.FromArgb(
+        ToByte(color.Alpha),
+        ToByte(color.Red),
+        ToByte(color.Green),
+        ToByte(color.Blue));
+
+    private static byte ToByte(float value) => (byte)System.Math.Round(value * byte.MaxValue);
+#endif
 }

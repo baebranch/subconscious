@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Subconscious.Engine.Agents;
 using Subconscious.Engine.Api.DTOs;
 
 namespace Subconscious.Engine.Configuration;
@@ -9,6 +10,7 @@ namespace Subconscious.Engine.Configuration;
 public interface IModelConfigurationStore
 {
     Task<IReadOnlyList<ModelConfigurationDto>> ListAsync(CancellationToken cancellationToken = default);
+    Task<ModelConfig?> ResolveAsync(string id, CancellationToken cancellationToken = default);
     Task<ModelConfigurationDto> CreateAsync(UpsertModelConfigurationRequest request, CancellationToken cancellationToken = default);
     Task<ModelConfigurationDto?> UpdateAsync(string id, UpsertModelConfigurationRequest request, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default);
@@ -53,6 +55,41 @@ public sealed class EncryptedModelConfigurationStore : IModelConfigurationStore
                     .Where(entry => entry.Value is JsonObject)
                     .Select(entry => Map(entry.Key, entry.Value!.AsObject()))
                     .ToList();
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    /// <summary>Resolves a stable configuration ID to its complete engine-only model config.
+    /// A raw model-name fallback keeps older workspace/thread defaults usable.</summary>
+    public async Task<ModelConfig?> ResolveAsync(string id, CancellationToken cancellationToken = default)
+    {
+        await _writeLock.WaitAsync(cancellationToken);
+        try
+        {
+            var models = (await ReadSecretsAsync(cancellationToken))["models"] as JsonObject;
+            if (models is null)
+            {
+                return null;
+            }
+
+            if (models[id] is JsonObject exact)
+            {
+                return MapConfig(id, exact);
+            }
+
+            foreach (var entry in models)
+            {
+                if (entry.Value is JsonObject candidate
+                    && string.Equals(GetString(candidate, "model"), id, StringComparison.Ordinal))
+                {
+                    return MapConfig(entry.Key, candidate);
+                }
+            }
+
+            return null;
         }
         finally
         {
@@ -198,6 +235,19 @@ public sealed class EncryptedModelConfigurationStore : IModelConfigurationStore
         ContextWindow = GetInt(model, "context_window"),
         HasApiKey = !string.IsNullOrWhiteSpace(GetString(model, "api_key")),
     };
+
+    private static ModelConfig MapConfig(string id, JsonObject model) => new(
+        Id: id,
+        Provider: GetString(model, "provider") ?? string.Empty,
+        Model: GetString(model, "model") ?? string.Empty,
+        ApiKey: GetString(model, "api_key"),
+        SystemPrompt: GetString(model, "system_prompt"),
+        BaseUrl: GetString(model, "base_url"),
+        Region: GetString(model, "region"),
+        AwsAccessKeyId: GetString(model, "aws_access_key_id"),
+        AwsSecretAccessKey: GetString(model, "aws_secret_access_key"),
+        AwsSessionToken: GetString(model, "aws_session_token"),
+        ContextWindow: GetInt(model, "context_window"));
 
     private static string? GetString(JsonObject source, string key) =>
         source[key] is JsonValue value && value.TryGetValue<string>(out var result) ? result : null;

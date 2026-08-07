@@ -2,11 +2,13 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Subconscious.Engine.Agents;
 using Subconscious.Engine.Api.Events;
+using Subconscious.Engine.Configuration;
 using Subconscious.Engine.Data;
 using Subconscious.Engine.Data.Entities;
 using Subconscious.Engine.Dispatch;
@@ -42,7 +44,8 @@ public sealed class WebSocketHandlerFactory
             services.GetRequiredService<HandshakeService>(),
             services.GetRequiredService<BaseToolRegistry>(),
             services.GetRequiredService<SubconsciousDbContext>(),
-            services.GetRequiredService<AgentManager>());
+            services.GetRequiredService<AgentManager>(),
+            services.GetRequiredService<IModelConfigurationStore>());
     }
 }
 
@@ -68,6 +71,7 @@ public sealed class WebSocketHandler : IAsyncDisposable
     private readonly BaseToolRegistry _toolRegistry;
     private readonly SubconsciousDbContext _db;
     private readonly AgentManager _agentManager;
+    private readonly IModelConfigurationStore _modelConfigurations;
 
     public WebSocketHandler(
         global::System.Net.WebSockets.WebSocket webSocket,
@@ -79,7 +83,8 @@ public sealed class WebSocketHandler : IAsyncDisposable
         HandshakeService handshakeService,
         BaseToolRegistry toolRegistry,
         SubconsciousDbContext db,
-        AgentManager agentManager)
+        AgentManager agentManager,
+        IModelConfigurationStore modelConfigurations)
     {
         _webSocket = webSocket;
         _scope = scope;
@@ -91,6 +96,7 @@ public sealed class WebSocketHandler : IAsyncDisposable
         _toolRegistry = toolRegistry;
         _db = db;
         _agentManager = agentManager;
+        _modelConfigurations = modelConfigurations;
     }
 
     public async Task RunAsync()
@@ -276,32 +282,118 @@ public sealed class WebSocketHandler : IAsyncDisposable
     private Task HandleToolResultAsync(JsonElement data) => Task.CompletedTask;
 
     /// <summary>
-    /// The interactive chat turn: persist the user message, stream the model's reply as
-    /// <c>chat.delta</c> frames, persist the assistant message, then <c>chat.done</c>.
-    /// Uses the echo dev model unless <c>model_id</c> names another configured one (no
-    /// model-config store exists yet — see translation.md's open Phase 1 secrets-store item
-    /// — so only "echo" resolves today).
+    /// The interactive chat turn: resolve the requested/thread/workspace model, persist the user
+    /// message, stream the selected model's reply as <c>chat.delta</c> frames, persist the
+    /// assistant message, then emit <c>chat.done</c>. A local draft's model is stored on its new
+    /// thread before the first inference begins.
     /// </summary>
     private async Task HandleChatSendAsync(string? turnId, JsonElement data)
     {
         if (data.ValueKind != JsonValueKind.Object
-            || !data.TryGetProperty("thread_uuid", out var threadUuidEl)
             || !data.TryGetProperty("content", out var contentEl))
         {
-            await SendErrorAsync("chat.send requires thread_uuid and content");
+            await SendErrorAsync("chat.send requires content and either thread_uuid or workspace_uuid");
             return;
         }
 
-        var threadUuid = threadUuidEl.GetString()!;
         var content = contentEl.GetString() ?? string.Empty;
+        var threadUuid = data.TryGetProperty("thread_uuid", out var threadUuidEl)
+            ? threadUuidEl.GetString()
+            : null;
+        var workspaceUuid = data.TryGetProperty("workspace_uuid", out var workspaceUuidEl)
+            ? workspaceUuidEl.GetString()
+            : null;
+        var requestedModelId = data.TryGetProperty("model_id", out var modelIdEl)
+            ? modelIdEl.GetString()
+            : null;
 
-        var thread = await _db.Threads.FirstOrDefaultAsync(threadUuid);
+        if (string.IsNullOrWhiteSpace(threadUuid) == string.IsNullOrWhiteSpace(workspaceUuid))
+        {
+            await SendErrorAsync("chat.send requires exactly one of thread_uuid or workspace_uuid");
+            return;
+        }
+
+        Data.Entities.Thread? thread;
+        Data.Entities.Workspace? workspace;
+        if (!string.IsNullOrWhiteSpace(threadUuid))
+        {
+            thread = await _db.Threads.FirstOrDefaultAsync(threadUuid);
+            if (thread is null)
+            {
+                await SendChatErrorAsync(turnId, threadUuid, $"Thread '{threadUuid}' not found.");
+                return;
+            }
+
+            workspace = await _db.Workspaces.FirstOrDefaultAsync(candidate => candidate.Id == thread.WorkspaceId);
+        }
+        else
+        {
+            workspace = await _db.Workspaces
+                .FirstOrDefaultAsync(candidate => candidate.Uuid == workspaceUuid);
+            if (workspace is null)
+            {
+                await SendChatErrorAsync(turnId, string.Empty, $"Workspace '{workspaceUuid}' not found.");
+                return;
+            }
+
+            thread = null;
+        }
+
+        var effectiveModelId = requestedModelId
+            ?? thread?.DefaultModelId
+            ?? workspace?.DefaultModelId
+            ?? "echo";
+        var modelConfig = string.Equals(effectiveModelId, "echo", StringComparison.OrdinalIgnoreCase)
+            ? new ModelConfig("echo", "subconscious", "echo")
+            : await _modelConfigurations.ResolveAsync(effectiveModelId);
+        if (modelConfig is null)
+        {
+            await SendChatErrorAsync(turnId, threadUuid ?? string.Empty,
+                $"Model configuration '{effectiveModelId}' was not found.");
+            return;
+        }
+
+        // This contains only redacted selection metadata, never credentials. It makes a stale
+        // Engine, an unavailable configuration endpoint, or an accidental Echo configuration
+        // visible when investigating a model-selection issue.
+        _logger.LogInformation(
+            "Chat model selected: requested {RequestedModelId}, effective {EffectiveModelId}, resolved {ModelConfigurationId} ({Provider}/{Model})",
+            requestedModelId ?? "<none>",
+            effectiveModelId,
+            modelConfig.Id,
+            modelConfig.Provider,
+            modelConfig.Model);
+
         if (thread is null)
         {
-            await SendChatErrorAsync(turnId, threadUuid, $"Thread '{threadUuid}' not found.");
-            return;
+            var now = DateTime.UtcNow;
+            thread = new Data.Entities.Thread
+            {
+                Uuid = Guid.NewGuid().ToString(),
+                WorkspaceId = workspace!.Id,
+                Title = CreateThreadTitle(content),
+                DefaultModelId = modelConfig.Id,
+                CreatedAt = now,
+                UpdatedAt = now,
+            };
+            _db.Threads.Add(thread);
+            await _db.SaveChangesAsync();
+            threadUuid = thread.Uuid;
+            await _eventBus.PublishAsync(new ThreadCreatedEvent
+            {
+                ThreadId = threadUuid,
+                WorkspaceId = workspaceUuid!,
+                Title = thread.Title,
+            });
+        }
+        else if (!string.Equals(thread.DefaultModelId, modelConfig.Id, StringComparison.Ordinal))
+        {
+            // chat.send is authoritative even if the preceding REST update is still in flight.
+            thread.DefaultModelId = modelConfig.Id;
         }
 
+        var activeThreadUuid = threadUuid
+            ?? throw new InvalidOperationException("A chat turn must have a persisted thread before messages are saved.");
         var userMessage = new Message
         {
             Uuid = Guid.NewGuid().ToString(),
@@ -313,14 +405,14 @@ public sealed class WebSocketHandler : IAsyncDisposable
         _db.Messages.Add(userMessage);
         thread.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        await PublishMessageCreatedAsync(userMessage, threadUuid);
+        await PublishMessageCreatedAsync(userMessage, activeThreadUuid);
 
-        var chatClient = _agentManager.BuildChatClient(new ModelConfig("echo", "subconscious", "echo"));
         var assistantUuid = Guid.NewGuid().ToString();
         var assistantText = new System.Text.StringBuilder();
 
         try
         {
+            var chatClient = _agentManager.BuildChatClient(modelConfig);
             var history = new List<Microsoft.Extensions.AI.ChatMessage>
             {
                 new(ChatRole.User, content),
@@ -334,13 +426,13 @@ public sealed class WebSocketHandler : IAsyncDisposable
                     continue;
                 }
                 assistantText.Append(delta);
-                await SendFrameAsync("chat.delta", new { thread_uuid = threadUuid, delta }, turnId);
+                await SendFrameAsync("chat.delta", new { thread_uuid = activeThreadUuid, delta }, turnId);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "chat.send streaming failed for thread {ThreadUuid}", threadUuid);
-            await SendChatErrorAsync(turnId, threadUuid, ex.Message);
+            _logger.LogError(ex, "chat.send streaming failed for thread {ThreadUuid}", activeThreadUuid);
+            await SendChatErrorAsync(turnId, activeThreadUuid, ex.Message);
             return;
         }
 
@@ -355,9 +447,23 @@ public sealed class WebSocketHandler : IAsyncDisposable
         _db.Messages.Add(assistantMessage);
         thread.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        await PublishMessageCreatedAsync(assistantMessage, threadUuid);
+        await PublishMessageCreatedAsync(assistantMessage, activeThreadUuid);
 
-        await SendFrameAsync("chat.done", new { thread_uuid = threadUuid }, turnId);
+        await SendFrameAsync("chat.done", new { thread_uuid = activeThreadUuid }, turnId);
+    }
+
+    /// <summary>Generates a concise, stable title for a just-materialized draft without requiring
+    /// another model round trip. Whitespace is normalized so pasted multiline prompts still have
+    /// a usable one-line history label.</summary>
+    private static string CreateThreadTitle(string content)
+    {
+        var normalized = string.Join(' ', content.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return normalized.Length switch
+        {
+            0 => "New conversation",
+            <= 60 => normalized,
+            _ => normalized[..57] + "…",
+        };
     }
 
     private async Task PublishMessageCreatedAsync(Message message, string threadUuid)

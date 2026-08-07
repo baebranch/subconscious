@@ -42,10 +42,10 @@ public static class EngineDiscovery
     }
 
     /// <summary>
-    /// Find a reachable engine, starting one if none is running and
-    /// <paramref name="autoStart"/> is true. Probes the dev data dir first, then the
-    /// non-dev one (or vice versa), matching the TS client's dual-candidate search so a
-    /// dev daemon is still found by a non-dev client and vice versa.
+    /// Find a reachable Engine within the data directory for the requested mode, starting one if
+    /// none is running and <paramref name="autoStart"/> is true. Dev and production clients are
+    /// deliberately isolated: mixing their runtime files can make the picker read configurations
+    /// from one encrypted store while chat executes against another Engine process.
     /// </summary>
     public static async Task<RuntimeInfo> DiscoverAsync(bool preferDev, bool autoStart = true, TimeSpan? timeout = null)
     {
@@ -76,22 +76,10 @@ public static class EngineDiscovery
         throw new TimeoutException("Timed out waiting for the Subconscious engine to start.");
     }
 
-    private static async Task<RuntimeInfo?> FindRunningEngineAsync(bool preferDev)
+    private static async Task<RuntimeInfo?> FindRunningEngineAsync(bool dev)
     {
-        var candidates = new[] { DataDirectory(preferDev), DataDirectory(!preferDev) };
-        foreach (var dir in candidates)
-        {
-            var info = ReadRuntimeInfo(dir);
-            if (info is null)
-            {
-                continue;
-            }
-            if (await IsReachableAsync(info))
-            {
-                return info;
-            }
-        }
-        return null;
+        var info = ReadRuntimeInfo(DataDirectory(dev));
+        return info is not null && await IsReachableAsync(info) ? info : null;
     }
 
     private static RuntimeInfo? ReadRuntimeInfo(string dataDirectory)

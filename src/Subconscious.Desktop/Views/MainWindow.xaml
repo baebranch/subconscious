@@ -1,39 +1,29 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-  The window itself, so that the custom title bar can be declared in XAML.
-
-  The title bar holds only the app mark and title. Context navigation is in MainPage's persistent
-  left rail, leaving the native caption-button region free of app-specific controls.
+  The title is hosted by MAUI inside Windows' extended native caption region, yielding one
+  draggable caption whose surface and text are synchronized by PlatformTheme.
 -->
 <Window xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
         xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
         xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
         x:Class="Subconscious.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="Subconscious"
+        Title="{Binding Chat.TitleBarText}"
         Width="1280"
         Height="800"
         MinimumWidth="960"
         MinimumHeight="600">
-
+    <!-- An explicit MAUI title bar owns the extended caption surface. Binding it to the same
+         semantic surface as the panels prevents WinUI's accent-coloured fallback from appearing. -->
     <Window.TitleBar>
-        <!--
-          32px is the standard Windows title bar height, and it has to be that: the OS draws the
-          minimize / maximize / close buttons at a fixed 46x32 and does not stretch them to a taller
-          bar, so anything else leaves them floating in a band of dead space.
-
-          Icon + Title are drawn by the TitleBar's own default template, so the leading edge looks
-          the same as the header it replaces without any content of our own.
-        -->
-        <TitleBar Title="{Binding Chat.StatusText, StringFormat='Subconscious — {0}'}"
+        <!-- The TitleBar template places Icon at the true leading edge. The paired mark assets
+             preserve contrast against the active light/dark panel surface. -->
+        <TitleBar Title="{Binding Chat.TitleBarText}"
                   Icon="{AppThemeBinding Light=dark_logo.png, Dark=light_logo.png}"
                   Padding="-4,0,0,0"
                   HeightRequest="32"
-                  BackgroundColor="{DynamicResource SurfaceColor}"
+                  BackgroundColor="{DynamicResource PanelBackgroundColor}"
                   ForegroundColor="{DynamicResource PrimaryTextColor}">
-
-            <!-- Dim the title while the window is in the background. The OS does this for its own
-                 title bar; a custom one has to opt in. -->
             <VisualStateManager.VisualStateGroups>
                 <VisualStateGroupList>
                     <VisualStateGroup x:Name="TitleActiveStates">
@@ -50,8 +40,6 @@
                     </VisualStateGroup>
                 </VisualStateGroupList>
             </VisualStateManager.VisualStateGroups>
-
         </TitleBar>
     </Window.TitleBar>
-
 </Window>

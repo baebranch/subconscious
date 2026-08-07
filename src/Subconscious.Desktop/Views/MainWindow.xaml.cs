@@ -3,11 +3,8 @@ using Subconscious.Desktop.ViewModels;
 
 namespace Subconscious.Desktop.Views;
 
-/// <summary>
-/// The app window. Exists as a type of its own so the custom <see cref="TitleBar"/> can be
-/// declared in XAML (see MainWindow.xaml) rather than assembled by hand in
-/// <see cref="App.CreateWindow"/>.
-/// </summary>
+/// <summary>The native application window. Windows owns the complete non-client title bar,
+/// including dragging, snap layouts, system menus, and caption buttons.</summary>
 public partial class MainWindow : Window
 {
     private readonly ThemeService _theme;
@@ -16,30 +13,18 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // The title bar binds to the same view model as the page, so its context panel toggle and
-        // the panel it shows stay in step. Bindings on a TitleBar resolve against the Window's
-        // BindingContext, not the Page's.
         BindingContext = viewModel;
         Page = page;
-
         _theme = theme;
 
-        // AppThemeBinding on TitleBar.Icon selects the matching processed image asset as
-        // UserAppTheme changes. The native window theme still needs explicit WinUI handling.
+        // ThemeService.Initialize runs before this window exists. HandlerChanged can still fire
+        // before MAUI has added the window to Application.Windows, so Created is the reliable
+        // post-creation point; later theme changes keep the native tree in sync.
         ApplyPlatformTheme();
-
-        // ThemeService.Initialize (called from App's constructor) runs before this window exists,
-        // so its first PlatformTheme.Apply call had no native window to reach. Re-apply once this
-        // window's native handler is actually available, and again on every later theme change —
-        // PlatformTheme.Apply only ever touches windows that currently exist in
-        // Application.Current.Windows, so a change made before this fires would otherwise never
-        // reach this window's native Fluent theme resources.
         HandlerChanged += (_, _) => ApplyPlatformTheme();
+        Created += (_, _) => ApplyPlatformTheme();
         _theme.Changed += (_, _) => ApplyPlatformTheme();
     }
 
-    private void ApplyPlatformTheme()
-    {
-        PlatformTheme.Apply(_theme.IsDark);
-    }
+    private void ApplyPlatformTheme() => PlatformTheme.Apply(_theme.IsDark);
 }
