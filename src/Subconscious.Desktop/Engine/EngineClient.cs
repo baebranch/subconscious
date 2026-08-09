@@ -445,15 +445,48 @@ public sealed class EngineClient : IAsyncDisposable
     public Task<Workspace> UpdateWorkspaceAsync(string uuid, string name, string? description = null, string? defaultModelId = null, CancellationToken cancellationToken = default) =>
         UpdateWorkspaceAsync(uuid, new CreateWorkspaceRequest { Name = name, Description = description, DefaultModelId = defaultModelId }, cancellationToken);
 
+    /// <summary>Lists one directory beneath an Engine-authorized workspace root.</summary>
+    public Task<List<WorkspaceFileEntry>> ListWorkspaceFilesAsync(
+        string workspaceUuid, int rootIndex, string? relativePath, CancellationToken cancellationToken = default) =>
+        ListAsync<WorkspaceFileEntry>(WorkspaceFilesPath(workspaceUuid, rootIndex, relativePath, content: false), cancellationToken);
+
+    /// <summary>Reads Engine-authorized UTF-8 content from an existing workspace-relative file.</summary>
+    public Task<WorkspaceFileContent> ReadWorkspaceFileAsync(
+        string workspaceUuid, int rootIndex, string relativePath, CancellationToken cancellationToken = default) =>
+        GetAsync<WorkspaceFileContent>(WorkspaceFilesPath(workspaceUuid, rootIndex, relativePath, content: true), cancellationToken);
+
+    /// <summary>Creates a new Engine-authorized workspace-relative file without overwriting an existing target.</summary>
+    public Task<WorkspaceFileContent> CreateWorkspaceFileAsync(
+        string workspaceUuid, int rootIndex, string relativePath, string content, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<WorkspaceFileContent, WriteWorkspaceFileRequest>(
+            HttpMethod.Post,
+            WorkspaceFilesPath(workspaceUuid, rootIndex, relativePath, content: true),
+            new WriteWorkspaceFileRequest { Content = content },
+            cancellationToken);
+
+    /// <summary>Writes UTF-8 content to an existing Engine-authorized workspace-relative file.</summary>
+    public Task<WorkspaceFileContent> WriteWorkspaceFileAsync(
+        string workspaceUuid, int rootIndex, string relativePath, string content, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<WorkspaceFileContent, WriteWorkspaceFileRequest>(
+            HttpMethod.Put,
+            WorkspaceFilesPath(workspaceUuid, rootIndex, relativePath, content: true),
+            new WriteWorkspaceFileRequest { Content = content },
+            cancellationToken);
+
+    private static string WorkspaceFilesPath(string workspaceUuid, int rootIndex, string? relativePath, bool content)
+    {
+        var path = $"workspaces/{Uri.EscapeDataString(workspaceUuid)}/files{(content ? "/content" : string.Empty)}?rootIndex={rootIndex}";
+        return relativePath is null ? path : $"{path}&path={Uri.EscapeDataString(relativePath)}";
+    }
+
     public Task<List<ThreadInfo>> ListThreadsAsync(string workspaceUuid, CancellationToken cancellationToken = default) =>
         ListAsync<ThreadInfo>($"workspaces/{Uri.EscapeDataString(workspaceUuid)}/threads", cancellationToken);
 
+    public Task<ThreadInfo> CreateThreadAsync(CreateThreadRequest request, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<ThreadInfo, CreateThreadRequest>(HttpMethod.Post, "threads", request, cancellationToken);
+
     public Task<ThreadInfo> CreateThreadAsync(string workspaceUuid, string? title = null, CancellationToken cancellationToken = default) =>
-        SendJsonAsync<ThreadInfo, CreateThreadRequest>(
-            HttpMethod.Post,
-            "threads",
-            new CreateThreadRequest { WorkspaceUuid = workspaceUuid, Title = title },
-            cancellationToken);
+        CreateThreadAsync(new CreateThreadRequest { WorkspaceUuid = workspaceUuid, Title = title }, cancellationToken);
 
     /// <summary>Sets the explicit model override for a persisted thread.</summary>
     public Task<ThreadInfo> UpdateThreadModelAsync(string threadUuid, string modelId, CancellationToken cancellationToken = default) =>

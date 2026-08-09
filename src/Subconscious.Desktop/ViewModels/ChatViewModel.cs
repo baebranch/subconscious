@@ -25,6 +25,9 @@ public sealed partial class ChatViewModel : ViewModelBase
     private long _themeRevision;
     private bool _synchronizingSelectedModel;
     private string? _draftModelId;
+    private ToolPolicyEditorViewModel? _draftToolPolicy;
+    private bool _isDraftToolPolicyDirty;
+    private bool _hasDraftToolPolicyOverride;
 
     public ObservableCollection<MessageViewModel> Messages { get; } = [];
     public ObservableCollection<ThreadInfo> Threads { get; } = [];
@@ -32,9 +35,13 @@ public sealed partial class ChatViewModel : ViewModelBase
     public ObservableCollection<ModelInfo> AvailableModels { get; } = [];
     public ObservableCollection<WorkspaceSelectorItem> WorkspaceSelectorItems { get; } = [];
 
-    /// <summary>True only for a persisted thread; local drafts cannot own an override.</summary>
-    public bool IsThreadToolsAvailable => CurrentThread is not null && !IsBusy;
-    public string ThreadToolsButtonText => CurrentThread is null ? "Tools (save thread first)" : "Tools";
+    /// <summary>A draft inherits workspace tools until the user chooses an explicit draft policy.</summary>
+    public bool IsThreadToolsAvailable => CurrentWorkspace is not null && !IsBusy;
+    public string ThreadToolsPanelTitle => CurrentThread is null ? "Draft tools" : "Thread tools";
+    public string ThreadToolsPanelDescription => CurrentThread is null
+        ? "Choose the tool policy that will be saved before this draft's first message runs."
+        : "Changes apply only to this saved conversation.";
+    public string ThreadToolsSaveButtonText => "Save tools";
 
     [ObservableProperty] private ToolPolicyEditorViewModel? _threadToolPolicy;
     [ObservableProperty] private bool _isThreadToolsOpen;
@@ -117,6 +124,8 @@ public sealed partial class ChatViewModel : ViewModelBase
         OnPropertyChanged(nameof(TitleBarText));
         SyncSelectedModel();
         SendCommand.NotifyCanExecuteChanged();
+        OpenThreadToolsCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsThreadToolsAvailable));
     }
 
     partial void OnIsConnectedChanged(bool value)
@@ -435,6 +444,7 @@ public sealed partial class ChatViewModel : ViewModelBase
     public async Task SelectWorkspaceAsync(Workspace workspace)
     {
         _draftModelId = null;
+        ResetDraftToolPolicy();
         CurrentThread = null;
         CurrentWorkspace = workspace;
         Messages.Clear();
@@ -458,6 +468,7 @@ public sealed partial class ChatViewModel : ViewModelBase
     public async Task ClearWorkspaceSelectionAsync()
     {
         _draftModelId = null;
+        ResetDraftToolPolicy();
         CurrentThread = null;
         CurrentWorkspace = null;
         await RefreshThreadsAsync();
@@ -504,6 +515,7 @@ public sealed partial class ChatViewModel : ViewModelBase
     public async Task SelectThreadAsync(ThreadInfo thread)
     {
         _draftModelId = null;
+        ResetDraftToolPolicy();
         CurrentThread = thread;
         Messages.Clear();
 
@@ -546,14 +558,26 @@ public sealed partial class ChatViewModel : ViewModelBase
         }
 
         // A null thread is the explicit local-draft state: blank transcript, no title, and no
-        // backend write. The user can immediately choose a local model override for this draft.
+        // backend write. The user can immediately choose local model and tool overrides for it.
         _draftModelId = null;
+        ResetDraftToolPolicy();
         CurrentThread = null;
         Messages.Clear();
         // CurrentThread can already be null when replacing one local draft with another, so its
         // generated change hook may not run. Explicitly initialize the draft Picker every time.
         SyncSelectedModel();
         SelectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ResetDraftToolPolicy()
+    {
+        _draftToolPolicy = null;
+        _isDraftToolPolicyDirty = false;
+        _hasDraftToolPolicyOverride = false;
+        IsThreadToolsOpen = false;
+        ThreadToolPolicy = null;
+        IsThreadToolsDirty = false;
+        ThreadToolsError = null;
     }
 
     /// <summary>Used by workspace and thread editors to render actual engine catalog groups.</summary>
@@ -599,7 +623,7 @@ public sealed partial class ChatViewModel : ViewModelBase
         UpdateWorkspaceEntryAsync(uuid, new CreateWorkspaceRequest { Name = name, Description = description, DefaultModelId = defaultModelId });
 
     [RelayCommand(CanExecute = nameof(CanSend))]
-    private void Send()
+    private async Task SendAsync()
     {
         var text = ComposerText.Trim();
         var threadUuid = CurrentThread?.Uuid;
@@ -607,6 +631,44 @@ public sealed partial class ChatViewModel : ViewModelBase
         if (text.Length == 0 || (threadUuid is null && workspaceUuid is null))
         {
             return;
+        }
+
+        // A modified draft policy must exist before the first prompt reaches the Engine; otherwise
+        // its tool resolution could observe only workspace defaults. Unmodified drafts retain the
+        // existing single-message materialization path and receive an Engine-generated title.
+        var modelId = threadUuid is null ? _draftModelId ?? SelectedModel?.Id : SelectedModel?.Id;
+        if (threadUuid is null && _hasDraftToolPolicyOverride && _draftToolPolicy is { } draftPolicy)
+        {
+            IsBusy = true;
+            try
+            {
+                var createdThread = await _client.CreateThreadAsync(new CreateThreadRequest
+                {
+                    WorkspaceUuid = workspaceUuid!,
+                    DefaultModelId = modelId,
+                });
+                if (!Threads.Any(thread => thread.Uuid == createdThread.Uuid))
+                {
+                    Threads.Insert(0, createdThread);
+                }
+
+                CurrentThread = createdThread;
+                threadUuid = createdThread.Uuid;
+                workspaceUuid = null;
+                await _client.UpdateThreadToolsConfigAsync(createdThread.Uuid, draftPolicy.SerializeDesiredConfig());
+
+                _draftModelId = null;
+                _draftToolPolicy = null;
+                _isDraftToolPolicyDirty = false;
+                _hasDraftToolPolicyOverride = false;
+                SelectionChanged?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception exception)
+            {
+                StatusText = $"Couldn't create this thread with its tool policy: {exception.Message}";
+                IsBusy = false;
+                return;
+            }
         }
 
         Messages.Add(new MessageViewModel("user", text));
@@ -617,9 +679,6 @@ public sealed partial class ChatViewModel : ViewModelBase
 
         IsBusy = true;
         _activeTurnThread = threadUuid;
-        // For a local draft, the temporary selection is the source of truth for the opening
-        // prompt. The Engine stores it on the thread before executing that first turn.
-        var modelId = threadUuid is null ? _draftModelId ?? SelectedModel?.Id : SelectedModel?.Id;
         _activeTurnId = _client.SendChat(threadUuid, text, workspaceUuid, modelId);
     }
 
@@ -650,7 +709,9 @@ public sealed partial class ChatViewModel : ViewModelBase
         OpenThreadToolsCommand.NotifyCanExecuteChanged();
         UseWorkspaceToolDefaultsCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(IsThreadToolsAvailable));
-        OnPropertyChanged(nameof(ThreadToolsButtonText));
+        OnPropertyChanged(nameof(ThreadToolsPanelTitle));
+        OnPropertyChanged(nameof(ThreadToolsPanelDescription));
+        OnPropertyChanged(nameof(ThreadToolsSaveButtonText));
     }
 
     [RelayCommand]
@@ -788,31 +849,45 @@ public sealed partial class ChatViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanOpenThreadTools))]
     private async Task OpenThreadToolsAsync()
     {
-        if (CurrentThread is not { } thread)
+        if (CurrentWorkspace is not { } workspace || IsBusy)
         {
             return;
         }
 
+        var isDraft = CurrentThread is null;
         IsThreadToolsOpen = true;
         IsThreadToolsLoading = true;
         ThreadToolsError = null;
-        IsThreadToolsDirty = false;
         try
         {
-            var editor = new ToolPolicyEditorViewModel();
-            editor.Changed += (_, _) =>
+            if (isDraft && _draftToolPolicy is not null)
             {
-                IsThreadToolsDirty = true;
-                SaveThreadToolsCommand.NotifyCanExecuteChanged();
-            };
+                ThreadToolPolicy = _draftToolPolicy;
+                IsThreadToolsDirty = _isDraftToolPolicyDirty;
+                return;
+            }
+
+            var editor = CreateToolPolicyEditor(isDraft);
             ThreadToolPolicy = editor;
             var catalog = await _client.GetToolCatalogAsync();
-            var effective = await _client.GetThreadToolsConfigAsync(thread.Uuid);
-            editor.Populate(catalog, effective.Config);
+            var config = isDraft
+                ? await _client.GetWorkspaceToolsConfigAsync(workspace.Uuid)
+                : await _client.GetThreadToolsConfigAsync(CurrentThread!.Uuid);
+            editor.Populate(catalog, config.Config);
+
+            if (isDraft)
+            {
+                _draftToolPolicy = editor;
+                IsThreadToolsDirty = _isDraftToolPolicyDirty;
+            }
+            else
+            {
+                IsThreadToolsDirty = false;
+            }
         }
         catch (Exception exception)
         {
-            ThreadToolsError = $"Couldn't load thread tools: {exception.Message}";
+            ThreadToolsError = $"Couldn't load {(isDraft ? "draft" : "thread")} tools: {exception.Message}";
         }
         finally
         {
@@ -820,15 +895,40 @@ public sealed partial class ChatViewModel : ViewModelBase
         }
     }
 
+    private ToolPolicyEditorViewModel CreateToolPolicyEditor(bool isDraft)
+    {
+        var editor = new ToolPolicyEditorViewModel();
+        editor.Changed += (_, _) =>
+        {
+            IsThreadToolsDirty = true;
+            if (isDraft)
+            {
+                _draftToolPolicy = editor;
+                _isDraftToolPolicyDirty = true;
+                _hasDraftToolPolicyOverride = true;
+            }
+            SaveThreadToolsCommand.NotifyCanExecuteChanged();
+        };
+        return editor;
+    }
+
     private bool CanOpenThreadTools() => IsThreadToolsAvailable;
-    private bool CanUseWorkspaceToolDefaults() => CurrentThread is not null && ThreadToolPolicy is not null && !IsThreadToolsLoading && !IsThreadToolsSaving;
-    private bool CanSaveThreadTools() => CurrentThread is not null && ThreadToolPolicy is not null && IsThreadToolsDirty && !IsThreadToolsSaving;
+    private bool CanUseWorkspaceToolDefaults() => CurrentWorkspace is not null && ThreadToolPolicy is not null && !IsThreadToolsLoading && !IsThreadToolsSaving;
+    private bool CanSaveThreadTools() => CurrentWorkspace is not null && ThreadToolPolicy is not null && IsThreadToolsDirty && !IsThreadToolsSaving;
 
     [RelayCommand(CanExecute = nameof(CanSaveThreadTools))]
     private async Task SaveThreadToolsAsync()
     {
-        if (CurrentThread is not { } thread || ThreadToolPolicy is null)
+        if (ThreadToolPolicy is null)
         {
+            return;
+        }
+
+        if (CurrentThread is null)
+        {
+            _draftToolPolicy = ThreadToolPolicy;
+            _isDraftToolPolicyDirty = false;
+            IsThreadToolsDirty = false;
             return;
         }
 
@@ -836,7 +936,7 @@ public sealed partial class ChatViewModel : ViewModelBase
         ThreadToolsError = null;
         try
         {
-            var saved = await _client.UpdateThreadToolsConfigAsync(thread.Uuid, ThreadToolPolicy.SerializeDesiredConfig());
+            var saved = await _client.UpdateThreadToolsConfigAsync(CurrentThread.Uuid, ThreadToolPolicy.SerializeDesiredConfig());
             ThreadToolPolicy.Populate(await _client.GetToolCatalogAsync(), saved.Config);
             IsThreadToolsDirty = false;
         }
@@ -854,7 +954,7 @@ public sealed partial class ChatViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanUseWorkspaceToolDefaults))]
     private async Task UseWorkspaceToolDefaultsAsync()
     {
-        if (CurrentThread is not { } thread || ThreadToolPolicy is null)
+        if (CurrentWorkspace is not { } workspace || ThreadToolPolicy is null)
         {
             return;
         }
@@ -863,8 +963,19 @@ public sealed partial class ChatViewModel : ViewModelBase
         ThreadToolsError = null;
         try
         {
-            await _client.DeleteThreadToolsConfigAsync(thread.Uuid);
-            var effective = await _client.GetThreadToolsConfigAsync(thread.Uuid);
+            if (CurrentThread is null)
+            {
+                var defaults = await _client.GetWorkspaceToolsConfigAsync(workspace.Uuid);
+                ThreadToolPolicy.Populate(await _client.GetToolCatalogAsync(), defaults.Config);
+                _draftToolPolicy = ThreadToolPolicy;
+                _isDraftToolPolicyDirty = false;
+                _hasDraftToolPolicyOverride = false;
+                IsThreadToolsDirty = false;
+                return;
+            }
+
+            await _client.DeleteThreadToolsConfigAsync(CurrentThread.Uuid);
+            var effective = await _client.GetThreadToolsConfigAsync(CurrentThread.Uuid);
             ThreadToolPolicy.Populate(await _client.GetToolCatalogAsync(), effective.Config);
             IsThreadToolsDirty = false;
         }
@@ -890,6 +1001,12 @@ public sealed partial class ChatViewModel : ViewModelBase
     [RelayCommand]
     private void CloseThreadTools()
     {
+        if (CurrentThread is null && ThreadToolPolicy is not null)
+        {
+            _draftToolPolicy = ThreadToolPolicy;
+            _isDraftToolPolicyDirty = IsThreadToolsDirty;
+        }
+
         IsThreadToolsOpen = false;
         IsThreadToolsDirty = false;
         ThreadToolsError = null;

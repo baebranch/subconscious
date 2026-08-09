@@ -462,9 +462,19 @@ public sealed class WebSocketHandler : IAsyncDisposable
             threadUuid = thread.Uuid;
             await _eventBus.PublishAsync(new ThreadCreatedEvent { ThreadId = threadUuid, WorkspaceId = workspace.Uuid, Title = thread.Title });
         }
-        else if (!string.Equals(thread.DefaultModelId, modelConfig.Id, StringComparison.Ordinal))
+        else
         {
-            thread.DefaultModelId = modelConfig.Id;
+            // Desktop can pre-create a draft when it needs to persist an explicit tool policy
+            // before the first prompt. Preserve the usual generated-title behavior for that
+            // otherwise empty thread.
+            if (string.IsNullOrWhiteSpace(thread.Title))
+            {
+                thread.Title = CreateThreadTitle(content);
+            }
+            if (!string.Equals(thread.DefaultModelId, modelConfig.Id, StringComparison.Ordinal))
+            {
+                thread.DefaultModelId = modelConfig.Id;
+            }
         }
 
         var activeThreadUuid = threadUuid ?? throw new InvalidOperationException("A chat turn must have a persisted thread.");
@@ -563,6 +573,10 @@ public sealed class WebSocketHandler : IAsyncDisposable
                 return text;
             }
 
+            // Bedrock requires every tool-use id from this assistant message to be answered by
+            // tool-result blocks in one immediate following user message. Execute calls
+            // sequentially so approval remains per-call, then append their results together.
+            var toolResults = new List<AIContent>();
             foreach (var call in calls)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -601,8 +615,10 @@ public sealed class WebSocketHandler : IAsyncDisposable
                 _db.Messages.Add(toolMessage);
                 await _db.SaveChangesAsync(cancellationToken);
                 await PublishMessageCreatedAsync(toolMessage, threadUuid);
-                history.Add(new Microsoft.Extensions.AI.ChatMessage(ChatRole.Tool, [new FunctionResultContent(call.CallId, result)]));
+                toolResults.Add(new FunctionResultContent(call.CallId, result));
             }
+
+            history.Add(new Microsoft.Extensions.AI.ChatMessage(ChatRole.Tool, toolResults));
         }
 
         throw new InvalidOperationException("The model exceeded the maximum of eight tool-call rounds.");

@@ -91,6 +91,25 @@
                                          HorizontalOptions="Center" VerticalOptions="Center" />
                         </Grid>
                     </Border>
+
+                    <Border Style="{StaticResource SidebarRailButton}"
+                            BackgroundColor="{Binding IsFilesSectionSelected, Converter={StaticResource NavRowBackgroundColor}}"
+                            SemanticProperties.Description="Files" ToolTipProperties.Text="Files">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenContextSectionCommand}"
+                                                  CommandParameter="{x:Static vm:ContextPanelSection.Files}" />
+                        </Border.GestureRecognizers>
+                        <Grid>
+                            <Border WidthRequest="3" HeightRequest="18"
+                                    HorizontalOptions="Start" VerticalOptions="Center"
+                                    BackgroundColor="{DynamicResource AccentColor}"
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 2"
+                                    IsVisible="{Binding IsFilesSectionSelected}" />
+                            <mi:MauiIcon Icon="{mi:Fluent Icon=DocumentCopy24}" IconSize="18"
+                                         IconColor="{Binding IsFilesSectionSelected, Converter={StaticResource TitleBarIconColor}}"
+                                         HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
                 </VerticalStackLayout>
 
                 <!-- Separate the pinned settings/account group from the main navigation. -->

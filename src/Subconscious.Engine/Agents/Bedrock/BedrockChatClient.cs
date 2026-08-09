@@ -87,8 +87,7 @@ public sealed class BedrockChatClient : IChatClient
         var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         EnsureSuccess(response, body);
 
-        var text = BedrockConverseMapper.ExtractResponseText(body);
-        var chatResponse = new ChatResponse(new ChatMessage(ChatRole.Assistant, text))
+        var chatResponse = new ChatResponse(BedrockConverseMapper.ExtractResponseMessage(body))
         {
             ModelId = _modelId,
             FinishReason = MapFinishReason(BedrockConverseMapper.ExtractStopReason(body)),

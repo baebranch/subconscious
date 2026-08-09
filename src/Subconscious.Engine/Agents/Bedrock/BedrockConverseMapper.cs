@@ -25,7 +25,8 @@ public static class BedrockConverseMapper
 {
     /// <summary>
     /// Build a Converse request body from MEAI messages and options.
-    /// System messages are hoisted into the top-level <c>system</c> field.
+    /// System messages are hoisted into the top-level <c>system</c> field; function calls and
+    /// results are preserved as Bedrock <c>toolUse</c>/<c>toolResult</c> content blocks.
     /// </summary>
     public static JsonObject BuildRequest(IEnumerable<ChatMessage> messages, ChatOptions? options)
     {
@@ -34,25 +35,27 @@ public static class BedrockConverseMapper
 
         foreach (var message in messages)
         {
-            var text = message.Text;
-
             if (message.Role == ChatRole.System)
             {
-                if (!string.IsNullOrEmpty(text))
+                if (!string.IsNullOrEmpty(message.Text))
                 {
-                    systemBlocks.Add(new JsonObject { ["text"] = text });
+                    systemBlocks.Add(new JsonObject { ["text"] = message.Text });
                 }
                 continue;
             }
 
-            // Bedrock only accepts "user" and "assistant"; anything else (e.g. tool output
-            // rendered as text) is attributed to the user turn so no content is silently lost.
-            var role = message.Role == ChatRole.Assistant ? "assistant" : "user";
+            var content = BuildContent(message);
+            if (content.Count == 0)
+            {
+                content.Add(new JsonObject { ["text"] = message.Text ?? string.Empty });
+            }
 
             messageArray.Add(new JsonObject
             {
-                ["role"] = role,
-                ["content"] = new JsonArray { new JsonObject { ["text"] = text ?? string.Empty } },
+                // Bedrock only accepts user and assistant messages. Function results are user
+                // content because they answer the preceding assistant tool-use request.
+                ["role"] = message.Role == ChatRole.Assistant ? "assistant" : "user",
+                ["content"] = content,
             });
         }
 
@@ -69,7 +72,91 @@ public static class BedrockConverseMapper
             request["inferenceConfig"] = inferenceConfig;
         }
 
+        var toolConfig = BuildToolConfig(options);
+        if (toolConfig is not null)
+        {
+            request["toolConfig"] = toolConfig;
+        }
+
         return request;
+    }
+
+    private static JsonArray BuildContent(ChatMessage message)
+    {
+        var content = new JsonArray();
+        foreach (var item in message.Contents)
+        {
+            switch (item)
+            {
+                case TextContent text when !string.IsNullOrEmpty(text.Text):
+                    content.Add(new JsonObject { ["text"] = text.Text });
+                    break;
+                case FunctionCallContent call:
+                    content.Add(new JsonObject
+                    {
+                        ["toolUse"] = new JsonObject
+                        {
+                            ["toolUseId"] = call.CallId,
+                            ["name"] = call.Name,
+                            ["input"] = SerializeBedrockObject(call.Arguments, "value"),
+                        },
+                    });
+                    break;
+                case FunctionResultContent result:
+                    content.Add(new JsonObject
+                    {
+                        ["toolResult"] = new JsonObject
+                        {
+                            ["toolUseId"] = result.CallId,
+                            ["content"] = new JsonArray
+                            {
+                                new JsonObject
+                                {
+                                    // Converse requires the json union member to contain an object,
+                                    // while most built-in tools return a scalar string or number.
+                                    ["json"] = SerializeBedrockObject(result.Result, "result"),
+                                },
+                            },
+                        },
+                    });
+                    break;
+            }
+        }
+        return content;
+    }
+
+    private static JsonObject SerializeBedrockObject(object? value, string wrapperProperty)
+    {
+        var node = value is JsonNode jsonNode
+            ? jsonNode.DeepClone()
+            : JsonSerializer.SerializeToNode(value);
+        return node as JsonObject ?? new JsonObject { [wrapperProperty] = node };
+    }
+
+    private static JsonObject? BuildToolConfig(ChatOptions? options)
+    {
+        if (options?.Tools is not { Count: > 0 } tools)
+        {
+            return null;
+        }
+
+        var definitions = new JsonArray();
+        foreach (var function in tools.OfType<AIFunction>())
+        {
+            var schema = JsonNode.Parse(function.JsonSchema.GetRawText()) as JsonObject
+                ?? new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() };
+            definitions.Add(new JsonObject
+            {
+                ["toolSpec"] = new JsonObject
+                {
+                    ["name"] = function.Name,
+                    ["description"] = function.Description,
+                    ["inputSchema"] = new JsonObject { ["json"] = schema },
+                },
+            });
+        }
+
+        return definitions.Count == 0 ? null : new JsonObject { ["tools"] = definitions };
     }
 
     private static JsonObject? BuildInferenceConfig(ChatOptions? options)
@@ -101,10 +188,10 @@ public static class BedrockConverseMapper
     }
 
     /// <summary>
-    /// Extract the assistant text from a non-streaming Converse response body, concatenating all
-    /// <c>text</c> content blocks.
+    /// Extract an assistant message from a non-streaming Converse response, preserving both text
+    /// and tool-use blocks so the engine orchestration loop can invoke requested functions.
     /// </summary>
-    public static string ExtractResponseText(string responseJson)
+    public static ChatMessage ExtractResponseMessage(string responseJson)
     {
         using var document = JsonDocument.Parse(responseJson);
         if (!document.RootElement.TryGetProperty("output", out var output)
@@ -112,19 +199,43 @@ public static class BedrockConverseMapper
             || !message.TryGetProperty("content", out var content)
             || content.ValueKind != JsonValueKind.Array)
         {
-            return string.Empty;
+            return new ChatMessage(ChatRole.Assistant, string.Empty);
         }
 
-        var builder = new System.Text.StringBuilder();
+        var contents = new List<AIContent>();
         foreach (var block in content.EnumerateArray())
         {
             if (block.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
             {
-                builder.Append(text.GetString());
+                contents.Add(new TextContent(text.GetString() ?? string.Empty));
+                continue;
+            }
+
+            if (block.TryGetProperty("toolUse", out var toolUse)
+                && toolUse.ValueKind == JsonValueKind.Object
+                && toolUse.TryGetProperty("toolUseId", out var callId)
+                && toolUse.TryGetProperty("name", out var name)
+                && callId.ValueKind == JsonValueKind.String
+                && name.ValueKind == JsonValueKind.String)
+            {
+                var arguments = toolUse.TryGetProperty("input", out var input)
+                    && input.ValueKind == JsonValueKind.Object
+                    ? JsonSerializer.Deserialize<Dictionary<string, object?>>(input.GetRawText())
+                    : null;
+                contents.Add(new FunctionCallContent(
+                    callId.GetString()!,
+                    name.GetString()!,
+                    arguments));
             }
         }
-        return builder.ToString();
+
+        return contents.Count == 0
+            ? new ChatMessage(ChatRole.Assistant, string.Empty)
+            : new ChatMessage(ChatRole.Assistant, contents);
     }
+
+    /// <summary>Extract the text-only portion of a Converse response.</summary>
+    public static string ExtractResponseText(string responseJson) => ExtractResponseMessage(responseJson).Text ?? string.Empty;
 
     /// <summary>
     /// Extract the stop reason from a non-streaming Converse response, or null when absent.

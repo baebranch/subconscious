@@ -11,6 +11,7 @@ namespace Subconscious.Desktop.ViewModels;
 public enum ContextPanelSection
 {
     Threads,
+    Files,
     Workspaces,
     Settings,
     Account,
@@ -58,11 +59,14 @@ public sealed partial class MainViewModel : ViewModelBase
 
     public ChatViewModel Chat { get; } = new();
 
+    /// <summary>Local, workspace-allow-list-scoped file browsing and text editing state.</summary>
+    public FileWorkspaceViewModel FileEditor { get; } = new();
+
     // Model and tool configurations are persisted by their respective engine APIs. Skills have no
-    // matching API endpoint yet, so their page remains non-editable session-only scaffolding.
+    // matching API endpoint yet, so their cards remain editable session-only scaffolding.
     public ModelSettingsFormViewModel ModelSettingsForm { get; } = new();
     public ToolSettingsFormViewModel ToolSettingsForm { get; } = new();
-    public SkillSettingsFormViewModel SkillSettingsForm { get; } = new();
+    public SkillSettingsPageViewModel SkillSettingsPage { get; } = new();
     public AboutSettingsViewModel AboutSettings { get; } = new();
 
     /// <summary>Where the engine reads/writes its data (db, runtime.json, logs) — shown read-only
@@ -133,7 +137,14 @@ public sealed partial class MainViewModel : ViewModelBase
         _theme = theme;
         _theme.Changed += OnThemeChanged;
         Chat.PropertyChanged += OnChatPropertyChanged;
-        Chat.SelectionChanged += (_, _) => PersistDesktopStateImmediately();
+        Chat.SelectionChanged += (_, _) =>
+        {
+            PersistDesktopStateImmediately();
+            if (CurrentContextSection == ContextPanelSection.Files)
+            {
+                _ = FileEditor.LoadWorkspaceAsync(Chat.CurrentWorkspace);
+            }
+        };
 
         _chatPanelWidth = DefaultChatPanelWidth;
         _contextPanelWidth = DefaultContextPanelWidth;
@@ -385,6 +396,7 @@ public sealed partial class MainViewModel : ViewModelBase
     private ContextPanelSection _currentContextSection = ContextPanelSection.Threads;
 
     public bool IsThreadsSectionSelected => CurrentContextSection == ContextPanelSection.Threads;
+    public bool IsFilesSectionSelected => CurrentContextSection == ContextPanelSection.Files;
     public bool IsWorkspacesSectionSelected => CurrentContextSection == ContextPanelSection.Workspaces;
     public bool IsSettingsSectionSelected => CurrentContextSection == ContextPanelSection.Settings;
     public bool IsAccountSectionSelected => CurrentContextSection == ContextPanelSection.Account;
@@ -398,6 +410,9 @@ public sealed partial class MainViewModel : ViewModelBase
     partial void OnCurrentContextSectionChanged(ContextPanelSection value)
     {
         OnPropertyChanged(nameof(IsThreadsSectionSelected));
+        OnPropertyChanged(nameof(IsFilesSectionSelected));
+        OnPropertyChanged(nameof(IsFileEditorOpen));
+        OnPropertyChanged(nameof(IsCenterPanelIdle));
         OnPropertyChanged(nameof(IsWorkspacesSectionSelected));
         OnPropertyChanged(nameof(IsSettingsSectionSelected));
         OnPropertyChanged(nameof(IsAccountSectionSelected));
@@ -413,6 +428,9 @@ public sealed partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ThemeRevision));
         OnPropertyChanged(nameof(IsContextPanelOpen));
         OnPropertyChanged(nameof(IsThreadsSectionSelected));
+        OnPropertyChanged(nameof(IsFilesSectionSelected));
+        OnPropertyChanged(nameof(IsFileEditorOpen));
+        OnPropertyChanged(nameof(IsCenterPanelIdle));
         OnPropertyChanged(nameof(IsWorkspacesSectionSelected));
         OnPropertyChanged(nameof(IsSettingsSectionSelected));
         OnPropertyChanged(nameof(IsAccountSectionSelected));
@@ -447,6 +465,11 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         switch (CurrentContextSection)
         {
+            case ContextPanelSection.Files:
+                CloseWorkspaceForm();
+                CloseSettingsPage();
+                _ = FileEditor.LoadWorkspaceAsync(Chat.CurrentWorkspace);
+                break;
             case ContextPanelSection.Workspaces:
                 OpenSelectedWorkspace();
                 break;
@@ -491,8 +514,11 @@ public sealed partial class MainViewModel : ViewModelBase
     /// row converters reevaluate after either a chat selection or a live palette change.</summary>
     public string? ActiveThreadUuid => Chat.CurrentThread?.Uuid;
 
-    /// <summary>True when the center panel isn't showing a workspace or settings page.</summary>
-    public bool IsCenterPanelIdle => WorkspaceForm is null && ActiveSettingsPage is null;
+    /// <summary>Whether the center panel is hosting the workspace-scoped text editor.</summary>
+    public bool IsFileEditorOpen => CurrentContextSection == ContextPanelSection.Files;
+
+    /// <summary>True when the center panel isn't showing a workspace, settings, or file editor page.</summary>
+    public bool IsCenterPanelIdle => WorkspaceForm is null && ActiveSettingsPage is null && !IsFileEditorOpen;
 
     partial void OnWorkspaceFormChanged(WorkspaceFormViewModel? value)
     {
@@ -512,7 +538,7 @@ public sealed partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void EditWorkspace(Workspace workspace) => OpenWorkspaceForm(new WorkspaceFormViewModel(Chat, workspace));
 
-    private void OpenWorkspaceForm(WorkspaceFormViewModel form)
+    private void OpenWorkspaceForm(WorkspaceFormViewModel form, ToolPolicyEditorExpansionState? expansionState = null)
     {
         CloseSettingsPage();
         if (form.Id is > 0)
@@ -523,15 +549,19 @@ public sealed partial class MainViewModel : ViewModelBase
         form.Saved += OnWorkspaceFormSaved;
         form.Cancelled += OnWorkspaceFormCancelled;
         WorkspaceForm = form;
-        _ = form.InitializeAsync();
+        _ = form.InitializeAsync(expansionState);
         PersistDesktopStateImmediately();
     }
 
     private void OnWorkspaceFormSaved(object? sender, Workspace workspace)
     {
         _selectedWorkspaceId = workspace.Id;
+
+        // The saved workspace needs a fresh immutable wire record, but policy-card expansion is
+        // transient UI state and should survive the editor's post-save data reload.
+        var expansionState = WorkspaceForm?.ToolPolicy.CaptureExpansionState();
         CloseWorkspaceForm();
-        PersistDesktopStateImmediately();
+        OpenWorkspaceForm(new WorkspaceFormViewModel(Chat, workspace), expansionState);
     }
 
     private void OnWorkspaceFormCancelled(object? sender, EventArgs e) => CloseWorkspaceForm();

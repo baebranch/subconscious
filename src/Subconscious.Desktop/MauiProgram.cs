@@ -78,6 +78,63 @@ public static class MauiProgram
                         }
                     };
                 });
+
+                // The Markdown source editor owns its focus treatment through the surrounding
+                // file workspace layout. Keep WinUI's native normal/hover/focus border and
+                // focused underline fully transparent without changing ordinary form Editors.
+                EditorHandler.Mapper.AppendToMapping(nameof(MarkdownEditor), (handler, view) =>
+                {
+                    if (view is not MarkdownEditor)
+                    {
+                        return;
+                    }
+
+                    var transparent = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                        Windows.UI.Color.FromArgb(0, 0, 0, 0));
+                    var noBorder = new Microsoft.UI.Xaml.Thickness(0);
+                    handler.PlatformView.BorderBrush = transparent;
+                    handler.PlatformView.BorderThickness = noBorder;
+                    handler.PlatformView.Resources["TextControlBorderBrush"] = transparent;
+                    handler.PlatformView.Resources["TextControlBorderBrushPointerOver"] = transparent;
+                    handler.PlatformView.Resources["TextControlBorderBrushFocused"] = transparent;
+                    handler.PlatformView.Resources["TextControlBorderThemeThickness"] = noBorder;
+                    handler.PlatformView.Resources["TextControlBorderThemeThicknessFocused"] = noBorder;
+                });
+
+                PickerHandler.Mapper.AppendToMapping(nameof(CaptionWorkspacePicker), (handler, view) =>
+                {
+                    if (view is not CaptionWorkspacePicker)
+                    {
+                        return;
+                    }
+
+                    // This picker shares its surface with the extended native caption, so it
+                    // deliberately has no form-field outline in its normal, hover, or focus state.
+                    var transparent = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                        Windows.UI.Color.FromArgb(0, 0, 0, 0));
+                    var noBorder = new Microsoft.UI.Xaml.Thickness(0);
+                    // Use only the ComboBox's default-state resource. Setting Background directly
+                    // would take precedence over WinUI's hover, focused, and pressed state setters.
+                    var appResources = Microsoft.UI.Xaml.Application.Current.Resources;
+                    if (!appResources.TryGetValue("CaptionWorkspacePickerBackgroundBrush", out var resource)
+                        || resource is not Microsoft.UI.Xaml.Media.SolidColorBrush captionBackground)
+                    {
+                        captionBackground = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                            Windows.UI.Color.FromArgb(255, 255, 255, 255));
+                        appResources["CaptionWorkspacePickerBackgroundBrush"] = captionBackground;
+                    }
+
+                    handler.PlatformView.Resources["ComboBoxBackground"] = captionBackground;
+                    handler.PlatformView.CornerRadius = new Microsoft.UI.Xaml.CornerRadius(0);
+                    handler.PlatformView.Resources["ComboBoxCornerRadius"] = new Microsoft.UI.Xaml.CornerRadius(0);
+                    handler.PlatformView.BorderBrush = transparent;
+                    handler.PlatformView.BorderThickness = noBorder;
+                    handler.PlatformView.Resources["ComboBoxBorderBrush"] = transparent;
+                    handler.PlatformView.Resources["ComboBoxBorderBrushPointerOver"] = transparent;
+                    handler.PlatformView.Resources["ComboBoxBorderBrushFocused"] = transparent;
+                    handler.PlatformView.Resources["ComboBoxBorderThemeThickness"] = noBorder;
+                    handler.PlatformView.Resources["ComboBoxBorderThemeThicknessFocused"] = noBorder;
+                });
             })
 #endif
             .ConfigureFonts(fonts =>

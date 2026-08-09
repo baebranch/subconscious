@@ -5,6 +5,7 @@
 -->
 <Window xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
         xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+        xmlns:controls="clr-namespace:Subconscious.Desktop.Controls"
         xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
         x:Class="Subconscious.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
@@ -48,6 +49,21 @@
                            VerticalOptions="Center" />
                 </HorizontalStackLayout>
             </TitleBar.LeadingContent>
+            <!-- TrailingContent occupies the extended caption region immediately before Windows'
+                 OS-owned caption buttons. Its zero right padding keeps this selector flush with
+                 the minimize button without changing caption hit testing or snap behavior. -->
+            <TitleBar.TrailingContent>
+                <controls:CaptionWorkspacePicker x:Name="TitleBarWorkspacePicker"
+                                                 WidthRequest="190"
+                                                 HeightRequest="32"
+                                                 MinimumHeightRequest="32"
+                                                 VerticalOptions="Fill"
+                                                 HorizontalOptions="End"
+                                                 ItemDisplayBinding="{Binding DisplayName}"
+                                                 SelectedIndexChanged="OnTitleBarWorkspacePickerSelectedIndexChanged"
+                                                 SemanticProperties.Description="Change workspace"
+                                                 ToolTipProperties.Text="Change workspace" />
+            </TitleBar.TrailingContent>
             <VisualStateManager.VisualStateGroups>
                 <VisualStateGroupList>
                     <VisualStateGroup x:Name="TitleActiveStates">

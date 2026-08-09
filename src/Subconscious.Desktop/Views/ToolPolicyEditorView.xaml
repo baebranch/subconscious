@@ -32,12 +32,14 @@
         </Grid>
 
         <VerticalStackLayout IsVisible="{Binding IsBuiltinToolsExpanded}"
-                             BindableLayout.ItemsSource="{Binding BuiltinGroups}" Spacing="10">
+                             BindableLayout.ItemsSource="{Binding BuiltinGroups}" Spacing="10"
+                             Padding="0,0,0,12">
             <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="vm:ToolPolicyGroupViewModel">
                     <Border BackgroundColor="{DynamicResource PanelBackgroundColor}"
                             Stroke="{DynamicResource DividerColor}" StrokeThickness="1"
-                            StrokeShape="RoundRectangle 7" Padding="12">
+                            StrokeShape="RoundRectangle 7" Padding="12"
+                            Margin="27,0,9,0">
                         <VerticalStackLayout Spacing="9">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Grid Grid.Column="0" ColumnDefinitions="Auto,*" ColumnSpacing="8">
@@ -53,18 +55,23 @@
                                                  IsVisible="{Binding IsExpanded}" VerticalOptions="Center" />
                                     <Label Grid.Column="1" Text="{Binding DisplayName}" FontAttributes="Bold" VerticalOptions="Center" />
                                 </Grid>
-                                <Switch Grid.Column="1" IsToggled="{Binding IsEnabled}" />
+                                <Switch Grid.Column="1" IsToggled="{Binding IsEnabled}"
+                                        IsEnabled="{Binding IsParentEnabled}"
+                                        TranslationX="7" />
                             </Grid>
                             <VerticalStackLayout IsVisible="{Binding IsExpanded}"
                                                  BindableLayout.ItemsSource="{Binding Tools}" Spacing="6">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:BuiltinToolPolicyViewModel">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <!-- The inset preserves the group relationship while the row stays
+                                             individually selectable whenever both parent policies allow it. -->
+                                        <Grid Margin="32,2,0,2" ColumnDefinitions="*,Auto" ColumnSpacing="8"
+                                              IsEnabled="{Binding IsParentEnabled}">
                                             <VerticalStackLayout Spacing="1">
                                                 <Label Text="{Binding Name}" />
                                                 <Label Text="{Binding Description}" Style="{StaticResource MutedLabel}" FontSize="11" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding IsEnabled}" />
+                                            <Switch Grid.Column="1" IsToggled="{Binding IsEnabled}" TranslationX="7" />
                                         </Grid>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
@@ -100,7 +107,8 @@
             </Grid>
             <Switch Grid.Column="1" IsToggled="{Binding CustomToolsEnabled}" />
         </Grid>
-        <VerticalStackLayout IsVisible="{Binding IsCustomToolsExpanded}" Spacing="6">
+        <VerticalStackLayout IsVisible="{Binding IsCustomToolsExpanded}" Spacing="6"
+                             Padding="0,0,0,12">
             <Label Text="No custom tools are configured." Style="{StaticResource MutedLabel}"
                    IsVisible="{Binding ConfiguredTools.Count, Converter={StaticResource IsEmpty}}" />
             <VerticalStackLayout BindableLayout.ItemsSource="{Binding ConfiguredTools}" Spacing="6">
@@ -108,13 +116,15 @@
                     <DataTemplate x:DataType="vm:ConfiguredToolPolicyViewModel">
                         <Border BackgroundColor="{DynamicResource PanelBackgroundColor}"
                                 Stroke="{DynamicResource DividerColor}" StrokeThickness="1"
-                                StrokeShape="RoundRectangle 7" Padding="10">
+                                StrokeShape="RoundRectangle 7" Padding="10"
+                                Margin="27,0,9,0"
+                                IsEnabled="{Binding IsParentEnabled}">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                 <VerticalStackLayout Spacing="1">
                                     <Label Text="{Binding DisplayName}" />
                                     <Label Text="{Binding Detail}" Style="{StaticResource MutedLabel}" FontSize="11" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding IsEnabled}" />
+                                <Switch Grid.Column="1" IsToggled="{Binding IsEnabled}" TranslationX="5" />
                             </Grid>
                         </Border>
                     </DataTemplate>

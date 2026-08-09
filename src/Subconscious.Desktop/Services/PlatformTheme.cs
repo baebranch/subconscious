@@ -65,6 +65,10 @@ internal static class PlatformTheme
                         var nativeSecondaryText = ToWindowsColor(secondaryText);
                         var nativeHover = ToWindowsColor(hover);
                         var nativeSurfaceBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(nativeSurface);
+                        GetOrUpdateWindowsBrush(
+                            Microsoft.UI.Xaml.Application.Current.Resources,
+                            "CaptionWorkspacePickerBackgroundBrush",
+                            nativeSurface);
 
                         // MAUI's Windows title host reads this brush while it occupies the
                         // extended caption region. Override both the backing resource and alias
@@ -105,6 +109,23 @@ internal static class PlatformTheme
         app.Resources.TryGetValue(resourceKey, out var resource) && resource is Color color
             ? color
             : Color.FromArgb(fallback);
+
+    private static Microsoft.UI.Xaml.Media.SolidColorBrush GetOrUpdateWindowsBrush(
+        Microsoft.UI.Xaml.ResourceDictionary resources,
+        string resourceKey,
+        Windows.UI.Color color)
+    {
+        if (resources.TryGetValue(resourceKey, out var resource)
+            && resource is Microsoft.UI.Xaml.Media.SolidColorBrush brush)
+        {
+            brush.Color = color;
+            return brush;
+        }
+
+        var newBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(color);
+        resources[resourceKey] = newBrush;
+        return newBrush;
+    }
 
     private static Windows.UI.Color ToWindowsColor(Color color) => Windows.UI.Color.FromArgb(
         ToByte(color.Alpha),

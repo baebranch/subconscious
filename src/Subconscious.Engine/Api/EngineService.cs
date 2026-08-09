@@ -29,6 +29,7 @@ public static class EngineServiceExtensions
         services.AddSingleton<AgentManager>();
 
         services.AddScoped<IWorkspaceService, WorkspaceService>();
+        services.AddScoped<IWorkspaceFileService, WorkspaceFileService>();
         services.AddScoped<IThreadService, ThreadService>();
         services.AddScoped<IMessageService, MessageService>();
         services.AddScoped<IToolRegistryService, ToolRegistryService>();

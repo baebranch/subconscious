@@ -4,6 +4,7 @@
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              xmlns:engine="clr-namespace:Subconscious.Desktop.Engine"
              xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
+             xmlns:views="clr-namespace:Subconscious.Desktop.Views"
              x:Class="Subconscious.Desktop.Views.ContextPanelView"
              x:Name="ContextPanelRoot"
              x:DataType="vm:MainViewModel"
@@ -98,6 +99,54 @@
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
+            </Grid>
+
+            <!-- Files uses the workspace allow-list as its only root source. The reusable tree
+                 keeps the native compact navigation presentation while the editor opens in the
+                 main panel. -->
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" IsVisible="{Binding IsFilesSectionSelected}">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="12,8,12,4"
+                      HeightRequest="32" MinimumHeightRequest="32">
+                    <Label Text="Files" FontSize="14" FontAttributes="Bold"
+                           VerticalOptions="Fill" VerticalTextAlignment="Center" />
+                    <ImageButton Grid.Column="1" Style="{StaticResource SquareIconButton}"
+                                 mi:MauiIcon.Value="{mi:Fluent Icon=ArrowClockwise24, IconSize=16, IconColor={Binding IconColor}}"
+                                 Command="{Binding FileEditor.RefreshCommand}"
+                                 SemanticProperties.Description="Refresh files"
+                                 ToolTipProperties.Text="Refresh files" />
+                    <ImageButton Grid.Column="2" Style="{StaticResource SquareIconButton}"
+                                 mi:MauiIcon.Value="{mi:Fluent Icon=Add24, IconSize=16, IconColor={Binding IconColor}}"
+                                 Command="{Binding FileEditor.StartNewFileCommand}"
+                                 SemanticProperties.Description="Create a file"
+                                 ToolTipProperties.Text="New file" />
+                </Grid>
+                <Label Grid.Row="1" Text="{Binding FileEditor.WorkspaceSummary}"
+                       Style="{StaticResource MutedLabel}" FontSize="12" Margin="12,0,12,8"
+                       LineBreakMode="WordWrap" />
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="6"
+                      Margin="12,0,12,8" IsVisible="{Binding FileEditor.IsCreatingFile}">
+                    <Picker Grid.ColumnSpan="2" ItemsSource="{Binding FileEditor.CreateRootOptions}"
+                            ItemDisplayBinding="{Binding DisplayName}"
+                            SelectedItem="{Binding FileEditor.SelectedCreateRoot, Mode=TwoWay}"
+                            SemanticProperties.Description="Choose the workspace folder for the new file" />
+                    <Entry Grid.Row="1" Text="{Binding FileEditor.NewFilePath, Mode=TwoWay}"
+                           Placeholder="notes/new-note.md" Style="{StaticResource FormEntry}"
+                           SemanticProperties.Description="New file path relative to the selected workspace folder" />
+                    <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4">
+                        <Button Text="Create" Command="{Binding FileEditor.CreateNewFileCommand}"
+                                Style="{StaticResource AccentButton}" Padding="10,6" />
+                        <Button Text="Cancel" Command="{Binding FileEditor.CancelNewFileCommand}"
+                                Style="{StaticResource GhostButton}" Padding="8,6" />
+                    </HorizontalStackLayout>
+                </Grid>
+                <HorizontalStackLayout Grid.Row="3" Margin="12,0,12,8" Spacing="8"
+                                       IsVisible="{Binding FileEditor.IsLoading}">
+                    <ActivityIndicator IsRunning="{Binding FileEditor.IsLoading}"
+                                       Color="{DynamicResource AccentColor}" WidthRequest="14" HeightRequest="14"
+                                       VerticalOptions="Center" />
+                    <Label Text="Loading files…" Style="{StaticResource MutedLabel}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <views:FileTreeView Grid.Row="4" BindingContext="{Binding FileEditor}" />
             </Grid>
 
             <!-- Workspaces: the list the engine returns from GET /workspaces, loaded once on

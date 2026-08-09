@@ -23,6 +23,26 @@ public sealed record Workspace
     [JsonPropertyName("updatedAt")] public DateTime UpdatedAt { get; init; }
 }
 
+/// <summary>A workspace-relative file or directory returned by the Engine.</summary>
+public sealed record WorkspaceFileEntry
+{
+    [JsonPropertyName("name")] public required string Name { get; init; }
+    [JsonPropertyName("relativePath")] public required string RelativePath { get; init; }
+    [JsonPropertyName("isDirectory")] public bool IsDirectory { get; init; }
+}
+
+/// <summary>UTF-8 content returned by the Engine for a workspace file.</summary>
+public sealed record WorkspaceFileContent
+{
+    [JsonPropertyName("content")] public required string Content { get; init; }
+}
+
+/// <summary>Write-only content for an existing workspace-relative file.</summary>
+public sealed record WriteWorkspaceFileRequest
+{
+    [JsonPropertyName("content")] public string? Content { get; init; }
+}
+
 public sealed record ThreadInfo
 {
     [JsonPropertyName("id")] public int Id { get; init; }
@@ -148,6 +168,7 @@ public sealed record CreateThreadRequest
 {
     [JsonPropertyName("workspaceUuid")] public required string WorkspaceUuid { get; init; }
     [JsonPropertyName("title")] public string? Title { get; init; }
+    [JsonPropertyName("defaultModelId")] public string? DefaultModelId { get; init; }
 }
 
 /// <summary>Partial thread update used by the omnibox model selector.</summary>

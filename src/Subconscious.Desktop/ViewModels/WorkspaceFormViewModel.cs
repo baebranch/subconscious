@@ -66,7 +66,7 @@ public sealed partial class WorkspaceFormViewModel : ViewModelBase
     }
 
     /// <summary>Loads the real catalog when the form opens; no static tool list is maintained by Desktop.</summary>
-    public async Task InitializeAsync()
+    public async Task InitializeAsync(ToolPolicyEditorExpansionState? expansionState = null)
     {
         if (IsInitializing)
         {
@@ -82,6 +82,7 @@ public sealed partial class WorkspaceFormViewModel : ViewModelBase
                 ? null
                 : (await _chat.GetWorkspaceToolsConfigAsync(Uuid)).Config;
             ToolPolicy.Populate(catalog, config);
+            ToolPolicy.RestoreExpansionState(expansionState);
         }
         catch (Exception exception)
         {

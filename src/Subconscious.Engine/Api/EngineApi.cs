@@ -91,6 +91,8 @@ public static class EngineMiddleware
         app.MapDelete("/api/v1/workspaces/{uuid}", async (string uuid, IWorkspaceService svc, CancellationToken ct) =>
             await svc.DeleteWorkspaceAsync(uuid, ct) ? Results.NoContent() : Results.NotFound());
 
+        MapWorkspaceFileEndpoints(app);
+
         app.MapGet("/api/v1/workspaces/{uuid}/tools-config", async (string uuid, IWorkspaceService svc, CancellationToken ct) =>
         {
             var config = await svc.GetToolsConfigAsync(uuid, ct);
@@ -113,6 +115,71 @@ public static class EngineMiddleware
         app.MapGet("/api/v1/workspaces/{uuid}/threads", async (string uuid, IThreadService svc, CancellationToken ct) =>
             Results.Ok(await svc.GetThreadsAsync(uuid, ct)));
     }
+
+    private static void MapWorkspaceFileEndpoints(WebApplication app)
+    {
+        app.MapGet("/api/v1/workspaces/{uuid}/files", async (string uuid, int rootIndex, string? path, IWorkspaceFileService svc, CancellationToken ct) =>
+        {
+            try
+            {
+                return (IResult)Results.Ok(await svc.ListAsync(uuid, rootIndex, path, ct));
+            }
+            catch (WorkspaceFileServiceException exception) { return WorkspaceFileFailure(exception); }
+            catch (UnauthorizedAccessException) { return WorkspaceFileForbidden("Access to the workspace path was denied."); }
+            catch (IOException exception) { return WorkspaceFileIoFailure(exception); }
+        });
+
+        app.MapGet("/api/v1/workspaces/{uuid}/files/content", async (string uuid, int rootIndex, string? path, IWorkspaceFileService svc, CancellationToken ct) =>
+        {
+            try
+            {
+                return (IResult)Results.Ok(await svc.ReadAsync(uuid, rootIndex, path ?? string.Empty, ct));
+            }
+            catch (WorkspaceFileServiceException exception) { return WorkspaceFileFailure(exception); }
+            catch (UnauthorizedAccessException) { return WorkspaceFileForbidden("Access to the workspace path was denied."); }
+            catch (IOException exception) { return WorkspaceFileIoFailure(exception); }
+        });
+
+        app.MapPost("/api/v1/workspaces/{uuid}/files/content", async (string uuid, int rootIndex, string? path, WriteWorkspaceFileRequest request, IWorkspaceFileService svc, CancellationToken ct) =>
+        {
+            try
+            {
+                return (IResult)Results.Ok(await svc.CreateAsync(uuid, rootIndex, path ?? string.Empty, request.Content, ct));
+            }
+            catch (WorkspaceFileServiceException exception) { return WorkspaceFileFailure(exception); }
+            catch (System.Text.EncoderFallbackException) { return WorkspaceFileBadRequest("Content is not valid UTF-8 text."); }
+            catch (UnauthorizedAccessException) { return WorkspaceFileForbidden("Access to the workspace path was denied."); }
+            catch (IOException exception) { return WorkspaceFileIoFailure(exception); }
+        });
+
+        app.MapPut("/api/v1/workspaces/{uuid}/files/content", async (string uuid, int rootIndex, string? path, WriteWorkspaceFileRequest request, IWorkspaceFileService svc, CancellationToken ct) =>
+        {
+            try
+            {
+                return (IResult)Results.Ok(await svc.WriteAsync(uuid, rootIndex, path ?? string.Empty, request.Content, ct));
+            }
+            catch (WorkspaceFileServiceException exception) { return WorkspaceFileFailure(exception); }
+            catch (System.Text.EncoderFallbackException) { return WorkspaceFileBadRequest("Content is not valid UTF-8 text."); }
+            catch (UnauthorizedAccessException) { return WorkspaceFileForbidden("Access to the workspace path was denied."); }
+            catch (IOException exception) { return WorkspaceFileIoFailure(exception); }
+        });
+    }
+
+    private static IResult WorkspaceFileFailure(WorkspaceFileServiceException exception) =>
+        Results.Json(new { error = exception.Message }, statusCode: exception.StatusCode);
+
+    private static IResult WorkspaceFileBadRequest(string message) =>
+        Results.Json(new { error = message }, statusCode: StatusCodes.Status400BadRequest);
+
+    private static IResult WorkspaceFileForbidden(string message) =>
+        Results.Json(new { error = message }, statusCode: StatusCodes.Status403Forbidden);
+
+    private static IResult WorkspaceFileNotFound(string message) =>
+        Results.Json(new { error = message }, statusCode: StatusCodes.Status404NotFound);
+
+    private static IResult WorkspaceFileIoFailure(IOException exception) => exception is FileNotFoundException or DirectoryNotFoundException
+        ? WorkspaceFileNotFound("The requested workspace path does not exist.")
+        : WorkspaceFileForbidden("The workspace path cannot be accessed.");
 
     private static void MapThreadEndpoints(WebApplication app)
     {

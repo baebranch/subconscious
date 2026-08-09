@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
+             xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
+             x:Class="Subconscious.Desktop.Views.FileTreeView"
+             x:Name="FileTreeRoot"
+             x:DataType="vm:FileWorkspaceViewModel">
+    <Grid RowDefinitions="Auto,*">
+        <Label Text="{Binding ErrorText}" Grid.Row="0" Margin="12,4,12,4"
+               Style="{StaticResource MutedLabel}" TextColor="{DynamicResource ErrorColor}"
+               LineBreakMode="WordWrap" IsVisible="{Binding ErrorText, Converter={StaticResource IsNotEmpty}}" />
+        <CollectionView Grid.Row="1" ItemsSource="{Binding VisibleNodes}" SelectionMode="None">
+            <CollectionView.EmptyView>
+                <Label Text="No readable files in the allowed folders." Style="{StaticResource MutedLabel}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+            </CollectionView.EmptyView>
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="1" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:FileTreeNode">
+                    <Grid Padding="{Binding Indentation}" MinimumHeightRequest="30" ColumnDefinitions="20,20,*">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding BindingContext.ActivateNodeCommand, Source={x:Reference FileTreeRoot}}"
+                                                  CommandParameter="{Binding .}" />
+                        </Grid.GestureRecognizers>
+                        <mi:MauiIcon Grid.Column="0" Icon="{mi:Fluent Icon=ChevronRight24}" IconSize="14"
+                                     IconColor="{DynamicResource SecondaryTextColor}" VerticalOptions="Center"
+                                     IsVisible="{Binding IsCollapsedDirectory}" />
+                        <mi:MauiIcon Grid.Column="0" Icon="{mi:Fluent Icon=ChevronDown24}" IconSize="14"
+                                     IconColor="{DynamicResource SecondaryTextColor}" VerticalOptions="Center"
+                                     IsVisible="{Binding IsExpanded}" />
+                        <mi:MauiIcon Grid.Column="1" Icon="{mi:Fluent Icon=Folder24}" IconSize="16"
+                                     IconColor="{DynamicResource SecondaryTextColor}" VerticalOptions="Center"
+                                     IsVisible="{Binding IsDirectory}" />
+                        <mi:MauiIcon Grid.Column="1" Icon="{mi:Fluent Icon=DocumentCopy24}" IconSize="16"
+                                     IconColor="{DynamicResource SecondaryTextColor}" VerticalOptions="Center"
+                                     IsVisible="{Binding IsDirectory, Converter={StaticResource InvertedBool}}" />
+                        <Label Grid.Column="2" Text="{Binding DisplayName}" FontSize="13" VerticalOptions="Center"
+                               LineBreakMode="TailTruncation" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentView>
