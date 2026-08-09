@@ -12,6 +12,8 @@ public interface IWorkspaceService
     Task<WorkspaceDto?> GetWorkspaceByUuidAsync(string uuid, CancellationToken cancellationToken = default);
     Task<WorkspaceDto> CreateWorkspaceAsync(CreateWorkspaceRequest request, CancellationToken cancellationToken = default);
     Task<WorkspaceDto?> UpdateWorkspaceAsync(string uuid, CreateWorkspaceRequest request, CancellationToken cancellationToken = default);
+    Task<ToolConfigDto?> GetToolsConfigAsync(string uuid, CancellationToken cancellationToken = default);
+    Task<ToolConfigDto?> UpdateToolsConfigAsync(string uuid, UpdateToolConfigRequest request, CancellationToken cancellationToken = default);
     Task<bool> DeleteWorkspaceAsync(string uuid, CancellationToken cancellationToken = default);
 }
 
@@ -24,7 +26,21 @@ public interface IThreadService
     Task<ThreadDto?> GetThreadByUuidAsync(string uuid, CancellationToken cancellationToken = default);
     Task<ThreadDto> CreateThreadAsync(CreateThreadRequest request, CancellationToken cancellationToken = default);
     Task<ThreadDto?> UpdateThreadAsync(string uuid, UpdateThreadRequest request, CancellationToken cancellationToken = default);
+    Task<ToolConfigDto?> GetToolsConfigAsync(string uuid, CancellationToken cancellationToken = default);
+    Task<ToolConfigDto?> UpdateToolsConfigAsync(string uuid, UpdateToolConfigRequest request, CancellationToken cancellationToken = default);
+    Task<bool> ResetToolsConfigAsync(string uuid, CancellationToken cancellationToken = default);
     Task<bool> DeleteThreadAsync(string uuid, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Service interface for persisted configured tool metadata and catalog data.</summary>
+public interface IToolRegistryService
+{
+    Task<List<ToolRegistryDto>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<ToolRegistryDto?> GetByUuidAsync(string uuid, CancellationToken cancellationToken = default);
+    Task<ToolRegistryDto> CreateAsync(UpsertToolRegistryRequest request, CancellationToken cancellationToken = default);
+    Task<ToolRegistryDto?> UpdateAsync(string uuid, UpsertToolRegistryRequest request, CancellationToken cancellationToken = default);
+    Task<bool> DeleteAsync(string uuid, CancellationToken cancellationToken = default);
+    Task<ToolCatalogDto> GetCatalogAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>

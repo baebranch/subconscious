@@ -58,8 +58,8 @@ public sealed partial class MainViewModel : ViewModelBase
 
     public ChatViewModel Chat { get; } = new();
 
-    // Model configurations are persisted by the engine in encrypted data.enc; tool and skill
-    // forms remain page-local until their matching engine APIs are implemented.
+    // Model and tool configurations are persisted by their respective engine APIs. Skills have no
+    // matching API endpoint yet, so their page remains non-editable session-only scaffolding.
     public ModelSettingsFormViewModel ModelSettingsForm { get; } = new();
     public ToolSettingsFormViewModel ToolSettingsForm { get; } = new();
     public SkillSettingsFormViewModel SkillSettingsForm { get; } = new();
@@ -523,6 +523,7 @@ public sealed partial class MainViewModel : ViewModelBase
         form.Saved += OnWorkspaceFormSaved;
         form.Cancelled += OnWorkspaceFormCancelled;
         WorkspaceForm = form;
+        _ = form.InitializeAsync();
         PersistDesktopStateImmediately();
     }
 
@@ -601,6 +602,10 @@ public sealed partial class MainViewModel : ViewModelBase
         else if (page == SettingsPage.Models)
         {
             _ = ModelSettingsForm.LoadAsync();
+        }
+        else if (page == SettingsPage.Tools)
+        {
+            _ = ToolSettingsForm.LoadAsync();
         }
     }
 

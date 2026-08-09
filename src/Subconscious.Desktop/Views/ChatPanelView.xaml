@@ -13,7 +13,7 @@
     <Grid RowDefinitions="Auto,*,Auto,Auto">
 
         <!-- ── Header: current thread title + new-thread button ────────────── -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="12,8,12,8"
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="12,8,12,8"
               HeightRequest="32" MinimumHeightRequest="32">
             <!-- A local draft deliberately has no title until its first message reaches the
                  engine, which creates and names the persisted thread. -->
@@ -21,7 +21,12 @@
                    Text="{Binding CurrentThread.Title}"
                    FontSize="14" FontAttributes="Bold"
                    VerticalOptions="Fill" VerticalTextAlignment="Center" />
-            <ImageButton Grid.Column="1" Style="{StaticResource SquareIconButton}"
+            <Button Grid.Column="1" Text="{Binding ThreadToolsButtonText}"
+                    Command="{Binding OpenThreadToolsCommand}"
+                    IsEnabled="{Binding IsThreadToolsAvailable}"
+                    Style="{StaticResource GhostButton}"
+                    FontSize="12" />
+            <ImageButton Grid.Column="2" Style="{StaticResource SquareIconButton}"
                          mi:MauiIcon.Value="{mi:Fluent Icon=Add24, IconSize=16, IconColor={Binding IconColor}}"
                          Command="{Binding NewThreadCommand}"
                          VerticalOptions="Center"
@@ -35,7 +40,7 @@
                         Grid.Row="1"
                         ItemsSource="{Binding Messages}"
                         SelectionMode="None"
-                        Margin="12,0">
+                        Margin="0">
             <CollectionView.ItemsLayout>
                 <LinearItemsLayout Orientation="Vertical" ItemSpacing="0" />
             </CollectionView.ItemsLayout>
@@ -48,7 +53,7 @@
                     <!-- CollectionView stretches its root item. This transparent wrapper owns that
                          full row; the contained Border measures to its content then aligns to the
                          sender/responder edge, capped at 525px. -->
-                    <Grid>
+                    <Grid Padding="12,0">
                         <Border MaximumWidthRequest="525"
                                 Margin="0,0,0,8"
                                 Padding="10,8"
@@ -151,7 +156,7 @@
         <!-- Keep every interaction backed by ChatViewModel: the engine currently supports text
              prompts and cancellation, so attachment/model/voice affordances are not presented as
              if they were available. -->
-        <Border Grid.Row="2" Margin="16,0,16,12" Padding="8,6,6,6"
+        <Border Grid.Row="2" Margin="12,0,12,8" Padding="8,6,6,6"
                 BackgroundColor="{DynamicResource SurfaceColor}"
                 Stroke="{DynamicResource DividerBrush}" StrokeThickness="0.5">
             <Border.StrokeShape>
@@ -193,6 +198,65 @@
                         IsVisible="{Binding IsBusy}"
                         SemanticProperties.Description="Stop generating"
                         ToolTipProperties.Text="Stop" />
+            </Grid>
+        </Border>
+
+        <!-- Tool calls stop here whenever the resolved workspace/thread policy requires human
+             approval. This is deliberately separate from the tool-policy editor: the former
+             chooses what a model may request; this card decides whether this specific request runs. -->
+        <Border Grid.RowSpan="3" Margin="28" Padding="16" ZIndex="9"
+                HorizontalOptions="Center" VerticalOptions="Center"
+                WidthRequest="420"
+                BackgroundColor="{DynamicResource SurfaceColor}"
+                Stroke="{DynamicResource DividerColor}" StrokeThickness="1"
+                IsVisible="{Binding HasPendingToolApproval}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <VerticalStackLayout Spacing="10">
+                <Label Text="Tool approval required" FontAttributes="Bold" FontSize="16" />
+                <Label Text="{Binding PendingToolApproval.ToolName, StringFormat='Allow {0} to run?'}" />
+                <Label Text="{Binding PendingToolApproval.Operation, StringFormat='Operation: {0}'}"
+                       Style="{StaticResource MutedLabel}" />
+                <Label Text="Arguments" Style="{StaticResource MutedLabel}" />
+                <ScrollView MaximumHeightRequest="160" Orientation="Vertical">
+                    <Label Text="{Binding PendingToolApproval.Arguments}" FontFamily="monospace"
+                           LineBreakMode="WordWrap" />
+                </ScrollView>
+                <HorizontalStackLayout Spacing="8" HorizontalOptions="End">
+                    <Button Text="Deny" Command="{Binding DenyToolCommand}" Style="{StaticResource GhostButton}" />
+                    <Button Text="Allow" Command="{Binding ApproveToolCommand}" Style="{StaticResource RoundAccentButton}" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- The policy overlay leaves the transcript and composer intact underneath it. It is only
+             reachable for persisted threads, so local drafts cannot accidentally gain a phantom override. -->
+        <Border Grid.RowSpan="4" Margin="12" Padding="16" ZIndex="10"
+                BackgroundColor="{DynamicResource SurfaceColor}"
+                Stroke="{DynamicResource DividerColor}" StrokeThickness="1"
+                IsVisible="{Binding IsThreadToolsOpen}">
+            <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="Thread tools" FontSize="18" FontAttributes="Bold" />
+                        <Label Text="Changes apply only to this saved conversation." Style="{StaticResource MutedLabel}" FontSize="12" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Text="Close" Command="{Binding CloseThreadToolsCommand}" Style="{StaticResource GhostButton}" />
+                </Grid>
+                <ScrollView Grid.Row="1" Orientation="Vertical">
+                    <VerticalStackLayout Spacing="12">
+                        <ActivityIndicator IsRunning="{Binding IsThreadToolsLoading}" IsVisible="{Binding IsThreadToolsLoading}" />
+                        <Label Text="{Binding ThreadToolsError}" TextColor="{DynamicResource ErrorColor}" FontSize="12"
+                               IsVisible="{Binding ThreadToolsError, Converter={StaticResource IsNotEmpty}}" />
+                        <views:ToolPolicyEditorView BindingContext="{Binding ThreadToolPolicy}" />
+                    </VerticalStackLayout>
+                </ScrollView>
+                <HorizontalStackLayout Grid.Row="2" Spacing="10">
+                    <Button Text="Save tools" Command="{Binding SaveThreadToolsCommand}" Style="{StaticResource AccentButton}" />
+                    <Button Text="Use workspace defaults" Command="{Binding UseWorkspaceToolDefaultsCommand}" Style="{StaticResource GhostButton}" />
+                </HorizontalStackLayout>
             </Grid>
         </Border>
 

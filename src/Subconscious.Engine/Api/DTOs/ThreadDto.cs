@@ -12,6 +12,8 @@ public record ThreadDto
     public string? Title { get; init; }
     public string? Description { get; init; }
     public string? DefaultModelId { get; init; }
+    /// <summary>Effective JSON configuration after the sparse thread override is overlaid on its workspace.</summary>
+    public string? ToolsConfig { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
 }

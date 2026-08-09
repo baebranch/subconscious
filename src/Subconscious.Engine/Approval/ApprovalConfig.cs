@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Subconscious.Engine.Approval;
 
 /// <summary>
@@ -15,6 +17,42 @@ public sealed record ApprovalConfig(
     bool RequireApprovalForMutations = true)
 {
     public static readonly ApprovalConfig Default = new();
+
+    /// <summary>
+    /// Reads the persisted <c>{ "query": bool, "mutation": bool }</c> shape. Invalid,
+    /// missing, and legacy values deliberately retain the safe default rather than weakening
+    /// approval requirements.
+    /// </summary>
+    public static ApprovalConfig FromJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return Default;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return Default;
+            }
+
+            var query = ReadBoolean(document.RootElement, "query", Default.RequireApprovalForQueries);
+            var mutation = ReadBoolean(document.RootElement, "mutation", Default.RequireApprovalForMutations);
+            return new ApprovalConfig(query, mutation);
+        }
+        catch (JsonException)
+        {
+            return Default;
+        }
+    }
+
+    private static bool ReadBoolean(JsonElement objectElement, string name, bool fallback) =>
+        objectElement.TryGetProperty(name, out var value)
+        && value.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? value.GetBoolean()
+            : fallback;
 
     /// <summary>Whether a call classified as <paramref name="kind"/> requires approval under this policy.</summary>
     public bool RequiresApproval(OperationKind kind) => kind switch

@@ -11,6 +11,11 @@ public record WorkspaceDto
     public required string Name { get; init; }
     public string? Description { get; init; }
     public string? DefaultModelId { get; init; }
+    /// <summary>Raw persisted JSON tool configuration.</summary>
+    public string? ToolsConfig { get; init; }
+    public string? Directories { get; init; }
+    public string? ApprovalConfig { get; init; }
+    public string? RagConfig { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
 }
@@ -23,4 +28,8 @@ public record CreateWorkspaceRequest
     public required string Name { get; init; }
     public string? Description { get; init; }
     public string? DefaultModelId { get; init; }
+    public string? ToolsConfig { get; init; }
+    public string? Directories { get; init; }
+    public string? ApprovalConfig { get; init; }
+    public string? RagConfig { get; init; }
 }

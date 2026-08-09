@@ -43,12 +43,38 @@ public static class RuntimeInfoWriter
 
     public static string PathFor(string dataDirectory) => Path.Combine(dataDirectory, FileName);
 
-    /// <summary>Write the discovery file, creating the data directory if needed.</summary>
+    /// <summary>
+    /// Write the discovery file, creating the data directory if needed. The completed JSON is
+    /// moved into place atomically so a concurrently starting Desktop never reads a truncated
+    /// record and mistakes a live Engine for an unavailable one.
+    /// </summary>
     public static void Write(string dataDirectory, RuntimeInfoFile info)
     {
         Directory.CreateDirectory(dataDirectory);
+
+        var destination = PathFor(dataDirectory);
+        var temporary = Path.Combine(
+            dataDirectory,
+            $".{FileName}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp");
         var json = JsonSerializer.Serialize(info, SerializerOptions);
-        File.WriteAllText(PathFor(dataDirectory), json);
+
+        try
+        {
+            File.WriteAllText(temporary, json);
+            File.Move(temporary, destination, overwrite: true);
+        }
+        finally
+        {
+            // A failed write must not leave a future discovery attempt with a misleading file.
+            try
+            {
+                File.Delete(temporary);
+            }
+            catch (IOException)
+            {
+                // Best effort: the destination is still authoritative.
+            }
+        }
     }
 
     /// <summary>Read the discovery file, or <see langword="null"/> if absent/unreadable.</summary>

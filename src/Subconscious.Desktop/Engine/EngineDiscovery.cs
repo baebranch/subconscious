@@ -15,6 +15,12 @@ namespace Subconscious.Desktop.Engine;
 public static class EngineDiscovery
 {
     private const string RuntimeFileName = "runtime.json";
+    // EngineHost deliberately pins development to this loopback endpoint/token so local debug
+    // clients can still recover when an interrupted dev shutdown leaves no runtime metadata.
+    // Production never uses this fallback; it continues to require its per-run runtime token.
+    private const string DevelopmentHost = "127.0.0.1";
+    private const int DevelopmentPort = 55681;
+    private const string DevelopmentToken = "subconscious-dev-token";
     private static readonly HttpClient HealthClient = new() { Timeout = TimeSpan.FromSeconds(2) };
 
     /// <summary>The data directory the engine reads/writes for the given dev mode, mirroring <c>EngineConfig.DataDirectory</c>.</summary>
@@ -55,21 +61,47 @@ public static class EngineDiscovery
             return existing;
         }
 
+        // A debug engine is intentionally deterministic (fixed loopback port and token). It is
+        // safe to probe only when the Desktop itself was launched with --dev, and prevents a
+        // missing/stale development runtime.json from disconnecting local debug sessions.
+        var development = await FindDevelopmentEngineAsync(preferDev);
+        if (development is not null)
+        {
+            return development;
+        }
+
         if (!autoStart)
         {
             throw new InvalidOperationException("Subconscious engine is not running and auto-start is disabled.");
         }
 
-        SpawnEngine(preferDev);
+        try
+        {
+            SpawnEngine(preferDev);
+        }
+        catch (System.ComponentModel.Win32Exception exception)
+        {
+            throw new InvalidOperationException(
+                "Couldn't start the Subconscious engine because the 'subconscious' executable is not available on PATH.",
+                exception);
+        }
 
         var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(20));
         while (DateTime.UtcNow < deadline)
         {
             await Task.Delay(500);
-            var info = await FindRunningEngineAsync(preferDev);
-            if (info is not null)
+            existing = await FindRunningEngineAsync(preferDev);
+            if (existing is not null)
             {
-                return info;
+                return existing;
+            }
+
+            // Keep checking the deterministic dev endpoint while a new process starts. This
+            // also covers an interrupted debug shutdown that left runtime.json unavailable.
+            development = await FindDevelopmentEngineAsync(preferDev);
+            if (development is not null)
+            {
+                return development;
             }
         }
 
@@ -82,6 +114,24 @@ public static class EngineDiscovery
         return info is not null && await IsReachableAsync(info) ? info : null;
     }
 
+    private static async Task<RuntimeInfo?> FindDevelopmentEngineAsync(bool preferDev)
+    {
+        if (!preferDev)
+        {
+            return null;
+        }
+
+        var info = new RuntimeInfo
+        {
+            Host = DevelopmentHost,
+            Port = DevelopmentPort,
+            Token = DevelopmentToken,
+            Pid = 0,
+            Version = "development",
+        };
+        return await IsReachableAsync(info) ? info : null;
+    }
+
     private static RuntimeInfo? ReadRuntimeInfo(string dataDirectory)
     {
         try
@@ -90,6 +140,10 @@ public static class EngineDiscovery
             return JsonSerializer.Deserialize<RuntimeInfo>(json);
         }
         catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
         {
             return null;
         }
@@ -118,19 +172,11 @@ public static class EngineDiscovery
 
     private static void SpawnEngine(bool dev)
     {
-        var args = dev ? "--dev engine" : "engine";
-        try
+        var args = dev ? "engine --dev --headless" : "engine --headless";
+        Process.Start(new ProcessStartInfo("subconscious", args)
         {
-            Process.Start(new ProcessStartInfo("subconscious", args)
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            });
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
-            // "subconscious" isn't on PATH — nothing more this client can do; the caller's
-            // DiscoverAsync will time out and surface a clear error instead.
-        }
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        });
     }
 }

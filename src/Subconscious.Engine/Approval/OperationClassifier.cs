@@ -50,7 +50,7 @@ public static class OperationClassifier
         // calculator
         "calculate", "convert_units", "list_supported_units",
         // weather
-        "get_weather", "get_forecast",
+        "get_weather", "get_forecast", "get_current_weather", "get_weather_forecast",
         // todo / memory / notes / contacts reads
         "list_todos", "recall", "list_memories", "list_notes", "get_note",
         "list_contacts", "find_contact",

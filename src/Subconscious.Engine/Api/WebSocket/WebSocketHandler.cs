@@ -72,6 +72,9 @@ public sealed class WebSocketHandler : IAsyncDisposable
     private readonly SubconsciousDbContext _db;
     private readonly AgentManager _agentManager;
     private readonly IModelConfigurationStore _modelConfigurations;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, CancellationTokenSource> _activeTurns = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, PendingApproval> _pendingApprovals = new(StringComparer.Ordinal);
+    private readonly SemaphoreSlim _sendLock = new(1, 1);
 
     public WebSocketHandler(
         global::System.Net.WebSockets.WebSocket webSocket,
@@ -207,11 +210,13 @@ public sealed class WebSocketHandler : IAsyncDisposable
                     await HandleProfileSetAsync(data);
                     break;
                 case "chat.send":
-                    await HandleChatSendAsync(id, data);
+                    await StartChatTurnAsync(id, data.Clone());
                     break;
                 case "chat.cancel":
-                    // No in-flight-turn cancellation registry yet; acknowledged as a no-op so
-                    // the client's stop button doesn't error, matching graceful degradation.
+                    await HandleChatCancelAsync(id, data);
+                    break;
+                case "tool.approval.response":
+                    await HandleApprovalResponseAsync(id, data);
                     break;
                 case "tool.result":
                     await HandleToolResultAsync(data);
@@ -281,13 +286,107 @@ public sealed class WebSocketHandler : IAsyncDisposable
 
     private Task HandleToolResultAsync(JsonElement data) => Task.CompletedTask;
 
+    private async Task StartChatTurnAsync(string? requestedTurnId, JsonElement data)
+    {
+        var turnId = string.IsNullOrWhiteSpace(requestedTurnId) ? Guid.NewGuid().ToString("N") : requestedTurnId;
+        if (_activeTurns.Any())
+        {
+            await SendErrorAsync("Only one chat turn may run on a connection at a time.");
+            return;
+        }
+
+        var cancellation = new CancellationTokenSource();
+        if (!_activeTurns.TryAdd(turnId, cancellation))
+        {
+            cancellation.Dispose();
+            await SendErrorAsync($"Chat turn '{turnId}' is already running.");
+            return;
+        }
+
+        _ = RunChatTurnSafelyAsync(turnId, data, cancellation);
+    }
+
+    private async Task RunChatTurnSafelyAsync(string turnId, JsonElement data, CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await HandleChatSendAsync(turnId, data, cancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            // Cancellation can arrive before the turn has resolved a thread, so provide a
+            // terminal frame here as well; the normal path emits it with the real UUID.
+            await SendFrameAsync("chat.cancelled", new { thread_uuid = string.Empty }, turnId);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "chat.send failed for turn {TurnId}", turnId);
+            await SendChatErrorAsync(turnId, string.Empty, "The chat turn failed unexpectedly.");
+        }
+        finally
+        {
+            foreach (var pending in _pendingApprovals.Where(pair => pair.Value.TurnId == turnId).ToArray())
+            {
+                if (_pendingApprovals.TryRemove(pending.Key, out var removed))
+                {
+                    removed.Decision.TrySetCanceled(cancellation.Token);
+                }
+            }
+
+            if (_activeTurns.TryRemove(turnId, out var active))
+            {
+                active.Dispose();
+            }
+        }
+    }
+
+    private async Task HandleChatCancelAsync(string? envelopeTurnId, JsonElement data)
+    {
+        var turnId = envelopeTurnId
+            ?? (data.ValueKind == JsonValueKind.Object
+                && data.TryGetProperty("turn_id", out var requested)
+                && requested.ValueKind == JsonValueKind.String
+                    ? requested.GetString()
+                    : null);
+
+        if (turnId is not null && _activeTurns.TryGetValue(turnId, out var cancellation))
+        {
+            cancellation.Cancel();
+        }
+    }
+
+    private Task HandleApprovalResponseAsync(string? turnId, JsonElement data)
+    {
+        if (data.ValueKind != JsonValueKind.Object
+            || !data.TryGetProperty("approval_id", out var approvalIdElement)
+            || approvalIdElement.ValueKind != JsonValueKind.String
+            || !data.TryGetProperty("decision", out var decisionElement)
+            || decisionElement.ValueKind != JsonValueKind.String)
+        {
+            return SendErrorAsync("tool.approval.response requires approval_id and decision.");
+        }
+
+        var approvalId = approvalIdElement.GetString();
+        var approved = string.Equals(decisionElement.GetString(), "approve", StringComparison.OrdinalIgnoreCase);
+        if (approvalId is null || !_pendingApprovals.TryGetValue(approvalId, out var pending))
+        {
+            return SendErrorAsync("Approval request was not found or has already completed.");
+        }
+        if (turnId is not null && !string.Equals(turnId, pending.TurnId, StringComparison.Ordinal))
+        {
+            return SendErrorAsync("Approval response does not belong to this chat turn.");
+        }
+
+        pending.Decision.TrySetResult(approved);
+        return Task.CompletedTask;
+    }
+
     /// <summary>
-    /// The interactive chat turn: resolve the requested/thread/workspace model, persist the user
-    /// message, stream the selected model's reply as <c>chat.delta</c> frames, persist the
-    /// assistant message, then emit <c>chat.done</c>. A local draft's model is stored on its new
-    /// thread before the first inference begins.
+    /// Resolves a workspace/thread's effective policy, sends the provider a selected tool set,
+    /// and explicitly executes requested functions. Deliberately no automatic-invocation middleware
+    /// is used: every call is classified and, where required, paused for a user decision first.
     /// </summary>
-    private async Task HandleChatSendAsync(string? turnId, JsonElement data)
+    private async Task HandleChatSendAsync(string turnId, JsonElement data, CancellationToken cancellationToken)
     {
         if (data.ValueKind != JsonValueKind.Object
             || !data.TryGetProperty("content", out var contentEl))
@@ -297,15 +396,9 @@ public sealed class WebSocketHandler : IAsyncDisposable
         }
 
         var content = contentEl.GetString() ?? string.Empty;
-        var threadUuid = data.TryGetProperty("thread_uuid", out var threadUuidEl)
-            ? threadUuidEl.GetString()
-            : null;
-        var workspaceUuid = data.TryGetProperty("workspace_uuid", out var workspaceUuidEl)
-            ? workspaceUuidEl.GetString()
-            : null;
-        var requestedModelId = data.TryGetProperty("model_id", out var modelIdEl)
-            ? modelIdEl.GetString()
-            : null;
+        var threadUuid = data.TryGetProperty("thread_uuid", out var threadUuidEl) ? threadUuidEl.GetString() : null;
+        var workspaceUuid = data.TryGetProperty("workspace_uuid", out var workspaceUuidEl) ? workspaceUuidEl.GetString() : null;
+        var requestedModelId = data.TryGetProperty("model_id", out var modelIdEl) ? modelIdEl.GetString() : null;
 
         if (string.IsNullOrWhiteSpace(threadUuid) == string.IsNullOrWhiteSpace(workspaceUuid))
         {
@@ -323,46 +416,34 @@ public sealed class WebSocketHandler : IAsyncDisposable
                 await SendChatErrorAsync(turnId, threadUuid, $"Thread '{threadUuid}' not found.");
                 return;
             }
-
-            workspace = await _db.Workspaces.FirstOrDefaultAsync(candidate => candidate.Id == thread.WorkspaceId);
+            workspace = await _db.Workspaces.FirstOrDefaultAsync(candidate => candidate.Id == thread.WorkspaceId, cancellationToken);
         }
         else
         {
-            workspace = await _db.Workspaces
-                .FirstOrDefaultAsync(candidate => candidate.Uuid == workspaceUuid);
+            workspace = await _db.Workspaces.FirstOrDefaultAsync(candidate => candidate.Uuid == workspaceUuid, cancellationToken);
             if (workspace is null)
             {
                 await SendChatErrorAsync(turnId, string.Empty, $"Workspace '{workspaceUuid}' not found.");
                 return;
             }
-
             thread = null;
         }
 
-        var effectiveModelId = requestedModelId
-            ?? thread?.DefaultModelId
-            ?? workspace?.DefaultModelId
-            ?? "echo";
-        var modelConfig = string.Equals(effectiveModelId, "echo", StringComparison.OrdinalIgnoreCase)
-            ? new ModelConfig("echo", "subconscious", "echo")
-            : await _modelConfigurations.ResolveAsync(effectiveModelId);
-        if (modelConfig is null)
+        if (workspace is null)
         {
-            await SendChatErrorAsync(turnId, threadUuid ?? string.Empty,
-                $"Model configuration '{effectiveModelId}' was not found.");
+            await SendChatErrorAsync(turnId, threadUuid ?? string.Empty, "The thread's workspace no longer exists.");
             return;
         }
 
-        // This contains only redacted selection metadata, never credentials. It makes a stale
-        // Engine, an unavailable configuration endpoint, or an accidental Echo configuration
-        // visible when investigating a model-selection issue.
-        _logger.LogInformation(
-            "Chat model selected: requested {RequestedModelId}, effective {EffectiveModelId}, resolved {ModelConfigurationId} ({Provider}/{Model})",
-            requestedModelId ?? "<none>",
-            effectiveModelId,
-            modelConfig.Id,
-            modelConfig.Provider,
-            modelConfig.Model);
+        var effectiveModelId = requestedModelId ?? thread?.DefaultModelId ?? workspace.DefaultModelId ?? "echo";
+        var modelConfig = string.Equals(effectiveModelId, "echo", StringComparison.OrdinalIgnoreCase)
+            ? new ModelConfig("echo", "subconscious", "echo")
+            : await _modelConfigurations.ResolveAsync(effectiveModelId, cancellationToken);
+        if (modelConfig is null)
+        {
+            await SendChatErrorAsync(turnId, threadUuid ?? string.Empty, $"Model configuration '{effectiveModelId}' was not found.");
+            return;
+        }
 
         if (thread is null)
         {
@@ -370,87 +451,196 @@ public sealed class WebSocketHandler : IAsyncDisposable
             thread = new Data.Entities.Thread
             {
                 Uuid = Guid.NewGuid().ToString(),
-                WorkspaceId = workspace!.Id,
+                WorkspaceId = workspace.Id,
                 Title = CreateThreadTitle(content),
                 DefaultModelId = modelConfig.Id,
                 CreatedAt = now,
                 UpdatedAt = now,
             };
             _db.Threads.Add(thread);
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(cancellationToken);
             threadUuid = thread.Uuid;
-            await _eventBus.PublishAsync(new ThreadCreatedEvent
-            {
-                ThreadId = threadUuid,
-                WorkspaceId = workspaceUuid!,
-                Title = thread.Title,
-            });
+            await _eventBus.PublishAsync(new ThreadCreatedEvent { ThreadId = threadUuid, WorkspaceId = workspace.Uuid, Title = thread.Title });
         }
         else if (!string.Equals(thread.DefaultModelId, modelConfig.Id, StringComparison.Ordinal))
         {
-            // chat.send is authoritative even if the preceding REST update is still in flight.
             thread.DefaultModelId = modelConfig.Id;
         }
 
-        var activeThreadUuid = threadUuid
-            ?? throw new InvalidOperationException("A chat turn must have a persisted thread before messages are saved.");
-        var userMessage = new Message
-        {
-            Uuid = Guid.NewGuid().ToString(),
-            ThreadId = thread.Id,
-            Role = "user",
-            Content = content,
-            CreatedAt = DateTime.UtcNow,
-        };
+        var activeThreadUuid = threadUuid ?? throw new InvalidOperationException("A chat turn must have a persisted thread.");
+        var userMessage = new Message { Uuid = Guid.NewGuid().ToString(), ThreadId = thread.Id, Role = "user", Content = content, CreatedAt = DateTime.UtcNow };
         _db.Messages.Add(userMessage);
         thread.UpdatedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
         await PublishMessageCreatedAsync(userMessage, activeThreadUuid);
-
-        var assistantUuid = Guid.NewGuid().ToString();
-        var assistantText = new System.Text.StringBuilder();
 
         try
         {
-            var chatClient = _agentManager.BuildChatClient(modelConfig);
-            var history = new List<Microsoft.Extensions.AI.ChatMessage>
+            var toolConfig = ToolsConfig.FromJson(Subconscious.Engine.Api.Services.ToolConfigJson.ResolveNode(workspace.ToolsConfig, thread.ToolsConfig));
+            var approvalConfig = Subconscious.Engine.Approval.ApprovalConfig.FromJson(thread.ApprovalConfig ?? workspace.ApprovalConfig);
+            var context = new EngineContext
             {
-                new(ChatRole.User, content),
+                Database = _db,
+                WorkspaceId = workspace.Id,
+                ThreadId = thread.Id,
+                ApprovalConfig = approvalConfig,
             };
+            var executableTools = _toolRegistry.GetToolsForConfig(toolConfig, context);
+            var modelTools = Subconscious.Engine.Approval.ApprovalGate.Apply(executableTools, approvalConfig);
+            var history = await LoadChatHistoryAsync(thread.Id, cancellationToken);
+            using var chatClient = _agentManager.BuildChatClient(modelConfig);
+            var assistantText = await ExecuteToolAwareChatAsync(
+                chatClient,
+                history,
+                executableTools,
+                modelTools,
+                approvalConfig,
+                turnId,
+                activeThreadUuid,
+                thread,
+                cancellationToken);
 
-            await foreach (var update in chatClient.GetStreamingResponseAsync(history))
+            cancellationToken.ThrowIfCancellationRequested();
+            var assistantMessage = new Message { Uuid = Guid.NewGuid().ToString(), ThreadId = thread.Id, Role = "assistant", Content = assistantText, CreatedAt = DateTime.UtcNow };
+            _db.Messages.Add(assistantMessage);
+            thread.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+            await PublishMessageCreatedAsync(assistantMessage, activeThreadUuid);
+            await SendFrameAsync("chat.done", new { thread_uuid = activeThreadUuid }, turnId);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await SendFrameAsync("chat.cancelled", new { thread_uuid = activeThreadUuid }, turnId);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "chat.send tool-aware execution failed for thread {ThreadUuid}", activeThreadUuid);
+            await SendChatErrorAsync(turnId, activeThreadUuid, exception.Message);
+        }
+    }
+
+    private async Task<List<Microsoft.Extensions.AI.ChatMessage>> LoadChatHistoryAsync(int threadId, CancellationToken cancellationToken)
+    {
+        var messages = await _db.Messages.Where(message => message.ThreadId == threadId)
+            .OrderBy(message => message.CreatedAt)
+            .ToListAsync(cancellationToken);
+        return messages.Where(message => message.Role is "user" or "assistant" or "system")
+            .Select(message => new Microsoft.Extensions.AI.ChatMessage(message.Role switch
             {
-                var delta = update.Text;
-                if (string.IsNullOrEmpty(delta))
+                "assistant" => ChatRole.Assistant,
+                "system" => ChatRole.System,
+                _ => ChatRole.User,
+            }, message.Content))
+            .ToList();
+    }
+
+    private async Task<string> ExecuteToolAwareChatAsync(
+        IChatClient chatClient,
+        List<Microsoft.Extensions.AI.ChatMessage> history,
+        IReadOnlyList<AIFunction> executableTools,
+        IReadOnlyList<AIFunction> modelTools,
+        Subconscious.Engine.Approval.ApprovalConfig approvalConfig,
+        string turnId,
+        string threadUuid,
+        Data.Entities.Thread thread,
+        CancellationToken cancellationToken)
+    {
+        var toolsByName = executableTools.ToDictionary(tool => tool.Name, StringComparer.Ordinal);
+        var options = new ChatOptions { Tools = [.. modelTools] };
+
+        for (var iteration = 0; iteration < 8; iteration++)
+        {
+            var response = await chatClient.GetResponseAsync(history, options, cancellationToken);
+            var calls = response.Messages.SelectMany(message => message.Contents.OfType<FunctionCallContent>()).ToList();
+            history.AddRange(response.Messages);
+            if (calls.Count == 0)
+            {
+                var text = string.Concat(response.Messages.Select(message => message.Text));
+                if (!string.IsNullOrEmpty(text))
                 {
-                    continue;
+                    await SendFrameAsync("chat.delta", new { thread_uuid = threadUuid, delta = text }, turnId);
                 }
-                assistantText.Append(delta);
-                await SendFrameAsync("chat.delta", new { thread_uuid = activeThreadUuid, delta }, turnId);
+                return text;
+            }
+
+            foreach (var call in calls)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                object result;
+                if (!toolsByName.TryGetValue(call.Name, out var function))
+                {
+                    result = $"The requested tool '{call.Name}' is not enabled.";
+                }
+                else if (approvalConfig.RequiresApproval(Subconscious.Engine.Approval.OperationClassifier.Classify(function.Name))
+                    && !await RequestApprovalAsync(turnId, threadUuid, function.Name, call.Arguments ?? new Dictionary<string, object?>(), cancellationToken))
+                {
+                    result = "The user denied this tool call.";
+                }
+                else
+                {
+                    try
+                    {
+                        result = await function.InvokeAsync(new AIFunctionArguments(call.Arguments), cancellationToken) ?? "(no result)";
+                    }
+                    catch (Exception exception)
+                    {
+                        result = $"Tool execution failed: {exception.Message}";
+                    }
+                }
+
+                var input = JsonSerializer.Serialize(call.Arguments);
+                var output = JsonSerializer.Serialize(result);
+                var toolMessage = new Message
+                {
+                    Uuid = Guid.NewGuid().ToString(),
+                    ThreadId = thread.Id,
+                    Role = "tool",
+                    Content = JsonSerializer.Serialize(new { toolName = call.Name, input = JsonDocument.Parse(input).RootElement, output = JsonDocument.Parse(output).RootElement }),
+                    CreatedAt = DateTime.UtcNow,
+                };
+                _db.Messages.Add(toolMessage);
+                await _db.SaveChangesAsync(cancellationToken);
+                await PublishMessageCreatedAsync(toolMessage, threadUuid);
+                history.Add(new Microsoft.Extensions.AI.ChatMessage(ChatRole.Tool, [new FunctionResultContent(call.CallId, result)]));
             }
         }
-        catch (Exception ex)
+
+        throw new InvalidOperationException("The model exceeded the maximum of eight tool-call rounds.");
+    }
+
+    private async Task<bool> RequestApprovalAsync(
+        string turnId,
+        string threadUuid,
+        string toolName,
+        IDictionary<string, object?> arguments,
+        CancellationToken cancellationToken)
+    {
+        var approvalId = Guid.NewGuid().ToString("N");
+        var pending = new PendingApproval(turnId, new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
+        if (!_pendingApprovals.TryAdd(approvalId, pending))
         {
-            _logger.LogError(ex, "chat.send streaming failed for thread {ThreadUuid}", activeThreadUuid);
-            await SendChatErrorAsync(turnId, activeThreadUuid, ex.Message);
-            return;
+            throw new InvalidOperationException("Could not create a unique approval request.");
         }
 
-        var assistantMessage = new Message
+        try
         {
-            Uuid = assistantUuid,
-            ThreadId = thread.Id,
-            Role = "assistant",
-            Content = assistantText.ToString(),
-            CreatedAt = DateTime.UtcNow,
-        };
-        _db.Messages.Add(assistantMessage);
-        thread.UpdatedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-        await PublishMessageCreatedAsync(assistantMessage, activeThreadUuid);
-
-        await SendFrameAsync("chat.done", new { thread_uuid = activeThreadUuid }, turnId);
+            await SendFrameAsync("tool.approval.request", new
+            {
+                approval_id = approvalId,
+                thread_uuid = threadUuid,
+                tool_name = toolName,
+                arguments,
+                operation = Subconscious.Engine.Approval.OperationClassifier.Classify(toolName).ToString().ToLowerInvariant(),
+            }, turnId);
+            return await pending.Decision.Task.WaitAsync(cancellationToken);
+        }
+        finally
+        {
+            _pendingApprovals.TryRemove(approvalId, out _);
+        }
     }
+
+    private sealed record PendingApproval(string TurnId, TaskCompletionSource<bool> Decision);
 
     /// <summary>Generates a concise, stable title for a just-materialized draft without requiring
     /// another model round trip. Whitespace is normalized so pasted multiline prompts still have
@@ -482,7 +672,7 @@ public sealed class WebSocketHandler : IAsyncDisposable
 
     private Task SendErrorAsync(string message) => SendFrameAsync("error", new { error = message });
 
-    private Task SendFrameAsync<T>(string type, T data, string? id = null)
+    private async Task SendFrameAsync<T>(string type, T data, string? id = null)
     {
         var envelope = new WsEnvelope<T>(1, type, id, data);
         var json = JsonSerializer.Serialize(envelope, new JsonSerializerOptions
@@ -491,13 +681,32 @@ public sealed class WebSocketHandler : IAsyncDisposable
             DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
         });
         var bytes = Encoding.UTF8.GetBytes(json);
-        return _webSocket.State == WebSocketState.Open
-            ? _webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None)
-            : Task.CompletedTask;
+        if (_webSocket.State != WebSocketState.Open)
+        {
+            return;
+        }
+
+        await _sendLock.WaitAsync();
+        try
+        {
+            if (_webSocket.State == WebSocketState.Open)
+            {
+                await _webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+            }
+        }
+        finally
+        {
+            _sendLock.Release();
+        }
     }
 
     public async ValueTask DisposeAsync()
     {
+        foreach (var cancellation in _activeTurns.Values)
+        {
+            cancellation.Cancel();
+        }
+        _sendLock.Dispose();
         _scope.Dispose();
         await ValueTask.CompletedTask;
     }

@@ -16,14 +16,38 @@
     <!-- An explicit MAUI title bar owns the extended caption surface. Binding it to the same
          semantic surface as the panels prevents WinUI's accent-coloured fallback from appearing. -->
     <Window.TitleBar>
-        <!-- The TitleBar template places Icon at the true leading edge. The paired mark assets
-             preserve contrast against the active light/dark panel surface. -->
-        <TitleBar Title="{Binding Chat.TitleBarText}"
-                  Icon="{AppThemeBinding Light=dark_logo.png, Dark=light_logo.png}"
-                  Padding="-4,0,0,0"
+        <!-- The title-bar child is hosted outside the Window's normal visual tree, so it must
+             explicitly inherit Chat. That keeps its icon, context, indicator, and status as one
+             compact left-aligned group instead of measuring the bound labels as empty. -->
+        <TitleBar x:Name="AppTitleBar"
+                  Title=""
+                  Padding="12,0,0,0"
                   HeightRequest="32"
                   BackgroundColor="{DynamicResource PanelBackgroundColor}"
                   ForegroundColor="{DynamicResource PrimaryTextColor}">
+            <TitleBar.LeadingContent>
+                <HorizontalStackLayout x:Name="TitleBarStatusContent"
+                                       Spacing="6"
+                                       VerticalOptions="Center">
+                    <Image Source="{AppThemeBinding Light=dark_logo.png, Dark=light_logo.png}"
+                           WidthRequest="16" HeightRequest="16"
+                           VerticalOptions="Center" />
+                    <Label x:Name="TitleBarContextLabel"
+                           TextColor="{DynamicResource PrimaryTextColor}"
+                           FontSize="12" LineBreakMode="NoWrap"
+                           VerticalOptions="Center" />
+                    <Ellipse x:Name="TitleBarConnectionIndicator"
+                             WidthRequest="8" HeightRequest="8"
+                             Fill="#72D572"
+                             IsVisible="False"
+                             VerticalOptions="Center"
+                             SemanticProperties.Description="Connected" />
+                    <Label x:Name="TitleBarStatusLabel"
+                           TextColor="{DynamicResource PrimaryTextColor}"
+                           FontSize="12" LineBreakMode="NoWrap"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </TitleBar.LeadingContent>
             <VisualStateManager.VisualStateGroups>
                 <VisualStateGroupList>
                     <VisualStateGroup x:Name="TitleActiveStates">

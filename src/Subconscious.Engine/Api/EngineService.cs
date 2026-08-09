@@ -31,6 +31,7 @@ public static class EngineServiceExtensions
         services.AddScoped<IWorkspaceService, WorkspaceService>();
         services.AddScoped<IThreadService, ThreadService>();
         services.AddScoped<IMessageService, MessageService>();
+        services.AddScoped<IToolRegistryService, ToolRegistryService>();
 
         services.AddSingleton<WebSocketHandlerFactory>();
 

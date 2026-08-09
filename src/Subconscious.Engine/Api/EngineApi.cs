@@ -30,6 +30,7 @@ public static class EngineMiddleware
 
         MapWorkspaceEndpoints(app);
         MapThreadEndpoints(app);
+        MapToolEndpoints(app);
         MapMessageEndpoints(app);
         MapModelEndpoints(app);
         MapModelConfigurationEndpoints(app);
@@ -75,27 +76,40 @@ public static class EngineMiddleware
     {
         app.MapGet("/api/v1/workspaces", async (IWorkspaceService svc, CancellationToken ct) =>
             Results.Ok(await svc.GetAllWorkspacesAsync(ct)));
-
         app.MapGet("/api/v1/workspaces/{uuid}", async (string uuid, IWorkspaceService svc, CancellationToken ct) =>
         {
             var workspace = await svc.GetWorkspaceByUuidAsync(uuid, ct);
             return workspace is null ? Results.NotFound() : Results.Ok(workspace);
         });
-
         app.MapPost("/api/v1/workspaces", async (CreateWorkspaceRequest request, IWorkspaceService svc, CancellationToken ct) =>
             Results.Ok(await svc.CreateWorkspaceAsync(request, ct)));
-
         app.MapPut("/api/v1/workspaces/{uuid}", async (string uuid, CreateWorkspaceRequest request, IWorkspaceService svc, CancellationToken ct) =>
         {
             var updated = await svc.UpdateWorkspaceAsync(uuid, request, ct);
             return updated is null ? Results.NotFound() : Results.Ok(updated);
         });
-
         app.MapDelete("/api/v1/workspaces/{uuid}", async (string uuid, IWorkspaceService svc, CancellationToken ct) =>
             await svc.DeleteWorkspaceAsync(uuid, ct) ? Results.NoContent() : Results.NotFound());
 
-        // Threads scoped under a workspace, matching the TS client's
-        // GET /workspaces/{uuid}/threads call.
+        app.MapGet("/api/v1/workspaces/{uuid}/tools-config", async (string uuid, IWorkspaceService svc, CancellationToken ct) =>
+        {
+            var config = await svc.GetToolsConfigAsync(uuid, ct);
+            return config is null ? Results.NotFound() : Results.Ok(config);
+        });
+        app.MapPut("/api/v1/workspaces/{uuid}/tools-config", async (string uuid, UpdateToolConfigRequest request, IWorkspaceService svc, CancellationToken ct) =>
+        {
+            try
+            {
+                var config = await svc.UpdateToolsConfigAsync(uuid, request, ct);
+                return config is null ? Results.NotFound() : Results.Ok(config);
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { error = exception.Message });
+            }
+        });
+
+        // Threads scoped under a workspace, matching the TS client's GET /workspaces/{uuid}/threads call.
         app.MapGet("/api/v1/workspaces/{uuid}/threads", async (string uuid, IThreadService svc, CancellationToken ct) =>
             Results.Ok(await svc.GetThreadsAsync(uuid, ct)));
     }
@@ -105,39 +119,82 @@ public static class EngineMiddleware
         app.MapPost("/api/v1/threads", async (CreateThreadRequest request, IThreadService svc, IEventBus bus, CancellationToken ct) =>
         {
             var thread = await svc.CreateThreadAsync(request, ct);
-            await bus.PublishAsync(new ThreadCreatedEvent
-            {
-                ThreadId = thread.Uuid,
-                WorkspaceId = thread.WorkspaceUuid,
-                Title = thread.Title ?? string.Empty,
-            }, ct);
+            await bus.PublishAsync(new ThreadCreatedEvent { ThreadId = thread.Uuid, WorkspaceId = thread.WorkspaceUuid, Title = thread.Title ?? string.Empty }, ct);
             return Results.Ok(thread);
         });
-
         app.MapGet("/api/v1/threads/{uuid}", async (string uuid, IThreadService svc, CancellationToken ct) =>
         {
             var thread = await svc.GetThreadByUuidAsync(uuid, ct);
             return thread is null ? Results.NotFound() : Results.Ok(thread);
         });
-
         app.MapPut("/api/v1/threads/{uuid}", async (string uuid, UpdateThreadRequest request, IThreadService svc, IEventBus bus, CancellationToken ct) =>
         {
             var updated = await svc.UpdateThreadAsync(uuid, request, ct);
-            if (updated is null)
-            {
-                return Results.NotFound();
-            }
-            await bus.PublishAsync(new ThreadUpdatedEvent
-            {
-                ThreadId = updated.Uuid,
-                Title = updated.Title,
-                Description = updated.Description,
-            }, ct);
+            if (updated is null) return Results.NotFound();
+            await bus.PublishAsync(new ThreadUpdatedEvent { ThreadId = updated.Uuid, Title = updated.Title, Description = updated.Description }, ct);
             return Results.Ok(updated);
         });
-
         app.MapDelete("/api/v1/threads/{uuid}", async (string uuid, IThreadService svc, CancellationToken ct) =>
             await svc.DeleteThreadAsync(uuid, ct) ? Results.NoContent() : Results.NotFound());
+
+        app.MapGet("/api/v1/threads/{uuid}/tools-config", async (string uuid, IThreadService svc, CancellationToken ct) =>
+        {
+            var config = await svc.GetToolsConfigAsync(uuid, ct);
+            return config is null ? Results.NotFound() : Results.Ok(config);
+        });
+        app.MapPut("/api/v1/threads/{uuid}/tools-config", async (string uuid, UpdateToolConfigRequest request, IThreadService svc, CancellationToken ct) =>
+        {
+            try
+            {
+                var config = await svc.UpdateToolsConfigAsync(uuid, request, ct);
+                return config is null ? Results.NotFound() : Results.Ok(config);
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { error = exception.Message });
+            }
+        });
+        app.MapDelete("/api/v1/threads/{uuid}/tools-config", async (string uuid, IThreadService svc, CancellationToken ct) =>
+            await svc.ResetToolsConfigAsync(uuid, ct) ? Results.NoContent() : Results.NotFound());
+    }
+
+    private static void MapToolEndpoints(WebApplication app)
+    {
+        app.MapGet("/api/v1/tools/catalog", async (IToolRegistryService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetCatalogAsync(ct)));
+        app.MapGet("/api/v1/tool-registry", async (IToolRegistryService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAllAsync(ct)));
+        app.MapGet("/api/v1/tool-registry/{uuid}", async (string uuid, IToolRegistryService svc, CancellationToken ct) =>
+        {
+            var tool = await svc.GetByUuidAsync(uuid, ct);
+            return tool is null ? Results.NotFound() : Results.Ok(tool);
+        });
+        app.MapPost("/api/v1/tool-registry", async (UpsertToolRegistryRequest request, IToolRegistryService svc, CancellationToken ct) =>
+        {
+            try
+            {
+                var created = await svc.CreateAsync(request, ct);
+                return Results.Created($"/api/v1/tool-registry/{Uri.EscapeDataString(created.Uuid)}", created);
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { error = exception.Message });
+            }
+        });
+        app.MapPut("/api/v1/tool-registry/{uuid}", async (string uuid, UpsertToolRegistryRequest request, IToolRegistryService svc, CancellationToken ct) =>
+        {
+            try
+            {
+                var updated = await svc.UpdateAsync(uuid, request, ct);
+                return updated is null ? Results.NotFound() : Results.Ok(updated);
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { error = exception.Message });
+            }
+        });
+        app.MapDelete("/api/v1/tool-registry/{uuid}", async (string uuid, IToolRegistryService svc, CancellationToken ct) =>
+            await svc.DeleteAsync(uuid, ct) ? Results.NoContent() : Results.NotFound());
     }
 
     private static void MapMessageEndpoints(WebApplication app)

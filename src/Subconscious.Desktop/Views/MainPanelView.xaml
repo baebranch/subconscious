@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
+             xmlns:views="clr-namespace:Subconscious.Desktop.Views"
              x:Class="Subconscious.Desktop.Views.MainPanelView"
              x:Name="MainPanelRoot"
              x:DataType="vm:MainViewModel"
@@ -26,7 +27,8 @@
              a narrow center panel rather than causing horizontal clipping. -->
         <ScrollView IsVisible="{Binding IsWorkspaceFormOpen}" Orientation="Vertical">
             <Grid x:Name="WorkspaceFormHost" Padding="24,28" HorizontalOptions="Center">
-                <VerticalStackLayout BindingContext="{Binding WorkspaceForm}"
+                <VerticalStackLayout x:Name="WorkspaceEditor"
+                                     BindingContext="{Binding WorkspaceForm}"
                                      x:DataType="vm:WorkspaceFormViewModel"
                                      MaximumWidthRequest="750" Spacing="18"
                                      HorizontalOptions="Fill">
@@ -46,11 +48,67 @@
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Spacing="6">
-                        <Label Text="Default model ID" Style="{StaticResource FieldLabel}" />
-                        <Entry Text="{Binding DefaultModelId}"
-                               Placeholder="Optional — falls back to the first available model"
-                               Style="{StaticResource FormEntry}" />
+                        <Label Text="Default model" Style="{StaticResource FieldLabel}" />
+                        <Picker ItemsSource="{Binding AvailableModels}"
+                                ItemDisplayBinding="{Binding Name}"
+                                SelectedItem="{Binding SelectedDefaultModel, Mode=TwoWay}"
+                                Title="Select a model" />
                     </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Workspace path allow list" Style="{StaticResource FieldLabel}" />
+                        <Label Text="Only listed absolute folders may be granted to filesystem, image, download, and terminal tools for this workspace."
+                               Style="{StaticResource MutedLabel}" FontSize="12" LineBreakMode="WordWrap" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Entry Text="{Binding NewWorkspacePath}" Placeholder="C:\\Projects\\example"
+                                   Style="{StaticResource FormEntry}"
+                                   SemanticProperties.Description="Absolute workspace folder path" />
+                            <Button Grid.Column="1" Text="Add" Command="{Binding AddWorkspacePathCommand}"
+                                    Style="{StaticResource GhostButton}"
+                                    SemanticProperties.Description="Add workspace folder path" />
+                        </Grid>
+                        <Label Text="No workspace paths have been allowed yet. Local file-oriented tools will have no workspace scope."
+                               Style="{StaticResource MutedLabel}" FontSize="12"
+                               IsVisible="{Binding WorkspacePaths.Count, Converter={StaticResource IsEmpty}}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding WorkspacePaths}" Spacing="6">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="{x:Null}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Label Text="{Binding .}" LineBreakMode="MiddleTruncation" VerticalOptions="Center" />
+                                        <Button Grid.Column="1" Text="Remove"
+                                                Command="{Binding BindingContext.RemoveWorkspacePathCommand, Source={x:Reference WorkspaceEditor}}"
+                                                CommandParameter="{Binding .}"
+                                                Style="{StaticResource GhostButton}"
+                                                SemanticProperties.Description="Remove workspace folder path" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Build knowledge graph" Style="{StaticResource FieldLabel}" />
+                            <Label Text="Enable semantic_graph for this workspace." Style="{StaticResource MutedLabel}" FontSize="12" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding BuildKnowledgeGraph}" />
+                    </Grid>
+
+                    <Label Text="Require approval" Style="{StaticResource FieldLabel}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Text="Queries" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding RequireApprovalForQueries}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Text="Mutations" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding RequireApprovalForMutations}" />
+                    </Grid>
+
+                    <Label Text="Tool allow list" Style="{StaticResource FieldLabel}" />
+                    <Label Text="Choose the built-in tool groups and individual functions this workspace may offer to agents. Thread policies may further restrict or override this default."
+                           Style="{StaticResource MutedLabel}" FontSize="12" LineBreakMode="WordWrap" />
+                    <ActivityIndicator IsRunning="{Binding IsInitializing}" IsVisible="{Binding IsInitializing}" />
+                    <views:ToolPolicyEditorView BindingContext="{Binding ToolPolicy}" />
 
                     <VerticalStackLayout Spacing="6" IsVisible="{Binding IsEditMode}">
                         <Label Text="UUID" Style="{StaticResource FieldLabel}" />
@@ -254,71 +312,55 @@
             </Grid>
         </ScrollView>
 
-        <!-- Tool Registry has a persisted schema, but no desktop CRUD route exists yet. Name,
-             description, and status are included because those are required/represented by its
-             migration in addition to the Python configuration fields. -->
+        <!-- Configured tools are persisted by the engine registry. Names are server-managed and
+             therefore deliberately absent from the user-facing editor. -->
         <ScrollView IsVisible="{Binding IsToolsSettingsPageOpen}" Orientation="Vertical">
             <Grid x:Name="ToolsSettingsHost" Padding="24,28" HorizontalOptions="Center">
                 <VerticalStackLayout BindingContext="{Binding ToolSettingsForm}"
                                      x:DataType="vm:ToolSettingsFormViewModel"
                                      MaximumWidthRequest="750" Spacing="18" HorizontalOptions="Fill">
-                    <Label Text="Tools" Style="{StaticResource SettingsSectionTitle}" />
-                    <Label Text="Tool configuration endpoints are not available in the engine yet; entered values remain only for this desktop session."
-                           TextColor="{DynamicResource SecondaryTextColor}" LineBreakMode="WordWrap" />
-
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Name" Style="{StaticResource FieldLabel}" />
-                        <Entry Text="{Binding Name}" Placeholder="Required registry name" Style="{StaticResource FormEntry}" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Alias" Style="{StaticResource FieldLabel}" />
-                        <Entry Text="{Binding Alias}" Placeholder="Memorable name for this tool" Style="{StaticResource FormEntry}" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Description" Style="{StaticResource FieldLabel}" />
-                        <Editor Text="{Binding Description}" Placeholder="Optional description" AutoSize="TextChanges"
-                                Style="{StaticResource FormEditor}" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Tool Type" Style="{StaticResource FieldLabel}" />
-                        <Picker ItemsSource="{Binding ToolTypeOptions}" SelectedItem="{Binding ToolType}" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="10" IsVisible="{Binding IsScriptTool}">
-                        <VerticalStackLayout Spacing="6">
-                            <Label Text="Language" Style="{StaticResource FieldLabel}" />
-                            <Picker ItemsSource="{Binding ScriptLanguageOptions}" SelectedItem="{Binding ScriptLanguage}" />
-                        </VerticalStackLayout>
-                        <VerticalStackLayout Spacing="6">
-                            <Label Text="Script Path" Style="{StaticResource FieldLabel}" />
-                            <Entry Text="{Binding ScriptPath}" Placeholder="Absolute or relative script path"
-                                   Style="{StaticResource FormEntry}" />
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6" IsVisible="{Binding IsEndpointTool}">
-                        <Label Text="Endpoint URL" Style="{StaticResource FieldLabel}" />
-                        <Entry Text="{Binding EndpointUrl}" Placeholder="https://…" Style="{StaticResource FormEntry}" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Authentication" Style="{StaticResource FieldLabel}" />
-                        <Picker ItemsSource="{Binding AuthTypeOptions}" SelectedItem="{Binding AuthType}" Title="None" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="10" IsVisible="{Binding IsApiKeyAuthentication}">
-                        <VerticalStackLayout Spacing="6">
-                            <Label Text="Environment Variable Name" Style="{StaticResource FieldLabel}" />
-                            <Entry Text="{Binding AuthEnvVar}" Placeholder="e.g. MY_TOOL_API_KEY"
-                                   Style="{StaticResource FormEntry}" />
-                        </VerticalStackLayout>
-                        <VerticalStackLayout Spacing="6">
-                            <Label Text="API Key" Style="{StaticResource FieldLabel}" />
-                            <Entry Text="{Binding ApiKey}" IsPassword="True" Placeholder="Stored by a future secrets service"
-                                   Style="{StaticResource FormEntry}" />
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                    <Label Text="OAuth is handled externally through environment variables."
-                           Style="{StaticResource MutedLabel}" IsVisible="{Binding IsOAuthAuthentication}" />
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Status" Style="{StaticResource FieldLabel}" />
-                        <Picker ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding Status}" />
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                        <Label Text="Tools" Style="{StaticResource SettingsSectionTitle}" />
+                        <Button Grid.Column="1" Text="Reload" Command="{Binding LoadCommand}" Style="{StaticResource GhostButton}" />
+                        <Button Grid.Column="2" Text="New tool" Command="{Binding AddToolCommand}" Style="{StaticResource AccentButton}" />
+                    </Grid>
+                    <Label Text="Configure scripts, MCP servers, and API tools. Secrets are not managed by this app."
+                           Style="{StaticResource MutedLabel}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding ErrorText}" TextColor="{DynamicResource ErrorColor}" FontSize="12"
+                           IsVisible="{Binding ErrorText, Converter={StaticResource IsNotEmpty}}" />
+                    <Label Text="No configured tools yet. Add one to make it available in policies."
+                           Style="{StaticResource MutedLabel}" HorizontalOptions="Center" Margin="0,28"
+                           IsVisible="{Binding Tools.Count, Converter={StaticResource IsEmpty}}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Tools}" Spacing="10">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ToolRegistryViewModel">
+                                <Border BackgroundColor="{DynamicResource PanelBackgroundColor}" Stroke="{DynamicResource DividerColor}"
+                                        StrokeThickness="1" StrokeShape="RoundRectangle 7" Padding="0">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Grid Padding="14,12" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding ToggleExpandedCommand}" /></Grid.GestureRecognizers>
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="{Binding DisplayName}" FontAttributes="Bold" />
+                                                <Label Text="{Binding Summary}" Style="{StaticResource MutedLabel}" LineBreakMode="TailTruncation" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="1" Text="Edit" Style="{StaticResource MutedLabel}" VerticalOptions="Center" />
+                                        </Grid>
+                                        <VerticalStackLayout Padding="14,16" Spacing="14" IsVisible="{Binding IsExpanded}">
+                                            <VerticalStackLayout Spacing="6"><Label Text="Alias" Style="{StaticResource FieldLabel}" /><Entry Text="{Binding Alias}" Placeholder="Memorable name for this tool" Style="{StaticResource FormEntry}" /></VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="6"><Label Text="Tool Type" Style="{StaticResource FieldLabel}" /><Picker ItemsSource="{Binding ToolTypeOptions}" SelectedItem="{Binding ToolType}" /></VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="8" IsVisible="{Binding IsScriptTool}">
+                                                <VerticalStackLayout Spacing="6"><Label Text="Language" Style="{StaticResource FieldLabel}" /><Picker ItemsSource="{Binding ScriptLanguageOptions}" SelectedItem="{Binding ScriptLanguage}" /></VerticalStackLayout>
+                                                <VerticalStackLayout Spacing="6"><Label Text="Script Path" Style="{StaticResource FieldLabel}" /><Entry Text="{Binding ScriptPath}" Placeholder="Path to the script" Style="{StaticResource FormEntry}" /></VerticalStackLayout>
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="6" IsVisible="{Binding IsEndpointTool}"><Label Text="Endpoint URL" Style="{StaticResource FieldLabel}" /><Entry Text="{Binding EndpointUrl}" Placeholder="https://…" Style="{StaticResource FormEntry}" /></VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="6"><Label Text="Authentication" Style="{StaticResource FieldLabel}" /><Picker ItemsSource="{Binding AuthTypeOptions}" SelectedItem="{Binding AuthType}" Title="None" /></VerticalStackLayout>
+                                            <Label Text="{Binding ErrorText}" TextColor="{DynamicResource ErrorColor}" FontSize="12" IsVisible="{Binding ErrorText, Converter={StaticResource IsNotEmpty}}" />
+                                            <HorizontalStackLayout Spacing="10"><Button Text="Save" Command="{Binding SaveCommand}" Style="{StaticResource AccentButton}" /><Button Text="Delete" Command="{Binding DeleteCommand}" Style="{StaticResource GhostButton}" /></HorizontalStackLayout>
+                                        </VerticalStackLayout>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
                     </VerticalStackLayout>
                 </VerticalStackLayout>
             </Grid>

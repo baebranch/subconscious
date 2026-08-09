@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 
 namespace Subconscious.Desktop.Engine;
 
@@ -13,6 +14,11 @@ public sealed record Workspace
     [JsonPropertyName("name")] public required string Name { get; init; }
     [JsonPropertyName("description")] public string? Description { get; init; }
     [JsonPropertyName("defaultModelId")] public string? DefaultModelId { get; init; }
+    /// <summary>Raw persisted JSON retained until the workspace form serializes its edits.</summary>
+    [JsonPropertyName("toolsConfig")] public string? ToolsConfig { get; init; }
+    [JsonPropertyName("directories")] public string? Directories { get; init; }
+    [JsonPropertyName("approvalConfig")] public string? ApprovalConfig { get; init; }
+    [JsonPropertyName("ragConfig")] public string? RagConfig { get; init; }
     [JsonPropertyName("createdAt")] public DateTime CreatedAt { get; init; }
     [JsonPropertyName("updatedAt")] public DateTime UpdatedAt { get; init; }
 }
@@ -25,6 +31,8 @@ public sealed record ThreadInfo
     [JsonPropertyName("title")] public string? Title { get; init; }
     [JsonPropertyName("description")] public string? Description { get; init; }
     [JsonPropertyName("defaultModelId")] public string? DefaultModelId { get; init; }
+    /// <summary>The effective workspace-plus-thread tool policy returned by the engine.</summary>
+    [JsonPropertyName("toolsConfig")] public string? ToolsConfig { get; init; }
     [JsonPropertyName("createdAt")] public DateTime CreatedAt { get; init; }
     [JsonPropertyName("updatedAt")] public DateTime UpdatedAt { get; init; }
 }
@@ -75,6 +83,65 @@ public sealed record CreateWorkspaceRequest
     [JsonPropertyName("name")] public required string Name { get; init; }
     [JsonPropertyName("description")] public string? Description { get; init; }
     [JsonPropertyName("defaultModelId")] public string? DefaultModelId { get; init; }
+    [JsonPropertyName("toolsConfig")] public string? ToolsConfig { get; init; }
+    [JsonPropertyName("directories")] public string? Directories { get; init; }
+    [JsonPropertyName("approvalConfig")] public string? ApprovalConfig { get; init; }
+    [JsonPropertyName("ragConfig")] public string? RagConfig { get; init; }
+}
+
+/// <summary>Raw JSON configuration exchanged by the workspace and thread policy endpoints.</summary>
+public sealed record ToolConfigResponse
+{
+    [JsonPropertyName("config")] public JsonNode? Config { get; init; }
+}
+
+public sealed record UpdateToolConfigRequest
+{
+    [JsonPropertyName("config")] public required JsonNode Config { get; init; }
+}
+
+public sealed record ToolRegistry
+{
+    [JsonPropertyName("id")] public int Id { get; init; }
+    [JsonPropertyName("uuid")] public required string Uuid { get; init; }
+    [JsonPropertyName("name")] public required string Name { get; init; }
+    [JsonPropertyName("alias")] public string? Alias { get; init; }
+    [JsonPropertyName("description")] public string? Description { get; init; }
+    [JsonPropertyName("toolType")] public required string ToolType { get; init; }
+    [JsonPropertyName("scriptPath")] public string? ScriptPath { get; init; }
+    [JsonPropertyName("scriptLanguage")] public string? ScriptLanguage { get; init; }
+    [JsonPropertyName("endpointUrl")] public string? EndpointUrl { get; init; }
+    [JsonPropertyName("authType")] public string? AuthType { get; init; }
+    [JsonPropertyName("authEnvVar")] public string? AuthEnvVar { get; init; }
+    [JsonPropertyName("status")] public string? Status { get; init; }
+    [JsonPropertyName("createdAt")] public DateTime CreatedAt { get; init; }
+    [JsonPropertyName("updatedAt")] public DateTime UpdatedAt { get; init; }
+}
+
+public sealed record UpsertToolRegistryRequest
+{
+    [JsonPropertyName("alias")] public string? Alias { get; init; }
+    [JsonPropertyName("description")] public string? Description { get; init; }
+    [JsonPropertyName("toolType")] public string? ToolType { get; init; }
+    [JsonPropertyName("scriptPath")] public string? ScriptPath { get; init; }
+    [JsonPropertyName("scriptLanguage")] public string? ScriptLanguage { get; init; }
+    [JsonPropertyName("endpointUrl")] public string? EndpointUrl { get; init; }
+    [JsonPropertyName("authType")] public string? AuthType { get; init; }
+    [JsonPropertyName("authEnvVar")] public string? AuthEnvVar { get; init; }
+    [JsonPropertyName("status")] public string? Status { get; init; }
+}
+
+public sealed record BuiltinToolCatalogEntry
+{
+    [JsonPropertyName("name")] public required string Name { get; init; }
+    [JsonPropertyName("doc")] public required string Doc { get; init; }
+    [JsonPropertyName("operation")] public string? Operation { get; init; }
+}
+
+public sealed record ToolCatalog
+{
+    [JsonPropertyName("builtin")] public required Dictionary<string, List<BuiltinToolCatalogEntry>> Builtin { get; init; }
+    [JsonPropertyName("configured")] public required List<ToolRegistry> Configured { get; init; }
 }
 
 public sealed record CreateThreadRequest

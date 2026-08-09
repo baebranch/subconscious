@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Subconscious.Desktop.Engine;
 
@@ -19,6 +20,18 @@ public sealed record ChatDoneEventArgs(string? TurnId, string ThreadUuid);
 
 /// <summary>Raised on <c>chat.error</c> — the turn failed; whatever streamed so far is discarded by the caller's UI.</summary>
 public sealed record ChatErrorEventArgs(string? TurnId, string ThreadUuid, string Error);
+
+/// <summary>Raised when the engine acknowledges cancellation of a running turn.</summary>
+public sealed record ChatCancelledEventArgs(string? TurnId, string ThreadUuid);
+
+/// <summary>Raised when the selected workspace/thread policy requires a tool-call decision.</summary>
+public sealed record ToolApprovalRequestEventArgs(
+    string TurnId,
+    string ApprovalId,
+    string ThreadUuid,
+    string ToolName,
+    string Arguments,
+    string Operation);
 
 /// <summary>
 /// A REST call reached the engine and the engine said no.
@@ -82,16 +95,21 @@ public sealed class EngineClient : IAsyncDisposable
         PropertyNameCaseInsensitive = true,
     };
 
+    private readonly SemaphoreSlim _connectionGate = new(1, 1);
     private RuntimeInfo? _info;
     private HttpClient? _http;
     private ClientWebSocket? _ws;
     private CancellationTokenSource? _receiveLoopCts;
     private bool _closing;
+    private bool _dev;
+    private int _reconnectScheduled;
 
     public event EventHandler<bool>? ConnectionStatusChanged;
     public event EventHandler<ChatDeltaEventArgs>? ChatDelta;
     public event EventHandler<ChatDoneEventArgs>? ChatDone;
     public event EventHandler<ChatErrorEventArgs>? ChatError;
+    public event EventHandler<ChatCancelledEventArgs>? ChatCancelled;
+    public event EventHandler<ToolApprovalRequestEventArgs>? ToolApprovalRequested;
     public event EventHandler<ChatMessage>? MessageCreated;
 
     public bool IsConnected => _ws?.State == WebSocketState.Open;
@@ -101,86 +119,188 @@ public sealed class EngineClient : IAsyncDisposable
 
     public async Task ConnectAsync(bool dev)
     {
-        await ConnectRestAsync(dev);
-        await OpenSocketAsync();
+        _closing = false;
+        _dev = dev;
+        await _connectionGate.WaitAsync();
+        try
+        {
+            await ConnectRestCoreAsync(dev);
+            await OpenSocketCoreAsync();
+        }
+        finally
+        {
+            _connectionGate.Release();
+        }
     }
 
     /// <summary>Connect only the REST client. Settings pages do not need a second WebSocket.</summary>
     public async Task ConnectRestAsync(bool dev)
     {
         _closing = false;
-        _info = await EngineDiscovery.DiscoverAsync(dev);
-
-        _http = new HttpClient
+        _dev = dev;
+        await _connectionGate.WaitAsync();
+        try
         {
-            BaseAddress = new Uri($"http://{_info.Host}:{_info.Port}/api/v1/"),
-        };
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _info.Token);
+            await ConnectRestCoreAsync(dev);
+        }
+        finally
+        {
+            _connectionGate.Release();
+        }
     }
 
-    private async Task OpenSocketAsync()
+    private async Task ConnectRestCoreAsync(bool dev)
+    {
+        var info = await EngineDiscovery.DiscoverAsync(dev);
+        var client = new HttpClient
+        {
+            BaseAddress = new Uri($"http://{info.Host}:{info.Port}/api/v1/"),
+        };
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", info.Token);
+
+        var previous = Interlocked.Exchange(ref _http, client);
+        _info = info;
+        previous?.Dispose();
+    }
+
+    private async Task OpenSocketCoreAsync()
     {
         var info = _info ?? throw new InvalidOperationException("Not connected.");
-        _ws = new ClientWebSocket();
-        var uri = new Uri($"ws://{info.Host}:{info.Port}/api/v1/events?token={Uri.EscapeDataString(info.Token)}");
-        await _ws.ConnectAsync(uri, CancellationToken.None);
+        var socket = new ClientWebSocket();
+        try
+        {
+            var uri = new Uri($"ws://{info.Host}:{info.Port}/api/v1/events?token={Uri.EscapeDataString(info.Token)}");
+            await socket.ConnectAsync(uri, CancellationToken.None);
 
-        await SendFrameAsync("client.hello", new { });
+            var receiveLoopCts = new CancellationTokenSource();
+            var previousSocket = Interlocked.Exchange(ref _ws, socket);
+            var previousReceiveLoopCts = Interlocked.Exchange(ref _receiveLoopCts, receiveLoopCts);
+            previousReceiveLoopCts?.Cancel();
+            previousSocket?.Dispose();
 
-        _receiveLoopCts = new CancellationTokenSource();
-        _ = Task.Run(() => ReceiveLoopAsync(_receiveLoopCts.Token));
+            await SendFrameAsync("client.hello", new { });
+            _ = Task.Run(() => ReceiveLoopAsync(socket, receiveLoopCts.Token));
+        }
+        catch
+        {
+            if (ReferenceEquals(_ws, socket))
+            {
+                Interlocked.CompareExchange(ref _ws, null, socket);
+                var receiveLoopCts = Interlocked.Exchange(ref _receiveLoopCts, null);
+                receiveLoopCts?.Cancel();
+                receiveLoopCts?.Dispose();
+            }
+            socket.Dispose();
+            throw;
+        }
     }
 
-    private async Task ReceiveLoopAsync(CancellationToken cancellationToken)
+    private async Task ReceiveLoopAsync(ClientWebSocket socket, CancellationToken cancellationToken)
     {
         var buffer = new byte[1024 * 16];
         try
         {
-            while (_ws is { State: WebSocketState.Open } && !cancellationToken.IsCancellationRequested)
+            while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
             {
-                string message;
-                using (var stream = new MemoryStream())
+                using var stream = new MemoryStream();
+                WebSocketReceiveResult result;
+                do
                 {
-                    WebSocketReceiveResult result;
-                    do
+                    result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                    if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        result = await _ws.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
-                        if (result.MessageType == WebSocketMessageType.Close)
-                        {
-                            goto disconnected;
-                        }
-                        stream.Write(buffer, 0, result.Count);
-                    } while (!result.EndOfMessage);
-                    message = Encoding.UTF8.GetString(stream.ToArray());
-                }
+                        return;
+                    }
+                    stream.Write(buffer, 0, result.Count);
+                } while (!result.EndOfMessage);
 
-                HandleFrame(message);
-            }
-
-            disconnected:
-            ConnectionStatusChanged?.Invoke(this, false);
-            if (!_closing)
-            {
-                await Task.Delay(2000, CancellationToken.None);
-                try
-                {
-                    await OpenSocketAsync();
-                    ConnectionStatusChanged?.Invoke(this, true);
-                }
-                catch
-                {
-                    // Best-effort reconnect; surfaced as "disconnected" until it succeeds.
-                }
+                HandleFrame(Encoding.UTF8.GetString(stream.ToArray()));
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // Expected on Dispose/DisconnectAsync.
+            // Expected when a newer connection replaces this one or on DisconnectAsync.
         }
         catch (WebSocketException)
         {
-            ConnectionStatusChanged?.Invoke(this, false);
+            // The finally block below treats abrupt transport failures exactly like a close frame.
         }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The superseded socket was deliberately disposed.
+        }
+        finally
+        {
+            if (!cancellationToken.IsCancellationRequested && ReferenceEquals(_ws, socket))
+            {
+                ConnectionStatusChanged?.Invoke(this, false);
+                ScheduleReconnect();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reconnect in the background until the engine is reachable again. Every retry rediscovers
+    /// the engine instead of reusing the old port/token, so an Engine restart is recovered rather
+    /// than treated as a permanently disconnected WebSocket.
+    /// </summary>
+    private void ScheduleReconnect()
+    {
+        if (Interlocked.CompareExchange(ref _reconnectScheduled, 1, 0) != 0)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!_closing)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2));
+                    if (_closing)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        await _connectionGate.WaitAsync();
+                        try
+                        {
+                            if (_closing)
+                            {
+                                return;
+                            }
+                            await ConnectRestCoreAsync(_dev);
+                            if (_closing)
+                            {
+                                return;
+                            }
+                            await OpenSocketCoreAsync();
+                            return;
+                        }
+                        finally
+                        {
+                            _connectionGate.Release();
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        if (_closing)
+                        {
+                            return;
+                        }
+
+                        // The disconnected state remains visible while the local engine starts.
+                    }
+                }
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _reconnectScheduled, 0);
+            }
+        });
     }
 
     private void HandleFrame(string json)
@@ -219,6 +339,30 @@ public sealed class EngineClient : IAsyncDisposable
                     ChatDone?.Invoke(this, new ChatDoneEventArgs(frame.Id, threadUuid));
                 }
                 break;
+            case "chat.cancelled":
+                if (frame.Data is { } cancelledData)
+                {
+                    var threadUuid = GetString(cancelledData, "thread_uuid") ?? string.Empty;
+                    ChatCancelled?.Invoke(this, new ChatCancelledEventArgs(frame.Id, threadUuid));
+                }
+                break;
+            case "tool.approval.request":
+                if (frame.Data is { } approvalData
+                    && frame.Id is { Length: > 0 } turnId
+                    && GetString(approvalData, "approval_id") is { Length: > 0 } approvalId)
+                {
+                    var arguments = approvalData.TryGetProperty("arguments", out var argumentsData)
+                        ? argumentsData.GetRawText()
+                        : "{}";
+                    ToolApprovalRequested?.Invoke(this, new ToolApprovalRequestEventArgs(
+                        turnId,
+                        approvalId,
+                        GetString(approvalData, "thread_uuid") ?? string.Empty,
+                        GetString(approvalData, "tool_name") ?? "tool",
+                        arguments,
+                        GetString(approvalData, "operation") ?? "mutation"));
+                }
+                break;
             case "chat.error":
                 if (frame.Data is { } errData)
                 {
@@ -237,7 +381,8 @@ public sealed class EngineClient : IAsyncDisposable
 
     private Task SendFrameAsync<T>(string type, T data, string? id = null)
     {
-        if (_ws is not { State: WebSocketState.Open })
+        var socket = _ws;
+        if (socket is not { State: WebSocketState.Open })
         {
             return Task.CompletedTask;
         }
@@ -247,7 +392,7 @@ public sealed class EngineClient : IAsyncDisposable
             DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
         });
         var bytes = Encoding.UTF8.GetBytes(json);
-        return _ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+        return socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
     }
 
     /// <summary>Send a chat message. An existing thread uses <paramref name="threadUuid"/>;
@@ -268,6 +413,15 @@ public sealed class EngineClient : IAsyncDisposable
 
     public void CancelChat(string? turnId) => _ = SendFrameAsync("chat.cancel", new { turn_id = turnId }, turnId);
 
+    /// <summary>Resolves a user-facing approval request. The correlation ID is retained in the
+    /// envelope so the engine can reject cross-turn or stale responses.</summary>
+    public void ResolveToolApproval(string turnId, string approvalId, bool approve) =>
+        _ = SendFrameAsync("tool.approval.response", new
+        {
+            approval_id = approvalId,
+            decision = approve ? "approve" : "deny",
+        }, turnId);
+
     // ── REST ──────────────────────────────────────────────────────────────────
     // Every call goes through SendAsync below, which turns a non-2xx into an
     // EngineApiException. GET /workspaces returning 500 (as it did against a database whose
@@ -278,19 +432,18 @@ public sealed class EngineClient : IAsyncDisposable
     public Task<List<Workspace>> ListWorkspacesAsync(CancellationToken cancellationToken = default) =>
         ListAsync<Workspace>("workspaces", cancellationToken);
 
+    public Task<Workspace> CreateWorkspaceAsync(CreateWorkspaceRequest request, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<Workspace, CreateWorkspaceRequest>(HttpMethod.Post, "workspaces", request, cancellationToken);
+
     public Task<Workspace> CreateWorkspaceAsync(string name, string? description = null, string? defaultModelId = null, CancellationToken cancellationToken = default) =>
+        CreateWorkspaceAsync(new CreateWorkspaceRequest { Name = name, Description = description, DefaultModelId = defaultModelId }, cancellationToken);
+
+    public Task<Workspace> UpdateWorkspaceAsync(string uuid, CreateWorkspaceRequest request, CancellationToken cancellationToken = default) =>
         SendJsonAsync<Workspace, CreateWorkspaceRequest>(
-            HttpMethod.Post,
-            "workspaces",
-            new CreateWorkspaceRequest { Name = name, Description = description, DefaultModelId = defaultModelId },
-            cancellationToken);
+            HttpMethod.Put, $"workspaces/{Uri.EscapeDataString(uuid)}", request, cancellationToken);
 
     public Task<Workspace> UpdateWorkspaceAsync(string uuid, string name, string? description = null, string? defaultModelId = null, CancellationToken cancellationToken = default) =>
-        SendJsonAsync<Workspace, CreateWorkspaceRequest>(
-            HttpMethod.Put,
-            $"workspaces/{Uri.EscapeDataString(uuid)}",
-            new CreateWorkspaceRequest { Name = name, Description = description, DefaultModelId = defaultModelId },
-            cancellationToken);
+        UpdateWorkspaceAsync(uuid, new CreateWorkspaceRequest { Name = name, Description = description, DefaultModelId = defaultModelId }, cancellationToken);
 
     public Task<List<ThreadInfo>> ListThreadsAsync(string workspaceUuid, CancellationToken cancellationToken = default) =>
         ListAsync<ThreadInfo>($"workspaces/{Uri.EscapeDataString(workspaceUuid)}/threads", cancellationToken);
@@ -337,6 +490,41 @@ public sealed class EngineClient : IAsyncDisposable
         SendJsonAsync<List<AppStateSetting>, IReadOnlyList<AppStateSetting>>(
             HttpMethod.Put, "settings", settings, cancellationToken);
 
+    public Task<ToolCatalog> GetToolCatalogAsync(CancellationToken cancellationToken = default) =>
+        GetAsync<ToolCatalog>("tools/catalog", cancellationToken);
+
+    public Task<List<ToolRegistry>> ListToolRegistryAsync(CancellationToken cancellationToken = default) =>
+        ListAsync<ToolRegistry>("tool-registry", cancellationToken);
+
+    public Task<ToolRegistry> CreateToolRegistryAsync(UpsertToolRegistryRequest request, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<ToolRegistry, UpsertToolRegistryRequest>(HttpMethod.Post, "tool-registry", request, cancellationToken);
+
+    public Task<ToolRegistry> UpdateToolRegistryAsync(string uuid, UpsertToolRegistryRequest request, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<ToolRegistry, UpsertToolRegistryRequest>(
+            HttpMethod.Put, $"tool-registry/{Uri.EscapeDataString(uuid)}", request, cancellationToken);
+
+    public Task<ToolConfigResponse> GetWorkspaceToolsConfigAsync(string uuid, CancellationToken cancellationToken = default) =>
+        GetAsync<ToolConfigResponse>($"workspaces/{Uri.EscapeDataString(uuid)}/tools-config", cancellationToken);
+
+    public Task<ToolConfigResponse> UpdateWorkspaceToolsConfigAsync(string uuid, JsonObject config, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<ToolConfigResponse, UpdateToolConfigRequest>(
+            HttpMethod.Put, $"workspaces/{Uri.EscapeDataString(uuid)}/tools-config",
+            new UpdateToolConfigRequest { Config = config }, cancellationToken);
+
+    public Task<ToolConfigResponse> GetThreadToolsConfigAsync(string uuid, CancellationToken cancellationToken = default) =>
+        GetAsync<ToolConfigResponse>($"threads/{Uri.EscapeDataString(uuid)}/tools-config", cancellationToken);
+
+    public Task<ToolConfigResponse> UpdateThreadToolsConfigAsync(string uuid, JsonObject config, CancellationToken cancellationToken = default) =>
+        SendJsonAsync<ToolConfigResponse, UpdateToolConfigRequest>(
+            HttpMethod.Put, $"threads/{Uri.EscapeDataString(uuid)}/tools-config",
+            new UpdateToolConfigRequest { Config = config }, cancellationToken);
+
+    public async Task<bool> DeleteToolRegistryAsync(string uuid, CancellationToken cancellationToken = default) =>
+        await DeleteAsync($"tool-registry/{Uri.EscapeDataString(uuid)}", cancellationToken);
+
+    public async Task<bool> DeleteThreadToolsConfigAsync(string uuid, CancellationToken cancellationToken = default) =>
+        await DeleteAsync($"threads/{Uri.EscapeDataString(uuid)}/tools-config", cancellationToken);
+
     public Task<List<ModelConfiguration>> ListModelConfigurationsAsync(CancellationToken cancellationToken = default) =>
         ListAsync<ModelConfiguration>("model-configurations", cancellationToken);
 
@@ -355,6 +543,31 @@ public sealed class EngineClient : IAsyncDisposable
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return false;
+        }
+        await ReadAsync<object>(response, HttpMethod.Delete, path, cancellationToken);
+        return true;
+    }
+
+    private Task<T> GetAsync<T>(string path, CancellationToken cancellationToken) =>
+        GetAsyncCore<T>(path, cancellationToken);
+
+    private async Task<T> GetAsyncCore<T>(string path, CancellationToken cancellationToken)
+    {
+        using var response = await Http.GetAsync(path, cancellationToken);
+        return await ReadAsync<T>(response, HttpMethod.Get, path, cancellationToken)
+            ?? throw new EngineApiException(HttpMethod.Get, path, HttpStatusCode.OK, "empty response body");
+    }
+
+    private async Task<bool> DeleteAsync(string path, CancellationToken cancellationToken)
+    {
+        using var response = await Http.DeleteAsync(path, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            return true;
         }
         await ReadAsync<object>(response, HttpMethod.Delete, path, cancellationToken);
         return true;
@@ -408,18 +621,32 @@ public sealed class EngineClient : IAsyncDisposable
     public async Task DisconnectAsync()
     {
         _closing = true;
-        _receiveLoopCts?.Cancel();
-        if (_ws is { State: WebSocketState.Open })
+
+        var receiveLoopCts = Interlocked.Exchange(ref _receiveLoopCts, null);
+        receiveLoopCts?.Cancel();
+
+        var socket = Interlocked.Exchange(ref _ws, null);
+        if (socket is { State: WebSocketState.Open })
         {
-            await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client closing", CancellationToken.None);
+            try
+            {
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client closing", CancellationToken.None);
+            }
+            catch (WebSocketException)
+            {
+                // A transport failure is already handled by dropping this socket.
+            }
         }
+        socket?.Dispose();
+        receiveLoopCts?.Dispose();
+
+        var http = Interlocked.Exchange(ref _http, null);
+        http?.Dispose();
+        _info = null;
     }
 
     public async ValueTask DisposeAsync()
     {
         await DisconnectAsync();
-        _ws?.Dispose();
-        _http?.Dispose();
-        _receiveLoopCts?.Dispose();
     }
 }

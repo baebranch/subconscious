@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Subconscious.Desktop.Engine;
@@ -31,6 +32,17 @@ public sealed partial class ChatViewModel : ViewModelBase
     public ObservableCollection<ModelInfo> AvailableModels { get; } = [];
     public ObservableCollection<WorkspaceSelectorItem> WorkspaceSelectorItems { get; } = [];
 
+    /// <summary>True only for a persisted thread; local drafts cannot own an override.</summary>
+    public bool IsThreadToolsAvailable => CurrentThread is not null && !IsBusy;
+    public string ThreadToolsButtonText => CurrentThread is null ? "Tools (save thread first)" : "Tools";
+
+    [ObservableProperty] private ToolPolicyEditorViewModel? _threadToolPolicy;
+    [ObservableProperty] private bool _isThreadToolsOpen;
+    [ObservableProperty] private bool _isThreadToolsLoading;
+    [ObservableProperty] private bool _isThreadToolsSaving;
+    [ObservableProperty] private bool _isThreadToolsDirty;
+    [ObservableProperty] private string? _threadToolsError;
+
     /// <summary>Raised after a workspace/thread selection has completed and is ready to persist.</summary>
     public event EventHandler? SelectionChanged;
 
@@ -56,10 +68,10 @@ public sealed partial class ChatViewModel : ViewModelBase
     /// <summary>Workspace context embedded in the native text-only window title.</summary>
     public string TitleBarContextText => $"Subconscious — {ActiveWorkspaceName}";
 
-    /// <summary>Accessible native-window title used by the caption, taskbar, and system menu.
-    /// A small flat text bullet avoids the oversized glossy emoji while retaining one OS-owned
-    /// title bar. Standard Windows captions do not support embedded colored XAML shapes.</summary>
-    public string TitleBarText => $"{TitleBarContextText} — • {StatusText}";
+    /// <summary>Text-only title for the taskbar and system menu. The visible MAUI caption renders
+    /// its connection indicator as a coloured ellipse; native Windows title consumers retain this
+    /// equivalent, accessible plain-text status.</summary>
+    public string TitleBarText => $"{TitleBarContextText} — {StatusText}";
 
     /// <summary>Raises the icon binding and the HTML-transcript palette revision after
     /// ThemeService replaces semantic runtime colors.</summary>
@@ -139,6 +151,15 @@ public sealed partial class ChatViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isBusy;
 
+    [ObservableProperty]
+    private ToolApprovalRequestEventArgs? _pendingToolApproval;
+
+    /// <summary>Whether a policy-protected tool call is awaiting an explicit user decision.</summary>
+    public bool HasPendingToolApproval => PendingToolApproval is not null;
+
+    partial void OnPendingToolApprovalChanged(ToolApprovalRequestEventArgs? value) =>
+        OnPropertyChanged(nameof(HasPendingToolApproval));
+
     /// <summary>True while <see cref="LoadWorkspacesCommand"/> is in flight, so the Workspaces
     /// panel can show progress instead of its "no workspaces yet" empty state — those two look
     /// identical otherwise, and the empty one is a lie during the initial load.</summary>
@@ -168,6 +189,8 @@ public sealed partial class ChatViewModel : ViewModelBase
         _client.ChatDelta += OnChatDelta;
         _client.ChatDone += OnChatDone;
         _client.ChatError += OnChatError;
+        _client.ChatCancelled += OnChatCancelled;
+        _client.ToolApprovalRequested += OnToolApprovalRequested;
 
         try
         {
@@ -533,22 +556,29 @@ public sealed partial class ChatViewModel : ViewModelBase
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Creates a workspace from the Workspaces panel's create form and adds it to the
-    /// list (does not switch the active chat workspace — the user does that explicitly by
-    /// clicking the new entry).</summary>
-    public async Task<Workspace> CreateWorkspaceEntryAsync(string name, string? description, string? defaultModelId)
+    /// <summary>Used by workspace and thread editors to render actual engine catalog groups.</summary>
+    public Task<ToolCatalog> GetToolCatalogAsync(CancellationToken cancellationToken = default) =>
+        _client.GetToolCatalogAsync(cancellationToken);
+
+    public Task<ToolConfigResponse> GetWorkspaceToolsConfigAsync(string uuid, CancellationToken cancellationToken = default) =>
+        _client.GetWorkspaceToolsConfigAsync(uuid, cancellationToken);
+
+    /// <summary>Creates a workspace and keeps the in-memory selector synchronized.</summary>
+    public async Task<Workspace> CreateWorkspaceEntryAsync(CreateWorkspaceRequest request)
     {
-        var workspace = await _client.CreateWorkspaceAsync(name, description, defaultModelId);
+        var workspace = await _client.CreateWorkspaceAsync(request);
         Workspaces.Add(workspace);
         RebuildWorkspaceSelectorItems();
         return workspace;
     }
 
-    /// <summary>Persists edits from the Workspaces panel's details form, updating the in-memory
-    /// list (and <see cref="CurrentWorkspace"/> if it's the one being edited) in place.</summary>
-    public async Task<Workspace> UpdateWorkspaceEntryAsync(string uuid, string name, string? description, string? defaultModelId)
+    public Task<Workspace> CreateWorkspaceEntryAsync(string name, string? description, string? defaultModelId) =>
+        CreateWorkspaceEntryAsync(new CreateWorkspaceRequest { Name = name, Description = description, DefaultModelId = defaultModelId });
+
+    /// <summary>Persists all workspace fields and updates the immutable wire record in the active lists.</summary>
+    public async Task<Workspace> UpdateWorkspaceEntryAsync(string uuid, CreateWorkspaceRequest request)
     {
-        var updated = await _client.UpdateWorkspaceAsync(uuid, name, description, defaultModelId);
+        var updated = await _client.UpdateWorkspaceAsync(uuid, request);
 
         var index = Workspaces.ToList().FindIndex(w => w.Uuid == uuid);
         if (index >= 0)
@@ -564,6 +594,9 @@ public sealed partial class ChatViewModel : ViewModelBase
         RebuildWorkspaceSelectorItems();
         return updated;
     }
+
+    public Task<Workspace> UpdateWorkspaceEntryAsync(string uuid, string name, string? description, string? defaultModelId) =>
+        UpdateWorkspaceEntryAsync(uuid, new CreateWorkspaceRequest { Name = name, Description = description, DefaultModelId = defaultModelId });
 
     [RelayCommand(CanExecute = nameof(CanSend))]
     private void Send()
@@ -600,13 +633,24 @@ public sealed partial class ChatViewModel : ViewModelBase
     partial void OnIsBusyChanged(bool value)
     {
         SendCommand.NotifyCanExecuteChanged();
+        OpenThreadToolsCommand.NotifyCanExecuteChanged();
+        UseWorkspaceToolDefaultsCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(IsModelPickerEnabled));
+        OnPropertyChanged(nameof(IsThreadToolsAvailable));
     }
 
     partial void OnCurrentThreadChanged(ThreadInfo? value)
     {
+        if (IsThreadToolsOpen && ThreadToolPolicy is not null)
+        {
+            CloseThreadTools();
+        }
         SyncSelectedModel();
         SendCommand.NotifyCanExecuteChanged();
+        OpenThreadToolsCommand.NotifyCanExecuteChanged();
+        UseWorkspaceToolDefaultsCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsThreadToolsAvailable));
+        OnPropertyChanged(nameof(ThreadToolsButtonText));
     }
 
     [RelayCommand]
@@ -666,6 +710,55 @@ public sealed partial class ChatViewModel : ViewModelBase
         }
     }
 
+    private void OnChatCancelled(object? sender, ChatCancelledEventArgs e)
+    {
+        if (!BelongsToActiveTurn(e.TurnId, e.ThreadUuid))
+        {
+            return;
+        }
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (_streamingAssistantBubble is { Content.Length: 0 } pending)
+            {
+                Messages.Remove(pending);
+            }
+            PendingToolApproval = null;
+            ClearActiveTurn();
+        });
+    }
+
+    private void OnToolApprovalRequested(object? sender, ToolApprovalRequestEventArgs e)
+    {
+        if (!BelongsToActiveTurn(e.TurnId, e.ThreadUuid))
+        {
+            return;
+        }
+        MainThread.BeginInvokeOnMainThread(() => PendingToolApproval = e);
+    }
+
+    [RelayCommand]
+    private void ApproveTool()
+    {
+        if (PendingToolApproval is not { } request)
+        {
+            return;
+        }
+        _client.ResolveToolApproval(request.TurnId, request.ApprovalId, approve: true);
+        PendingToolApproval = null;
+    }
+
+    [RelayCommand]
+    private void DenyTool()
+    {
+        if (PendingToolApproval is not { } request)
+        {
+            return;
+        }
+        _client.ResolveToolApproval(request.TurnId, request.ApprovalId, approve: false);
+        PendingToolApproval = null;
+    }
+
     private void OnChatError(object? sender, ChatErrorEventArgs e)
     {
         if (!BelongsToActiveTurn(e.TurnId, e.ThreadUuid))
@@ -684,12 +777,125 @@ public sealed partial class ChatViewModel : ViewModelBase
         _activeTurnId = null;
         _activeTurnThread = null;
         _streamingAssistantBubble = null;
+        PendingToolApproval = null;
         IsBusy = false;
     }
 
     private bool BelongsToActiveTurn(string? turnId, string threadUuid) =>
         (string.IsNullOrEmpty(_activeTurnThread) || threadUuid == _activeTurnThread)
         && (turnId is null || turnId == _activeTurnId);
+
+    [RelayCommand(CanExecute = nameof(CanOpenThreadTools))]
+    private async Task OpenThreadToolsAsync()
+    {
+        if (CurrentThread is not { } thread)
+        {
+            return;
+        }
+
+        IsThreadToolsOpen = true;
+        IsThreadToolsLoading = true;
+        ThreadToolsError = null;
+        IsThreadToolsDirty = false;
+        try
+        {
+            var editor = new ToolPolicyEditorViewModel();
+            editor.Changed += (_, _) =>
+            {
+                IsThreadToolsDirty = true;
+                SaveThreadToolsCommand.NotifyCanExecuteChanged();
+            };
+            ThreadToolPolicy = editor;
+            var catalog = await _client.GetToolCatalogAsync();
+            var effective = await _client.GetThreadToolsConfigAsync(thread.Uuid);
+            editor.Populate(catalog, effective.Config);
+        }
+        catch (Exception exception)
+        {
+            ThreadToolsError = $"Couldn't load thread tools: {exception.Message}";
+        }
+        finally
+        {
+            IsThreadToolsLoading = false;
+        }
+    }
+
+    private bool CanOpenThreadTools() => IsThreadToolsAvailable;
+    private bool CanUseWorkspaceToolDefaults() => CurrentThread is not null && ThreadToolPolicy is not null && !IsThreadToolsLoading && !IsThreadToolsSaving;
+    private bool CanSaveThreadTools() => CurrentThread is not null && ThreadToolPolicy is not null && IsThreadToolsDirty && !IsThreadToolsSaving;
+
+    [RelayCommand(CanExecute = nameof(CanSaveThreadTools))]
+    private async Task SaveThreadToolsAsync()
+    {
+        if (CurrentThread is not { } thread || ThreadToolPolicy is null)
+        {
+            return;
+        }
+
+        IsThreadToolsSaving = true;
+        ThreadToolsError = null;
+        try
+        {
+            var saved = await _client.UpdateThreadToolsConfigAsync(thread.Uuid, ThreadToolPolicy.SerializeDesiredConfig());
+            ThreadToolPolicy.Populate(await _client.GetToolCatalogAsync(), saved.Config);
+            IsThreadToolsDirty = false;
+        }
+        catch (Exception exception)
+        {
+            ThreadToolsError = $"Couldn't save thread tools: {exception.Message}";
+        }
+        finally
+        {
+            IsThreadToolsSaving = false;
+            SaveThreadToolsCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseWorkspaceToolDefaults))]
+    private async Task UseWorkspaceToolDefaultsAsync()
+    {
+        if (CurrentThread is not { } thread || ThreadToolPolicy is null)
+        {
+            return;
+        }
+
+        IsThreadToolsSaving = true;
+        ThreadToolsError = null;
+        try
+        {
+            await _client.DeleteThreadToolsConfigAsync(thread.Uuid);
+            var effective = await _client.GetThreadToolsConfigAsync(thread.Uuid);
+            ThreadToolPolicy.Populate(await _client.GetToolCatalogAsync(), effective.Config);
+            IsThreadToolsDirty = false;
+        }
+        catch (Exception exception)
+        {
+            ThreadToolsError = $"Couldn't restore workspace defaults: {exception.Message}";
+        }
+        finally
+        {
+            IsThreadToolsSaving = false;
+            SaveThreadToolsCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    partial void OnIsThreadToolsDirtyChanged(bool value) => SaveThreadToolsCommand.NotifyCanExecuteChanged();
+    partial void OnIsThreadToolsSavingChanged(bool value)
+    {
+        SaveThreadToolsCommand.NotifyCanExecuteChanged();
+        UseWorkspaceToolDefaultsCommand.NotifyCanExecuteChanged();
+    }
+    partial void OnIsThreadToolsLoadingChanged(bool value) => UseWorkspaceToolDefaultsCommand.NotifyCanExecuteChanged();
+
+    [RelayCommand]
+    private void CloseThreadTools()
+    {
+        IsThreadToolsOpen = false;
+        IsThreadToolsDirty = false;
+        ThreadToolsError = null;
+        ThreadToolPolicy = null;
+        SaveThreadToolsCommand.NotifyCanExecuteChanged();
+    }
 
     public async ValueTask DisposeAsync() => await _client.DisposeAsync();
 }

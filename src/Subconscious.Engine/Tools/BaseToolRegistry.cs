@@ -15,10 +15,10 @@ namespace Subconscious.Engine.Tools;
 /// </para>
 ///
 /// <para>
-/// <b>Currently registered:</b> "time", "calculator", and "weather". The DB-backed modules ("todo",
-/// "memory", "notes", "contacts", "knowledge") are not registered yet — they are blocked on the
-/// Phase 1 EF Core data layer, which has not landed (see translation.md). <see cref="Register"/>
-/// is how they will be added; nothing else about this class needs to change.
+/// <b>Cross-platform catalog:</b> time (4 tools), calculator (3), weather (2), todo (5), memory
+/// (5), notes (4), contacts (5), and knowledge (2). The latter five are database-backed but are
+/// engine-owned and safe to register on every platform. Platform-specific registries may add
+/// additional modules through <see cref="Register"/>.
 /// </para>
 /// </summary>
 public class BaseToolRegistry
@@ -40,6 +40,11 @@ public class BaseToolRegistry
         Register(new TimeToolModule());
         Register(new CalculatorToolModule());
         Register(new WeatherToolModule());
+        Register(new TodoToolModule());
+        Register(new MemoryToolModule());
+        Register(new NotesToolModule());
+        Register(new ContactsToolModule());
+        Register(new KnowledgeToolModule());
     }
 
     /// <summary>
