@@ -135,6 +135,7 @@ public sealed partial class MainViewModel : ViewModelBase
         _panelConfigurationStore = panelConfigurationStore;
         _sidebarPositionStore = sidebarPositionStore;
         _theme = theme;
+        FileEditor.RefreshEditorTheme();
         _theme.Changed += OnThemeChanged;
         Chat.PropertyChanged += OnChatPropertyChanged;
         Chat.SelectionChanged += (_, _) =>
@@ -425,6 +426,7 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         _themeRevision++;
         Chat.RefreshTheme();
+        FileEditor.RefreshEditorTheme();
         OnPropertyChanged(nameof(ThemeRevision));
         OnPropertyChanged(nameof(IsContextPanelOpen));
         OnPropertyChanged(nameof(IsThreadsSectionSelected));

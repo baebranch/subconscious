@@ -7,6 +7,7 @@ using Subconscious.Desktop.Controls;
 using Subconscious.Desktop.Services;
 using Subconscious.Desktop.ViewModels;
 using Subconscious.Desktop.Views;
+using Subconscious.WYSIWYG;
 
 namespace Subconscious.Desktop;
 
@@ -27,6 +28,7 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .UseFluentMauiIcons()
+            .UseSubconsciousWysiwyg()
 #if WINDOWS
             // The chat composer owns its outline through ChatPanelView's Border. Removing the
             // inner WinUI TextBox border avoids a doubled field while all other Editors retain
@@ -77,28 +79,6 @@ public static class MauiProgram
                             composer.SubmitCommand.Execute(null);
                         }
                     };
-                });
-
-                // The Markdown source editor owns its focus treatment through the surrounding
-                // file workspace layout. Keep WinUI's native normal/hover/focus border and
-                // focused underline fully transparent without changing ordinary form Editors.
-                EditorHandler.Mapper.AppendToMapping(nameof(MarkdownEditor), (handler, view) =>
-                {
-                    if (view is not MarkdownEditor)
-                    {
-                        return;
-                    }
-
-                    var transparent = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                        Windows.UI.Color.FromArgb(0, 0, 0, 0));
-                    var noBorder = new Microsoft.UI.Xaml.Thickness(0);
-                    handler.PlatformView.BorderBrush = transparent;
-                    handler.PlatformView.BorderThickness = noBorder;
-                    handler.PlatformView.Resources["TextControlBorderBrush"] = transparent;
-                    handler.PlatformView.Resources["TextControlBorderBrushPointerOver"] = transparent;
-                    handler.PlatformView.Resources["TextControlBorderBrushFocused"] = transparent;
-                    handler.PlatformView.Resources["TextControlBorderThemeThickness"] = noBorder;
-                    handler.PlatformView.Resources["TextControlBorderThemeThicknessFocused"] = noBorder;
                 });
 
                 PickerHandler.Mapper.AppendToMapping(nameof(CaptionWorkspacePicker), (handler, view) =>

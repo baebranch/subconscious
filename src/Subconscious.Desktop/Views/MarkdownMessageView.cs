@@ -311,7 +311,8 @@ public sealed class MarkdownMessageView : ContentView
                     AppendInlines(container.FirstChild, target, attributes, underline);
                     break;
                 default:
-                    target.Spans.Add(CreateSpan(current.ToString() ?? string.Empty, attributes, underline));
+                    // Extension bookkeeping nodes (for example auto-identifier references) are
+                    // parser metadata, not visible document text.
                     break;
             }
         }
@@ -343,7 +344,7 @@ public sealed class MarkdownMessageView : ContentView
         ParagraphBlock paragraph => ExtractInlineText(paragraph.Inline?.FirstChild),
         CodeBlock code => code.Lines.ToString(),
         ContainerBlock container => string.Join(Environment.NewLine, ChildrenOf(container).Select(ExtractText)),
-        _ => block.ToString() ?? string.Empty,
+        _ => string.Empty,
     };
 
     private static string ExtractInlineText(Inline? inline)
@@ -357,7 +358,7 @@ public sealed class MarkdownMessageView : ContentView
                 LineBreakInline => Environment.NewLine,
                 CodeInline code => code.Content,
                 ContainerInline container => ExtractInlineText(container.FirstChild),
-                _ => current.ToString(),
+                _ => string.Empty,
             });
         }
         return text.ToString();

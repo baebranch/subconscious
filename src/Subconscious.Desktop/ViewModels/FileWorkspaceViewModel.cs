@@ -15,6 +15,7 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
     private readonly EngineClient _client = new();
     private Workspace? _workspace;
     private int _previewVersion;
+    private FileEditorTab? _observedTab;
 
     public ObservableCollection<FileTreeNode> VisibleNodes { get; } = [];
     public ObservableCollection<FileEditorTab> OpenFiles { get; } = [];
@@ -95,14 +96,35 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
         }
     }
 
-    partial void OnSelectedTabChanged(FileEditorTab? value)
+    partial void OnSelectedTabChanged(FileEditorTab? oldValue, FileEditorTab? newValue)
     {
+        if (_observedTab is not null)
+        {
+            _observedTab.PropertyChanged -= OnSelectedTabPropertyChanged;
+        }
+        _observedTab = newValue;
+        if (_observedTab is not null)
+        {
+            _observedTab.PropertyChanged += OnSelectedTabPropertyChanged;
+        }
         foreach (var tab in OpenFiles)
         {
-            tab.IsSelected = ReferenceEquals(tab, value);
+            tab.IsSelected = ReferenceEquals(tab, newValue);
         }
-        PreviewContent = value?.IsMarkdown == true ? value.Content : string.Empty;
+        PreviewContent = newValue?.IsMarkdown == true ? newValue.Content : string.Empty;
         NotifyActiveFilePropertiesChanged();
+    }
+
+    private void OnSelectedTabPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName is nameof(FileEditorTab.Content) or nameof(FileEditorTab.IsDirty))
+        {
+            NotifyActiveFilePropertiesChanged();
+            if (args.PropertyName == nameof(FileEditorTab.Content) && SelectedTab?.IsMarkdown == true)
+            {
+                SchedulePreview(SelectedTab.Content);
+            }
+        }
     }
 
     [RelayCommand]

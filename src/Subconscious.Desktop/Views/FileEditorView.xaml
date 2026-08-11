@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
+             xmlns:editor="clr-namespace:Subconscious.WYSIWYG;assembly=Subconscious.WYSIWYG"
+             x:Class="Subconscious.Desktop.Views.FileEditorView"
+             x:DataType="vm:FileWorkspaceViewModel">
+    <Grid RowDefinitions="Auto,Auto,*" Padding="16,12,16,16" RowSpacing="8">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
+            <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+                <Label Text="{Binding Title}" FontSize="16" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                <Label Text="WYSIWYG Markdown · plain text · code" Style="{StaticResource MutedLabel}" FontSize="12" />
+            </VerticalStackLayout>
+            <Label Grid.Column="1" Text="{Binding LineCount}" Style="{StaticResource MutedLabel}"
+                   VerticalOptions="Center" IsVisible="{Binding IsFileOpen}" />
+            <Button Grid.Column="2" Text="Open samples" Command="{Binding OpenSamplesCommand}"
+                    Style="{StaticResource GhostButton}" VerticalOptions="Center"
+                    ToolTipProperties.Text="Open built-in Markdown, text, and code fixtures" />
+            <Button Grid.Column="3" Text="Save" Command="{Binding SaveCommand}"
+                    Style="{StaticResource AccentButton}" VerticalOptions="Center"
+                    IsVisible="{Binding IsFileOpen}" SemanticProperties.Description="Save active file" />
+        </Grid>
+
+        <Label Grid.Row="1" Text="{Binding ErrorText}" Style="{StaticResource MutedLabel}"
+               TextColor="{DynamicResource ErrorColor}" FontSize="12" LineBreakMode="WordWrap"
+               IsVisible="{Binding ErrorText, Converter={StaticResource IsNotEmpty}}" />
+
+        <Grid Grid.Row="2">
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8"
+                                 IsVisible="{Binding IsFileOpen, Converter={StaticResource InvertedBool}}">
+                <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                                   Color="{DynamicResource AccentColor}" />
+                <Label Text="{Binding WorkspaceName}" FontSize="14" FontAttributes="Bold" HorizontalOptions="Center" />
+                <Label Text="{Binding WorkspaceSummary}" Style="{StaticResource MutedLabel}"
+                       HorizontalOptions="Center" HorizontalTextAlignment="Center" LineBreakMode="WordWrap" />
+                <Button Text="Open editor samples" Command="{Binding OpenSamplesCommand}" Style="{StaticResource GhostButton}" />
+                <Label Text="Or choose a file from the Files panel." Style="{StaticResource MutedLabel}" />
+            </VerticalStackLayout>
+
+            <editor:EditorWorkspaceView ItemsSource="{Binding OpenFiles}"
+                                        SelectedDocument="{Binding SelectedTab, Mode=TwoWay}"
+                                        CloseCommand="{Binding CloseFileCommand}"
+                                        Theme="{Binding EditorTheme}"
+                                        IsVisible="{Binding IsFileOpen}" />
+        </Grid>
+    </Grid>
+</ContentView>

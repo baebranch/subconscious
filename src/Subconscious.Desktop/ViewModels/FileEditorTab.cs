@@ -1,29 +1,63 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Subconscious.WYSIWYG;
 
 namespace Subconscious.Desktop.ViewModels;
 
-/// <summary>Independent in-memory state for one Engine-backed workspace file tab.</summary>
-public sealed partial class FileEditorTab : ObservableObject
+/// <summary>Independent Engine metadata and editable state for one reusable editor document tab.</summary>
+public sealed partial class FileEditorTab : ObservableObject, IEditorDocument
 {
-    public FileEditorTab(string workspaceUuid, int rootIndex, string relativePath, string displayName, string content)
+    private static readonly HashSet<string> CodeExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".cs", ".csx", ".css", ".fs", ".fsx", ".html", ".htm", ".java", ".js", ".jsx", ".json",
+        ".py", ".rb", ".rs", ".sh", ".sql", ".ts", ".tsx", ".xml", ".xaml", ".yaml", ".yml",
+    };
+
+    private static readonly HashSet<string> DocumentExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".doc", ".docx", ".odp", ".ods", ".odt", ".pdf", ".potx", ".ppsx", ".ppt", ".pptx", ".rtf", ".xls", ".xlsx",
+    };
+
+    public FileEditorTab(string workspaceUuid, int rootIndex, string relativePath, string displayName, string content, bool isReadOnly = false)
     {
         WorkspaceUuid = workspaceUuid;
         RootIndex = rootIndex;
         RelativePath = relativePath;
         DisplayName = displayName;
-        Content = content;
+        _content = content;
+        IsReadOnly = isReadOnly;
+        Kind = Classify(relativePath);
     }
 
     public string WorkspaceUuid { get; }
     public int RootIndex { get; }
     public string RelativePath { get; }
     public string DisplayName { get; }
-    public bool IsMarkdown => Path.GetExtension(RelativePath) is ".md" or ".markdown";
+    public string DocumentId => $"{WorkspaceUuid}:{RootIndex}:{RelativePath}";
+    public bool IsReadOnly { get; }
+    public EditorDocumentKind Kind { get; }
+    public bool IsMarkdown => Kind == EditorDocumentKind.Markdown;
+    public bool IsCode => Kind == EditorDocumentKind.Code;
+    public bool IsText => Kind == EditorDocumentKind.Text;
+    public bool IsDocument => Kind == EditorDocumentKind.Document;
+    public string Language => Path.GetExtension(RelativePath).TrimStart('.').ToLowerInvariant();
+    public string CodeLanguage => Language;
+
+    public static EditorDocumentKind Classify(string relativePath)
+    {
+        var extension = Path.GetExtension(relativePath);
+        if (extension.Equals(".md", StringComparison.OrdinalIgnoreCase) || extension.Equals(".markdown", StringComparison.OrdinalIgnoreCase))
+        {
+            return EditorDocumentKind.Markdown;
+        }
+
+        return DocumentExtensions.Contains(extension) ? EditorDocumentKind.Document
+            : CodeExtensions.Contains(extension) ? EditorDocumentKind.Code
+            : EditorDocumentKind.Text;
+    }
 
     [ObservableProperty] private string _content;
     [ObservableProperty] private bool _isDirty;
     [ObservableProperty] private bool _isSelected;
-}
 
-/// <summary>A selectable configured workspace root for the new-file form.</summary>
-public sealed record WorkspaceFileRootOption(int RootIndex, string DisplayName);
+    partial void OnContentChanged(string value) => IsDirty = true;
+}

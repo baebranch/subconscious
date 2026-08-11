@@ -28,8 +28,12 @@ public sealed partial class FileTreeNode : ObservableObject
     [ObservableProperty]
     private bool _isExpanded;
 
-    public bool IsCollapsedDirectory => IsDirectory && !IsExpanded;
+    [ObservableProperty]
+    private bool _isLoading;
+
+    public bool IsCollapsedDirectory => IsDirectory && !IsExpanded && !IsLoading;
     public bool ChildrenLoaded { get; set; }
 
     partial void OnIsExpandedChanged(bool value) => OnPropertyChanged(nameof(IsCollapsedDirectory));
+    partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsCollapsedDirectory));
 }

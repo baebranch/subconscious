@@ -1,0 +1,3 @@
+Plain text stays deliberately simple.
+
+It is ideal for notes, logs, and configuration that does not need code features.
