@@ -88,6 +88,11 @@
 		<PackageReference Include="AathifMahir.Maui.MauiIcons.Fluent" Version="6.0.0" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<ProjectReference Include="..\Subconscious.Chat\Subconscious.Chat.csproj" />
+		<ProjectReference Include="..\Subconscious.Chat.Native\Subconscious.Chat.Native.csproj" />
+	</ItemGroup>
+
 	<!--
 		No ProjectReference to Subconscious.Engine on purpose: Engine/ here holds client-side
 		copies of the wire DTOs (same approach as subconscious-code/src/engine/types.ts), so the

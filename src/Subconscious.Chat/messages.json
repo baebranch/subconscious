@@ -1,0 +1,62 @@
+[
+  {
+    "role": "assistant",
+    "createdAt": "2026-01-15T09:30:00Z",
+    "content": "# Shared chat preview\n\nThis **assistant** message includes a [safe link](https://example.com) and Unicode: café, 日本語, and 🚀.\n\n> Markdown is projected for both renderers."
+  },
+  {
+    "role": "user",
+    "createdAt": "2026-01-15T09:31:00Z",
+    "content": "Please show a list, code sample, and table."
+  },
+  {
+    "role": "assistant",
+    "createdAt": "2026-01-15T09:31:10Z",
+    "content": "## Example\n\n- First item\n- Second item\n  1. Nested step\n  2. Another step\n\n```csharp\nvar greeting = \"Hello, 世界\";\nConsole.WriteLine(greeting);\n```\n\n| Feature | Status |\n| --- | --- |\n| Markdown | Ready |\n| Unicode | ✓ |"
+  },
+  {
+    "role": "tool",
+    "createdAt": "2026-01-15T09:31:12Z",
+    "content": "{\"toolName\":\"read_workspace_file\",\"input\":{\"path\":\"src/example.cs\"},\"output\":{\"status\":\"ok\",\"content\":\"placeholder s;dlf gksdj fg;lksd jgk;lsjdfglsdlkglkdsfklfdsj;dlf gksdj fg;lksd jgk;lsjdfglsdlkglkdsfklfdsjdlf gksdj fg;lksd jgk;lsjdfglsdlkglkdsfklfdsjdlf gksdj fg;lksd jgk;lsjdfglsdlkglkdsfklfdsjdlf gksdj fg;lksd jgk;lsjdfglsdlkglkdsfklfdsjdlf gksdj fg;lksd jgk;lsjdfglsdlkglkdsfklfdsj output\"}}"
+  },
+  {
+    "role": "assistant",
+    "createdAt": "2026-01-15T09:30:00Z",
+    "content": "# Shared chat preview\n\nThis **assistant** message includes a [safe link](https://example.com) and Unicode: café, 日本語, and 🚀.\n\n> Markdown is projected for both renderers."
+  },
+  {
+    "role": "user",
+    "createdAt": "2026-01-15T09:31:00Z",
+    "content": "Please show a list, code sample, and table."
+  },
+  {
+    "role": "assistant",
+    "createdAt": "2026-01-15T09:31:10Z",
+    "content": "## Example\n\n- First item\n- Second item\n  1. Nested step\n  2. Another step\n\n```csharp\nvar greeting = \"Hello, 世界\";\nConsole.WriteLine(greeting);\n```\n\n| Feature | Status |\n| --- | --- |\n| Markdown | Ready |\n| Unicode | ✓ |"
+  },
+  {
+    "role": "tool",
+    "createdAt": "2026-01-15T09:31:12Z",
+    "content": "{\"toolName\":\"read_workspace_file\",\"input\":{\"path\":\"src/example.cs\"},\"output\":{\"status\":\"ok\",\"content\":\"placeholder laksjdf;laskdjf ;lksajd flk;asjdf;lk asjl fklasjfk;lasdfkas;dflkalsdf output\"}}"
+  },
+  {
+    "role": "assistant",
+    "createdAt": "2026-01-15T09:30:00Z",
+    "content": "# Shared chat preview\n\nThis **assistant** message includes a [safe link](https://example.com) and Unicode: café, 日本語, and 🚀.\n\n> Markdown is projected for both renderers."
+  },
+  {
+    "role": "user",
+    "createdAt": "2026-01-15T09:31:00Z",
+    "content": "Please show a list, code sample, and table."
+  },
+  {
+    "role": "assistant",
+    "createdAt": "2026-01-15T09:31:10Z",
+    "content": "## Example\n\n- First item\n- Second item\n  1. Nested step\n  2. Another step\n\n```csharp\nvar greeting = \"Hello, 世界\";\nConsole.WriteLine(greeting);\n```\n\n| Feature | Status |\n| --- | --- |\n| Markdown | Ready |\n| Unicode | ✓ |"
+  },
+  {
+    "role": "tool",
+    "createdAt": "2026-01-15T09:31:12Z",
+    "content": "{\"toolName\":\"read_workspace_file\",\"input\":{\"path\":\"src/example.cs\"},\"output\":{\"status\":\"ok\",\"content\":\"placeholder output\"}}"
+  }
+]

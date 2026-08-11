@@ -8,12 +8,28 @@ namespace Subconscious.Engine.Tests.Tools;
 
 public class BaseToolRegistryTests
 {
+    private static readonly IReadOnlyDictionary<string, string[]> ExpectedTools =
+        new Dictionary<string, string[]>
+        {
+            ["time"] = ["get_current_time", "get_current_date", "convert_timezone", "list_common_timezones"],
+            ["calculator"] = ["calculate", "convert_units", "list_supported_units"],
+            ["weather"] = ["get_current_weather", "get_weather_forecast"],
+            ["todo"] = ["add_todo", "list_todos", "update_todo", "complete_todo", "delete_todo"],
+            ["memory"] = ["remember", "recall", "list_memories", "forget", "forget_all"],
+            ["notes"] = ["save_note", "list_notes", "get_note", "delete_note"],
+            ["contacts"] = ["add_contact", "list_contacts", "find_contact", "update_contact", "delete_contact"],
+            ["knowledge"] = ["search_knowledge", "search_knowledge_graph"],
+        };
+
+    private static readonly string[] ExpectedSlugs = [.. ExpectedTools.Keys];
+    private static readonly string[] AllToolNames = [.. ExpectedTools.Values.SelectMany(names => names)];
+
     private static EngineContext Context() => new() { WorkspaceId = 1, ThreadId = 2 };
 
     [Fact]
-    public void AllSlugs_ContainsTheCrossPlatformModulesRegisteredSoFar()
+    public void AllSlugs_ContainsTheCrossPlatformCatalogInRegistrationOrder()
     {
-        new BaseToolRegistry().AllSlugs().Should().Equal(["time", "calculator", "weather"]);
+        new BaseToolRegistry().AllSlugs().Should().Equal(ExpectedSlugs);
     }
 
     [Fact]
@@ -23,8 +39,8 @@ public class BaseToolRegistryTests
 
         var tools = registry.GetTools(["calculator", "time"], Context());
 
-        tools[0].Name.Should().Be("calculate");
-        tools.Select(t => t.Name).Should().Contain("get_current_time");
+        tools.Select(t => t.Name).Should().Equal(
+            ExpectedTools["calculator"].Concat(ExpectedTools["time"]));
     }
 
     [Fact]
@@ -32,74 +48,70 @@ public class BaseToolRegistryTests
     {
         var registry = new BaseToolRegistry();
 
-        registry.GetTools(["time", "not-a-slug"], Context())
-            .Should().HaveCount(4);
+        registry.GetTools(["time", "not-a-slug"], Context()).Select(t => t.Name)
+            .Should().Equal(ExpectedTools["time"]);
     }
 
     [Fact]
-    public void GetToolsForConfig_DefaultConfig_ReturnsEverything()
+    public void GetToolsForConfig_DefaultConfig_ReturnsTheEntireCatalog()
     {
-        var registry = new BaseToolRegistry();
+        var tools = new BaseToolRegistry().GetToolsForConfig(ToolsConfig.Default, Context());
 
-        var tools = registry.GetToolsForConfig(ToolsConfig.Default, Context());
-
-        tools.Select(t => t.Name).Should().BeEquivalentTo(
-        [
-            "get_current_time", "get_current_date", "convert_timezone", "list_common_timezones",
-            "calculate", "convert_units", "list_supported_units",
-            "get_current_weather", "get_weather_forecast",
-        ]);
+        tools.Select(t => t.Name).Should().Equal(AllToolNames);
+        tools.Should().HaveCount(30);
     }
 
     [Fact]
     public void GetToolsForConfig_BuiltinDisabled_ReturnsNothing()
     {
-        var registry = new BaseToolRegistry();
-
-        registry.GetToolsForConfig(new ToolsConfig(BuiltinEnabled: false), Context())
+        new BaseToolRegistry().GetToolsForConfig(new ToolsConfig(BuiltinEnabled: false), Context())
             .Should().BeEmpty();
     }
 
-    [Fact]
-    public void GetToolsForConfig_DisabledSlug_SkipsAllOfItsTools()
+    [Theory]
+    [MemberData(nameof(ToolGroups))]
+    public void GetToolsForConfig_DisabledSlug_SkipsOnlyThatGroupsTools(string slug, string[] disabledToolNames)
     {
-        var registry = new BaseToolRegistry();
         var config = new ToolsConfig(Builtin: new Dictionary<string, SlugToolsConfig>
         {
-            ["time"] = new(Enabled: false),
+            [slug] = new(Enabled: false),
         });
 
-        var tools = registry.GetToolsForConfig(config, Context());
+        var names = new BaseToolRegistry().GetToolsForConfig(config, Context()).Select(t => t.Name).ToList();
 
-        tools.Select(t => t.Name).Should().NotContain(["get_current_time", "get_current_date"]);
-        tools.Should().HaveCount(5); // calculator (3) + weather (2)
+        names.Should().NotContain(disabledToolNames);
+        names.Should().BeEquivalentTo(AllToolNames.Except(disabledToolNames));
+        names.Should().HaveCount(30 - disabledToolNames.Length);
     }
 
-    [Fact]
-    public void GetToolsForConfig_PerToolOverride_DisablesOnlyThatTool()
+    [Theory]
+    [MemberData(nameof(ToolGroups))]
+    public void GetToolsForConfig_PerToolOverride_DisablesOnlyTheSpecifiedTool(string slug, string[] groupToolNames)
     {
-        var registry = new BaseToolRegistry();
+        var disabledTool = groupToolNames[0];
         var config = new ToolsConfig(Builtin: new Dictionary<string, SlugToolsConfig>
         {
-            ["calculator"] = new(Tools: new Dictionary<string, bool> { ["convert_units"] = false }),
+            [slug] = new(Tools: new Dictionary<string, bool> { [disabledTool] = false }),
         });
 
-        var names = registry.GetToolsForConfig(config, Context()).Select(t => t.Name).ToList();
+        var names = new BaseToolRegistry().GetToolsForConfig(config, Context()).Select(t => t.Name).ToList();
 
-        names.Should().Contain("calculate").And.NotContain("convert_units");
+        names.Should().NotContain(disabledTool);
+        names.Should().BeEquivalentTo(AllToolNames.Except([disabledTool]));
+        names.Should().HaveCount(29);
     }
 
     [Fact]
     public void GetToolsForConfig_UnlistedSlugsAndTools_DefaultToEnabled()
     {
         // Preserves the legacy "all tools" behaviour for partially-configured workspaces.
-        var registry = new BaseToolRegistry();
         var config = new ToolsConfig(Builtin: new Dictionary<string, SlugToolsConfig>
         {
             ["calculator"] = new(),
         });
 
-        registry.GetToolsForConfig(config, Context()).Should().HaveCount(9); // all tools
+        new BaseToolRegistry().GetToolsForConfig(config, Context()).Select(t => t.Name)
+            .Should().Equal(AllToolNames);
     }
 
     [Fact]
@@ -109,7 +121,7 @@ public class BaseToolRegistryTests
 
         registry.Register(new StubToolModule("time", "get_stub"));
 
-        registry.AllSlugs().Should().Equal(["time", "calculator", "weather"]);
+        registry.AllSlugs().Should().Equal(ExpectedSlugs);
         registry.GetTools(["time"], Context()).Select(t => t.Name).Should().Equal(["get_stub"]);
     }
 
@@ -118,22 +130,28 @@ public class BaseToolRegistryTests
     {
         var registry = new BaseToolRegistry();
 
-        registry.Register(new StubToolModule("desktop", "click_mouse"));
+        registry.Register(new StubToolModule("custom", "get_custom"));
 
-        registry.AllSlugs().Should().Equal(["time", "calculator", "weather", "desktop"]);
+        registry.AllSlugs().Should().Equal(ExpectedSlugs.Append("custom"));
         registry.GetToolsForConfig(ToolsConfig.Default, Context())
-            .Select(t => t.Name).Should().Contain("click_mouse");
+            .Select(t => t.Name).Should().Contain("get_custom");
     }
 
     [Fact]
-    public void Catalog_GroupsBySlugWithOneLineDocsAndOperationKind()
+    public void Catalog_ContainsEveryGroupAndFunctionInTheCrossPlatformCatalog()
     {
         var catalog = new BaseToolRegistry().Catalog();
 
-        catalog.Keys.Should().Equal(["time", "calculator", "weather"]);
-        var calculate = catalog["calculator"].Single(e => e.Name == "calculate");
-        calculate.Doc.Should().NotBeNullOrWhiteSpace();
-        calculate.Operation.Should().Be(OperationKind.Query);
+        catalog.Keys.Should().Equal(ExpectedSlugs);
+        catalog.Should().HaveCount(ExpectedTools.Count);
+        foreach (var (slug, toolNames) in ExpectedTools)
+        {
+            catalog[slug].Select(entry => entry.Name).Should().Equal(toolNames);
+            catalog[slug].Should().OnlyContain(entry => !string.IsNullOrWhiteSpace(entry.Doc));
+        }
+
+        catalog["calculator"].Single(e => e.Name == "calculate").Operation.Should().Be(OperationKind.Query);
+        catalog["weather"].Should().OnlyContain(entry => entry.Operation == OperationKind.Query);
     }
 
     [Fact]
@@ -148,9 +166,9 @@ public class BaseToolRegistryTests
 
     [Theory]
     [InlineData("""{"builtin_enabled": false}""", 0)]
-    [InlineData("""{"builtin": {"time": {"enabled": false}}}""", 5)] // calculator (3) + weather (2)
-    [InlineData("""{"builtin": {"time": {"tools": {"get_current_date": false}}}}""", 8)] // all except get_current_date
-    [InlineData("""{}""", 9)] // all tools
+    [InlineData("""{"builtin": {"time": {"enabled": false}}}""", 26)]
+    [InlineData("""{"builtin": {"time": {"tools": {"get_current_date": false}}}}""", 29)]
+    [InlineData("""{}""", 30)]
     public void GetToolsForConfig_FromPersistedJson_ResolvesAsPython(string json, int expectedCount)
     {
         var config = ToolsConfig.FromJson(JsonNode.Parse(json));
@@ -194,6 +212,9 @@ public class BaseToolRegistryTests
         deleteTool.Should().NotBeOfType<StubFunction>("mutating tools must be approval-wrapped");
         gated.Single(t => t.Name == "calculate").Should().BeSameAs(tools.Single(t => t.Name == "calculate"));
     }
+
+    public static IEnumerable<object[]> ToolGroups() =>
+        ExpectedTools.Select(group => new object[] { group.Key, group.Value });
 
     private sealed class StubToolModule(string slug, params string[] toolNames) : IToolModule
     {

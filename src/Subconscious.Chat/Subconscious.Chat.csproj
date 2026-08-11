@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Subconscious.Chat</RootNamespace>
+    <AssemblyName>Subconscious.Chat</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="0.40.0" />
+    <None Update="messages.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

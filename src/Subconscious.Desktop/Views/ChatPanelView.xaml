@@ -2,6 +2,7 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
+             xmlns:native="clr-namespace:Subconscious.Chat.Native;assembly=Subconscious.Chat.Native"
              xmlns:vm="clr-namespace:Subconscious.Desktop.ViewModels"
              xmlns:views="clr-namespace:Subconscious.Desktop.Views"
              xmlns:controls="clr-namespace:Subconscious.Desktop.Controls"
@@ -36,152 +37,13 @@
                          ToolTipProperties.Text="New thread" />
         </Grid>
 
-        <!-- Native bubbles let DynamicResource repaint the transcript and the platform render
-             themed scrollbars without regenerating a second HTML document. -->
-        <CollectionView x:Name="MessagesView"
-                        Grid.Row="1"
-                        ItemsSource="{Binding Messages}"
-                        SelectionMode="None"
-                        Margin="0">
-            <CollectionView.ItemsLayout>
-                <LinearItemsLayout Orientation="Vertical" ItemSpacing="0" />
-            </CollectionView.ItemsLayout>
-            <CollectionView.EmptyView>
-                <Label Text="Start a conversation." Style="{StaticResource MutedLabel}"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
-            </CollectionView.EmptyView>
-            <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="vm:MessageViewModel">
-                    <!-- CollectionView stretches its root item. This transparent wrapper owns that
-                         full row; the contained Border measures to its content then aligns to the
-                         sender/responder edge, capped at 525px. -->
-                    <Grid Padding="12,0">
-                        <Border MaximumWidthRequest="525"
-                                Margin="0,0,0,8"
-                                Padding="10,8"
-                                StrokeThickness="0"
-                                BackgroundColor="{DynamicResource AssistantBubbleColor}"
-                                HorizontalOptions="{Binding IsUser, Converter={StaticResource BubbleAlignment}}">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="5" />
-                            </Border.StrokeShape>
-                            <Border.Triggers>
-                                <DataTrigger TargetType="Border" Binding="{Binding IsUser}" Value="True">
-                                    <Setter Property="BackgroundColor" Value="{DynamicResource UserBubbleColor}" />
-                                </DataTrigger>
-                            </Border.Triggers>
-                            <VerticalStackLayout Spacing="0" HorizontalOptions="Start">
-                                <!-- All non-tool content is parsed by Markdig and rendered with native,
-                                     semantic-resource-aware controls rather than raw Markdown text. -->
-                                <views:MarkdownMessageView Markdown="{Binding Content}"
-                                                           HorizontalOptions="Start"
-                                                           IsVisible="{Binding IsTool, Converter={StaticResource InvertedBool}}" />
-
-                                <!-- Collapsed tools stay on one compact metadata row. The chevron
-                                     alone toggles detail, keeping the adjacent copy action independent. -->
-                                <VerticalStackLayout IsVisible="{Binding IsTool}" Spacing="0" HorizontalOptions="Start">
-                                    <Grid Padding="0" ColumnDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="6">
-                                        <Label Text="{Binding ToolTitle}"
-                                               LineBreakMode="NoWrap" VerticalOptions="Center" />
-                                        <Label Grid.Column="1" Text="{Binding Timestamp}"
-                                               Style="{StaticResource MutedLabel}" FontSize="11"
-                                               VerticalOptions="Center" />
-                                        <Border Grid.Column="2" Style="{StaticResource BubbleCopyButton}"
-                                                SemanticProperties.Description="Copy tool message"
-                                                ToolTipProperties.Text="Copy tool message">
-                                            <Border.GestureRecognizers>
-                                                <TapGestureRecognizer Tapped="OnCopyMessageTapped" />
-                                            </Border.GestureRecognizers>
-                                            <Image InputTransparent="True"
-                                                   mi:MauiIcon.Value="{mi:Fluent Icon=Copy24, IconSize=15, IconColor={Binding Source={x:Reference ChatPanelRoot}, Path=BindingContext.IconColor}}" />
-                                        </Border>
-                                        <!-- Segoe Fluent Icons supplies the familiar Windows expand/collapse chevrons. -->
-                                        <Label Grid.Column="3" Text="{Binding ToolExpansionGlyph}"
-                                               FontFamily="Segoe Fluent Icons" FontSize="12"
-                                               VerticalOptions="Center"
-                                               SemanticProperties.Description="Show or hide tool details"
-                                               ToolTipProperties.Text="Show or hide tool details">
-                                            <Label.GestureRecognizers>
-                                                <TapGestureRecognizer Command="{Binding ToggleToolExpandedCommand}" />
-                                            </Label.GestureRecognizers>
-                                        </Label>
-                                    </Grid>
-                                    <ScrollView IsVisible="{Binding IsToolExpanded}"
-                                                Margin="0,8,0,0"
-                                                MaximumHeightRequest="260"
-                                                Orientation="Vertical">
-                                        <VerticalStackLayout Spacing="0">
-                                            <VerticalStackLayout Spacing="2">
-                                                <Label Text="Input" Style="{StaticResource MutedLabel}" />
-                                                <Label Text="{Binding ToolInput}" FontFamily="monospace"
-                                                       LineBreakMode="WordWrap" />
-                                            </VerticalStackLayout>
-                                            <BoxView HeightRequest="1" Color="{DynamicResource DividerColor}"
-                                                     IsVisible="{Binding ToolOutput, Converter={StaticResource IsNotEmpty}}" />
-                                            <VerticalStackLayout Spacing="2"
-                                                                 IsVisible="{Binding ToolOutput, Converter={StaticResource IsNotEmpty}}">
-                                                <Label Text="Output" Style="{StaticResource MutedLabel}" />
-                                                <Label Text="{Binding ToolOutput}" FontFamily="monospace"
-                                                       LineBreakMode="WordWrap" />
-                                            </VerticalStackLayout>
-                                        </VerticalStackLayout>
-                                    </ScrollView>
-                                </VerticalStackLayout>
-
-                                <!-- A horizontal, content-sized footer avoids the former star column
-                                     that forced even a short message to consume the whole row. Tools
-                                     deliberately have no footer so their collapsed form remains one line. -->
-                                <HorizontalStackLayout IsVisible="{Binding IsTool, Converter={StaticResource InvertedBool}}"
-                                                       Margin="0,6,0,0"
-                                                       Spacing="6"
-                                                       HorizontalOptions="End">
-                                    <Label Text="{Binding Timestamp}" Style="{StaticResource MutedLabel}"
-                                           FontSize="11" VerticalOptions="Center" />
-                                    <Border Style="{StaticResource BubbleCopyButton}"
-                                            SemanticProperties.Description="Copy message"
-                                            ToolTipProperties.Text="Copy message">
-                                        <Border.GestureRecognizers>
-                                            <TapGestureRecognizer Tapped="OnCopyMessageTapped" />
-                                        </Border.GestureRecognizers>
-                                        <Image InputTransparent="True"
-                                               mi:MauiIcon.Value="{mi:Fluent Icon=Copy24, IconSize=15, IconColor={Binding Source={x:Reference ChatPanelRoot}, Path=BindingContext.IconColor}}" />
-                                    </Border>
-                                </HorizontalStackLayout>
-                            </VerticalStackLayout>
-                        </Border>
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-            <!-- Approval is a transient assistant-side transcript item, not a modal overlay. It
-                 scrolls with the conversation and disappears when a decision is made. -->
-            <CollectionView.Footer>
-                <Grid x:DataType="vm:ChatViewModel" Padding="12,0"
-                      IsVisible="{Binding HasPendingToolApproval}">
-                    <Border MaximumWidthRequest="525" Margin="0,0,0,8" Padding="10,8"
-                            StrokeThickness="0" BackgroundColor="{DynamicResource AssistantBubbleColor}"
-                            HorizontalOptions="Start">
-                        <Border.StrokeShape><RoundRectangle CornerRadius="5" /></Border.StrokeShape>
-                        <VerticalStackLayout Spacing="6">
-                            <Label Text="Tool approval required" FontAttributes="Bold" />
-                            <Label Text="{Binding PendingToolApproval.ToolName, StringFormat='Allow {0} to run?'}" />
-                            <Label Text="{Binding PendingToolApproval.Operation, StringFormat='Operation: {0}'}"
-                                   Style="{StaticResource MutedLabel}" FontSize="12" />
-                            <Label Text="Arguments" Style="{StaticResource MutedLabel}" FontSize="12" />
-                            <ScrollView MaximumHeightRequest="120" Orientation="Vertical">
-                                <Label Text="{Binding PendingToolApproval.Arguments}" FontFamily="monospace"
-                                       LineBreakMode="WordWrap" />
-                            </ScrollView>
-                            <HorizontalStackLayout Spacing="8" HorizontalOptions="End">
-                                <Button Text="Deny" Command="{Binding DenyToolCommand}"
-                                        SemanticProperties.Description="Deny this tool request" />
-                                <Button Text="Allow" Command="{Binding ApproveToolCommand}"
-                                        SemanticProperties.Description="Allow this tool request" />
-                            </HorizontalStackLayout>
-                        </VerticalStackLayout>
-                    </Border>
-                </Grid>
-            </CollectionView.Footer>
-        </CollectionView>
+        <!-- The retained native canvas owns layout, selection, copying, tool expansion, approvals,
+             and near-bottom auto-follow while consuming the same UI-neutral message contracts. -->
+        <native:NativeChatTranscriptView Grid.Row="1"
+                                         ItemsSource="{Binding Messages}"
+                                         ThemeRevision="{Binding ThemeRevision}"
+                                         EmptyText="Start a conversation."
+                                         MaximumBubbleWidth="525" />
 
         <!-- ── Chat omnibox ────────────────────────────────────────────────── -->
         <!-- Keep every interaction backed by ChatViewModel: the engine currently supports text

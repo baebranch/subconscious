@@ -1,12 +1,14 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Subconscious.Chat;
 
 namespace Subconscious.Desktop.ViewModels;
 
 /// <summary>A persisted chat message, or the in-progress assistant reply being streamed.</summary>
-public sealed partial class MessageViewModel : ViewModelBase
+public sealed partial class MessageViewModel : ViewModelBase, IChatTranscriptMessage
 {
     private static readonly JsonSerializerOptions PrettyJson = new() { WriteIndented = true };
 
@@ -56,6 +58,8 @@ public sealed partial class MessageViewModel : ViewModelBase
 
     [RelayCommand]
     private void ToggleToolExpanded() => IsToolExpanded = !IsToolExpanded;
+
+    ICommand IChatTranscriptMessage.ToggleToolExpandedCommand => ToggleToolExpandedCommand;
 
     /// <summary>Append a streamed delta to this bubble's content.</summary>
     public void AppendDelta(string delta) => Content += delta;

@@ -20,4 +20,25 @@ public class ApprovalConfigTests
         config.RequiresApproval(OperationKind.Query).Should().BeFalse();
         config.RequiresApproval(OperationKind.Mutation).Should().BeTrue();
     }
+
+    [Fact]
+    public void FromJson_ReadsPersistedWorkspaceShape()
+    {
+        var config = ApprovalConfig.FromJson("{\"query\":false,\"mutation\":true}");
+
+        config.RequireApprovalForQueries.Should().BeFalse();
+        config.RequireApprovalForMutations.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("[]")]
+    [InlineData("{ invalid")]
+    public void FromJson_InvalidOrMissingPolicy_FallsBackToSafeDefault(string? json)
+    {
+        var config = ApprovalConfig.FromJson(json);
+
+        config.Should().Be(ApprovalConfig.Default);
+    }
 }

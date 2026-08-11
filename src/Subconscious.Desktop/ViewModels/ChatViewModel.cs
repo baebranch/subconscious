@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Subconscious.Chat;
 using Subconscious.Desktop.Engine;
 
 namespace Subconscious.Desktop.ViewModels;
@@ -22,6 +23,7 @@ public sealed partial class ChatViewModel : ViewModelBase
     private string? _activeTurnId;
     private string? _activeTurnThread;
     private MessageViewModel? _streamingAssistantBubble;
+    private ToolApprovalMessageViewModel? _pendingToolApprovalMessage;
     private long _themeRevision;
     private bool _synchronizingSelectedModel;
     private string? _draftModelId;
@@ -29,7 +31,7 @@ public sealed partial class ChatViewModel : ViewModelBase
     private bool _isDraftToolPolicyDirty;
     private bool _hasDraftToolPolicyOverride;
 
-    public ObservableCollection<MessageViewModel> Messages { get; } = [];
+    public ObservableCollection<IChatTranscriptMessage> Messages { get; } = [];
     public ObservableCollection<ThreadInfo> Threads { get; } = [];
     public ObservableCollection<Workspace> Workspaces { get; } = [];
     public ObservableCollection<ModelInfo> AvailableModels { get; } = [];
@@ -166,8 +168,23 @@ public sealed partial class ChatViewModel : ViewModelBase
     /// <summary>Whether a policy-protected tool call is awaiting an explicit user decision.</summary>
     public bool HasPendingToolApproval => PendingToolApproval is not null;
 
-    partial void OnPendingToolApprovalChanged(ToolApprovalRequestEventArgs? value) =>
+    partial void OnPendingToolApprovalChanged(ToolApprovalRequestEventArgs? value)
+    {
+        if (_pendingToolApprovalMessage is not null)
+        {
+            Messages.Remove(_pendingToolApprovalMessage);
+            _pendingToolApprovalMessage = null;
+        }
+
+        if (value is not null)
+        {
+            _pendingToolApprovalMessage = new ToolApprovalMessageViewModel(
+                value.ToolName, value.Operation, value.Arguments, ResolveToolApproval);
+            Messages.Add(_pendingToolApprovalMessage);
+        }
+
         OnPropertyChanged(nameof(HasPendingToolApproval));
+    }
 
     /// <summary>True while <see cref="LoadWorkspacesCommand"/> is in flight, so the Workspaces
     /// panel can show progress instead of its "no workspaces yet" empty state — those two look
@@ -799,24 +816,19 @@ public sealed partial class ChatViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void ApproveTool()
-    {
-        if (PendingToolApproval is not { } request)
-        {
-            return;
-        }
-        _client.ResolveToolApproval(request.TurnId, request.ApprovalId, approve: true);
-        PendingToolApproval = null;
-    }
+    private void ApproveTool() => ResolveToolApproval(approve: true);
 
     [RelayCommand]
-    private void DenyTool()
+    private void DenyTool() => ResolveToolApproval(approve: false);
+
+    private void ResolveToolApproval(bool approve)
     {
         if (PendingToolApproval is not { } request)
         {
             return;
         }
-        _client.ResolveToolApproval(request.TurnId, request.ApprovalId, approve: false);
+
+        _client.ResolveToolApproval(request.TurnId, request.ApprovalId, approve);
         PendingToolApproval = null;
     }
 
