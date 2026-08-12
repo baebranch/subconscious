@@ -14,6 +14,8 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
 {
     private readonly EngineClient _client = new();
     private Workspace? _workspace;
+    private string? _treeWorkspaceUuid;
+    private string? _treeDirectories;
     private int _previewVersion;
     private FileEditorTab? _observedTab;
 
@@ -55,8 +57,14 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
         }
     }
 
-    public async Task LoadWorkspaceAsync(Workspace? workspace)
+    /// <summary>Sets the current workspace while retaining its already-loaded tree between
+    /// section switches. A changed workspace or configured-root list still creates a fresh tree.</summary>
+    public Task LoadWorkspaceAsync(Workspace? workspace)
     {
+        var retainsTree = workspace is not null
+            && _treeWorkspaceUuid == workspace.Uuid
+            && string.Equals(_treeDirectories, workspace.Directories, StringComparison.Ordinal);
+
         _workspace = workspace;
         WorkspaceName = workspace?.Name ?? "No workspace selected";
         RebuildCreateRoots(workspace?.Directories);
@@ -67,13 +75,21 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
                 ? "This workspace has no allowed folders. Add one in Workspace settings."
                 : $"{rootCount} allowed folder{(rootCount == 1 ? string.Empty : "s")}";
 
-        VisibleNodes.Clear();
         ErrorText = null;
+        if (retainsTree)
+        {
+            NotifyActiveFilePropertiesChanged();
+            return Task.CompletedTask;
+        }
+
+        VisibleNodes.Clear();
+        _treeWorkspaceUuid = workspace?.Uuid;
+        _treeDirectories = workspace?.Directories;
         if (workspace is null)
         {
             CancelNewFile();
             NotifyActiveFilePropertiesChanged();
-            return;
+            return Task.CompletedTask;
         }
 
         foreach (var root in CreateRootNodes(workspace.Directories))
@@ -81,11 +97,17 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
             VisibleNodes.Add(root);
         }
         NotifyActiveFilePropertiesChanged();
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     [RelayCommand]
-    private Task RefreshAsync() => LoadWorkspaceAsync(_workspace);
+    private Task RefreshAsync()
+    {
+        // A deliberate Refresh fetches a fresh tree; merely navigating away and back does not.
+        _treeWorkspaceUuid = null;
+        _treeDirectories = null;
+        return LoadWorkspaceAsync(_workspace);
+    }
 
     [RelayCommand]
     private void SelectFile(FileEditorTab? tab)
@@ -145,6 +167,10 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
     private async Task ToggleDirectoryAsync(FileTreeNode node)
     {
         ErrorText = null;
+        if (node.IsLoading)
+        {
+            return;
+        }
         if (node.IsExpanded)
         {
             Collapse(node);
@@ -159,7 +185,9 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
                 return;
             }
 
-            IsLoading = true;
+            // Keep the global file-operation state unchanged: binding it to the Files header
+            // used to insert a row above the CollectionView and visibly shift the whole tree.
+            node.IsLoading = true;
             try
             {
                 await EnsureRestClientAsync();
@@ -167,7 +195,7 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
                     workspace.Uuid,
                     node.RootIndex,
                     string.IsNullOrEmpty(node.RelativePath) ? null : node.RelativePath);
-                if (_workspace?.Uuid != workspace.Uuid)
+                if (_workspace?.Uuid != workspace.Uuid || !VisibleNodes.Contains(node))
                 {
                     return;
                 }
@@ -182,15 +210,22 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
             }
             catch (Exception exception)
             {
-                ErrorText = $"Couldn't load {node.DisplayName}: {exception.Message}";
+                if (_workspace?.Uuid == workspace.Uuid)
+                {
+                    ErrorText = $"Couldn't load {node.DisplayName}: {exception.Message}";
+                }
                 return;
             }
             finally
             {
-                IsLoading = false;
+                node.IsLoading = false;
             }
         }
 
+        if (!VisibleNodes.Contains(node))
+        {
+            return;
+        }
         RestoreVisibleChildren(node);
         node.IsExpanded = true;
     }
@@ -281,7 +316,7 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
             SelectedTab = tab;
             IsCreatingFile = false;
             ErrorText = null;
-            await LoadWorkspaceAsync(workspace);
+            await RefreshAsync();
         }
         catch (Exception exception)
         {
@@ -307,9 +342,17 @@ public sealed partial class FileWorkspaceViewModel : ViewModelBase
         IsLoading = true;
         try
         {
+            // Snapshot the content actually being written. If the user keeps typing while the
+            // write is in flight, tab.Content can change before the await returns; unconditionally
+            // clearing IsDirty afterward marked that newer, never-written text as saved. Only
+            // clear the flag if the tab's content still matches what was sent.
+            var snapshot = tab.Content;
             await EnsureRestClientAsync();
-            await _client.WriteWorkspaceFileAsync(workspace.Uuid, tab.RootIndex, tab.RelativePath, tab.Content);
-            tab.IsDirty = false;
+            await _client.WriteWorkspaceFileAsync(workspace.Uuid, tab.RootIndex, tab.RelativePath, snapshot);
+            if (tab.Content == snapshot)
+            {
+                tab.IsDirty = false;
+            }
             ErrorText = null;
             NotifyActiveFilePropertiesChanged();
         }

@@ -1233,10 +1233,9 @@ public sealed class NativeChatTranscriptView : ContentView
                         ? colors.SecondaryText
                         : colors.PrimaryText;
                 // Line widths were measured during layout; reuse them instead of re-measuring
-                // every visual line on each paint.
-                var contentRight = block.Width - BubblePaddingX;
-                var renderWidth = Math.Max(1,
-                    Math.Min(line.Bounds.Width + 2, contentRight - line.Bounds.X));
+                // every visual line on each paint. Let the clip extend slightly into the bubble's
+                // right padding because measured advance width may not include glyph overhang.
+                var renderWidth = Math.Max(1, line.Bounds.Width + 2);
                 canvas.DrawString(line.Text,
                     line.Bounds.X, line.Bounds.Y,
                     renderWidth, line.Bounds.Height,

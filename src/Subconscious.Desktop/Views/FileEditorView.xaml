@@ -5,7 +5,7 @@
              xmlns:editor="clr-namespace:Subconscious.WYSIWYG;assembly=Subconscious.WYSIWYG"
              x:Class="Subconscious.Desktop.Views.FileEditorView"
              x:DataType="vm:FileWorkspaceViewModel">
-    <Grid RowDefinitions="Auto,Auto,*" Padding="16,12,16,16" RowSpacing="8">
+    <Grid RowDefinitions="Auto,Auto,*" Padding="16,12,16,0" RowSpacing="8">
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
             <VerticalStackLayout Spacing="1" VerticalOptions="Center">
                 <Label Text="{Binding Title}" FontSize="16" FontAttributes="Bold" LineBreakMode="TailTruncation" />
@@ -40,6 +40,7 @@
             <editor:EditorWorkspaceView ItemsSource="{Binding OpenFiles}"
                                         SelectedDocument="{Binding SelectedTab, Mode=TwoWay}"
                                         CloseCommand="{Binding CloseFileCommand}"
+                                        SaveCommand="{Binding SaveCommand}"
                                         Theme="{Binding EditorTheme}"
                                         IsVisible="{Binding IsFileOpen}" />
         </Grid>

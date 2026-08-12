@@ -53,9 +53,17 @@ public sealed partial class MainViewModel : ViewModelBase
     private int? _selectedWorkspaceId;
     private SettingsPage _lastSettingsPage = SettingsPage.General;
     private CancellationTokenSource? _desktopStateSaveDelay;
+    private DesktopWindowPlacement? _windowPlacement;
+    private bool _desktopStateInitialized;
 
     /// <summary>Prevents restoration and first-run initialization from overwriting stored state.</summary>
     private bool _restoring;
+
+    /// <summary>Raised after the asynchronous engine-backed desktop state is available.</summary>
+    public event EventHandler? DesktopStateRestored;
+
+    /// <summary>The native window's last normal bounds and whether it was maximized on exit.</summary>
+    public DesktopWindowPlacement? WindowPlacement => _windowPlacement;
 
     public ChatViewModel Chat { get; } = new();
 
@@ -137,6 +145,7 @@ public sealed partial class MainViewModel : ViewModelBase
         _theme = theme;
         FileEditor.RefreshEditorTheme();
         _theme.Changed += OnThemeChanged;
+        FileEditor.NavigationStateChanged += (_, _) => QueueDesktopStateSave();
         Chat.PropertyChanged += OnChatPropertyChanged;
         Chat.SelectionChanged += (_, _) =>
         {
@@ -194,6 +203,28 @@ public sealed partial class MainViewModel : ViewModelBase
     /// <summary>Queues a coalesced write to the engine after a completed layout change.</summary>
     public void SaveLayout() => QueueDesktopStateSave();
 
+    /// <summary>Records native window geometry after state restoration, avoiding startup defaults overwriting it.</summary>
+    public void UpdateWindowPlacement(DesktopWindowPlacement placement)
+    {
+        if (!_desktopStateInitialized || _restoring || placement.Width <= 0 || placement.Height <= 0
+            || _windowPlacement == placement)
+        {
+            return;
+        }
+
+        _windowPlacement = placement;
+        QueueDesktopStateSave();
+    }
+
+    /// <summary>Requests a final immediate state save when the native window is closing.</summary>
+    public void PersistDesktopStateOnExit()
+    {
+        if (_desktopStateInitialized)
+        {
+            PersistDesktopStateImmediately();
+        }
+    }
+
     /// <summary>Restores both dividers to their design defaults — bound to a double-click on
     /// either divider, the usual desktop convention.</summary>
     [RelayCommand]
@@ -242,6 +273,7 @@ public sealed partial class MainViewModel : ViewModelBase
                 IsContextPanelOpen = state.ContextVisible;
                 ChatPanelWidth = state.ChatPanelWidth;
                 ContextPanelWidth = state.ContextPanelWidth;
+                _windowPlacement = state.WindowPlacement;
                 Chat.ComposerText = state.ChatboxText;
                 _selectedWorkspaceId = state.SelectedWorkspaceId;
                 if (Enum.TryParse<SettingsPage>(state.SelectedSetting, ignoreCase: true, out var setting)
@@ -250,12 +282,15 @@ public sealed partial class MainViewModel : ViewModelBase
                     _lastSettingsPage = setting;
                 }
 
+                await FileEditor.RestoreNavigationStateAsync(state.FileNavigation, Chat.Workspaces, Chat.CurrentWorkspace);
                 OpenMainPanelForCurrentContext();
             }
         }
         finally
         {
             _restoring = false;
+            _desktopStateInitialized = true;
+            DesktopStateRestored?.Invoke(this, EventArgs.Empty);
         }
 
         // If a saved workspace/thread was deleted or unavailable, Chat selected a valid fallback.
@@ -297,12 +332,14 @@ public sealed partial class MainViewModel : ViewModelBase
         ContextVisible = IsContextPanelOpen,
         ChatPanelWidth = ChatPanelWidth,
         ContextPanelWidth = ContextPanelWidth,
+        WindowPlacement = _windowPlacement,
         ActiveWorkspaceId = Chat.CurrentWorkspace?.Id,
         ShowAllThreads = Chat.CurrentWorkspace is null,
         SelectedThreadId = Chat.CurrentThread?.Id,
         SelectedWorkspaceId = _selectedWorkspaceId,
         SelectedSetting = _lastSettingsPage.ToString().ToLowerInvariant(),
         ChatboxText = Chat.ComposerText,
+        FileNavigation = FileEditor.CaptureNavigationState(),
     };
 
     private void QueueDesktopStateSave() => ScheduleDesktopStateSave(TimeSpan.FromMilliseconds(300));
@@ -516,8 +553,11 @@ public sealed partial class MainViewModel : ViewModelBase
     /// row converters reevaluate after either a chat selection or a live palette change.</summary>
     public string? ActiveThreadUuid => Chat.CurrentThread?.Uuid;
 
-    /// <summary>Whether the center panel is hosting the workspace-scoped text editor.</summary>
-    public bool IsFileEditorOpen => CurrentContextSection == ContextPanelSection.Files;
+    /// <summary>Whether the center panel is hosting the workspace-scoped text editor. File editing
+    /// is mutually exclusive with every form page, including pages opened by a direct command.</summary>
+    public bool IsFileEditorOpen => CurrentContextSection == ContextPanelSection.Files
+        && WorkspaceForm is null
+        && ActiveSettingsPage is null;
 
     /// <summary>True when the center panel isn't showing a workspace, settings, or file editor page.</summary>
     public bool IsCenterPanelIdle => WorkspaceForm is null && ActiveSettingsPage is null && !IsFileEditorOpen;
@@ -525,6 +565,7 @@ public sealed partial class MainViewModel : ViewModelBase
     partial void OnWorkspaceFormChanged(WorkspaceFormViewModel? value)
     {
         OnPropertyChanged(nameof(IsWorkspaceFormOpen));
+        OnPropertyChanged(nameof(IsFileEditorOpen));
         OnPropertyChanged(nameof(ActiveWorkspaceUuid));
         OnPropertyChanged(nameof(IsCenterPanelIdle));
         QueueDesktopStateSave();
@@ -602,6 +643,7 @@ public sealed partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsToolsSettingsPageOpen));
         OnPropertyChanged(nameof(IsSkillsSettingsPageOpen));
         OnPropertyChanged(nameof(IsAboutSettingsPageOpen));
+        OnPropertyChanged(nameof(IsFileEditorOpen));
         OnPropertyChanged(nameof(IsCenterPanelIdle));
         QueueDesktopStateSave();
     }

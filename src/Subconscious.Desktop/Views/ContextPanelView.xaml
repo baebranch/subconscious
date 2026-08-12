@@ -109,12 +109,12 @@
                       HeightRequest="32" MinimumHeightRequest="32">
                     <Label Text="Files" FontSize="14" FontAttributes="Bold"
                            VerticalOptions="Fill" VerticalTextAlignment="Center" />
-                    <ImageButton Grid.Column="1" Style="{StaticResource SquareIconButton}"
+                    <ImageButton Grid.Column="1" Margin="4,0,0,0" Style="{StaticResource SquareIconButton}"
                                  mi:MauiIcon.Value="{mi:Fluent Icon=ArrowClockwise24, IconSize=16, IconColor={Binding IconColor}}"
                                  Command="{Binding FileEditor.RefreshCommand}"
                                  SemanticProperties.Description="Refresh files"
                                  ToolTipProperties.Text="Refresh files" />
-                    <ImageButton Grid.Column="2" Style="{StaticResource SquareIconButton}"
+                    <ImageButton Grid.Column="2" Margin="4,0,0,0" Style="{StaticResource SquareIconButton}"
                                  mi:MauiIcon.Value="{mi:Fluent Icon=Add24, IconSize=16, IconColor={Binding IconColor}}"
                                  Command="{Binding FileEditor.StartNewFileCommand}"
                                  SemanticProperties.Description="Create a file"

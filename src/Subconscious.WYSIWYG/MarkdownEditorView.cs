@@ -7,11 +7,12 @@ public sealed class MarkdownEditorView : Grid
     {
         Kind = EditorDocumentKind.Markdown,
         Placeholder = "Start writing…",
-        FontSize = 14,
+        FontSize = 13,
     };
     private readonly List<Button> _buttons = [];
 
     public event EventHandler<EditorTextChangedEventArgs>? DocumentTextChanged;
+    public event EventHandler? SaveRequested;
 
     public MarkdownEditorView()
     {
@@ -22,6 +23,7 @@ public sealed class MarkdownEditorView : Grid
         Children.Add(_surface);
         Grid.SetRow(_surface, 1);
         _surface.DocumentTextChanged += (_, args) => DocumentTextChanged?.Invoke(this, args);
+        _surface.SaveRequested += (_, _) => SaveRequested?.Invoke(this, EventArgs.Empty);
     }
 
     public void LoadDocument(IEditorDocument document, EditorTheme theme) => _surface.LoadDocument(document, theme);
@@ -42,18 +44,30 @@ public sealed class MarkdownEditorView : Grid
 
     private ScrollView CreateToolbar()
     {
-        var buttons = new HorizontalStackLayout { Spacing = 3, Padding = new Thickness(0, 0, 0, 7) };
-        AddButton(buttons, "Normal", "normal"); AddButton(buttons, "H", "heading");
-        AddButton(buttons, "B", "bold", FontAttributes.Bold); AddButton(buttons, "I", "italic", FontAttributes.Italic);
-        AddButton(buttons, "U", "underline"); AddButton(buttons, "1.", "ordered-list");
-        AddButton(buttons, "•", "bullet-list"); AddButton(buttons, "≡", "align");
-        AddButton(buttons, "Link", "link"); AddButton(buttons, "Image", "image");
-        AddButton(buttons, "Video", "video"); AddButton(buttons, "ƒx", "formula");
-        AddButton(buttons, "</>", "code"); AddButton(buttons, "Tx", "clear");
+        // Keep the toolbar visually separate from the tab strip while preserving the
+        // established individual button borders.
+        var buttons = new HorizontalStackLayout { Spacing = 3, Padding = new Thickness(0, 5, 0, 7) };
+        AddButton(buttons, "Normal", "normal", tooltip: "Normal paragraph");
+        AddButton(buttons, "H1", "heading1", tooltip: "Heading 1");
+        AddButton(buttons, "H2", "heading2", tooltip: "Heading 2");
+        AddButton(buttons, "H3", "heading3", tooltip: "Heading 3");
+        AddButton(buttons, "B", "bold", FontAttributes.Bold, "Bold");
+        AddButton(buttons, "I", "italic", FontAttributes.Italic, "Italic");
+        AddButton(buttons, "U", "underline", tooltip: "Underline");
+        AddButton(buttons, "1.", "ordered-list", tooltip: "Numbered list");
+        AddButton(buttons, "•", "bullet-list", tooltip: "Bulleted list");
+        AddButton(buttons, "≡", "align", tooltip: "Center align paragraph");
+        AddButton(buttons, "Link", "link", tooltip: "Insert link");
+        AddButton(buttons, "Image", "image", tooltip: "Insert image");
+        AddButton(buttons, "Video", "video", tooltip: "Insert video");
+        AddButton(buttons, "ƒx", "formula", tooltip: "Insert formula");
+        AddButton(buttons, "</>", "code", tooltip: "Inline code");
+        AddButton(buttons, "Tx", "clear", tooltip: "Clear formatting");
         return new ScrollView { Orientation = ScrollOrientation.Horizontal, Content = buttons };
     }
 
-    private void AddButton(Layout buttons, string text, string command, FontAttributes attributes = FontAttributes.None)
+    private void AddButton(Layout buttons, string text, string command,
+        FontAttributes attributes = FontAttributes.None, string? tooltip = null)
     {
         var button = new Button
         {
@@ -65,6 +79,8 @@ public sealed class MarkdownEditorView : Grid
             MinimumHeightRequest = 30,
             HeightRequest = 30,
         };
+        SemanticProperties.SetDescription(button, tooltip ?? command);
+        ToolTipProperties.SetText(button, tooltip ?? command);
         button.Clicked += async (_, _) =>
         {
             var value = await PromptForValueAsync(command);

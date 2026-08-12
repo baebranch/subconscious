@@ -27,6 +27,9 @@ internal enum NativeParagraphKind
 }
 
 internal sealed record NativeTextSpan(int Start, int Length, NativeTextStyle Style, string? Link = null);
+
+/// <summary>A rendered line's position within the editor viewport, in device-independent units.</summary>
+internal sealed record NativeLineMetric(int Line, double Top, double Height);
 internal sealed record NativeParagraphSpan(int Start, int Length, NativeParagraphKind Kind, int Alignment = 0);
 internal sealed record NativeRichDocument(
     string Text,
@@ -278,7 +281,7 @@ internal static partial class MarkdownRichText
         foreach (var line in lines)
         {
             var paragraph = paragraphs.FirstOrDefault(item => item.Start <= line.Start
-                && item.Start + Math.Max(1, item.Length) >= line.Start);
+                && item.Start + item.Length >= line.Start);
             var kind = paragraph?.Kind ?? NativeParagraphKind.Normal;
             if (kind == NativeParagraphKind.CodeBlock && !codeBlockOpen)
             {
@@ -375,6 +378,43 @@ internal static partial class MarkdownRichText
         }
     }
 
+    /// <summary>
+    /// Merges a per-character style array with semantic (link) spans into run-length-encoded
+    /// spans. This is the inverse of <see cref="CaptureStyles"/>-style per-character sampling and
+    /// must be called on every native commit; it is the single source of truth
+    /// <c>ApplyPresentation</c> reformats the whole document from. Skipping this call lets the
+    /// live document drift from the model, so a later full reformat pass (theme change, undo,
+    /// tab reselect) silently reverts to the model's stale spans.
+    /// </summary>
+    public static IReadOnlyList<NativeTextSpan> BuildTextSpans(string text,
+        IReadOnlyList<NativeTextStyle> styles, IReadOnlyList<NativeTextSpan> semanticSpans)
+    {
+        var result = new List<NativeTextSpan>();
+        var at = 0;
+        while (at < text.Length)
+        {
+            var style = at < styles.Count ? styles[at] : NativeTextStyle.None;
+            var link = LinkAt(semanticSpans, at);
+            var runEnd = at + 1;
+            while (runEnd < text.Length
+                && (runEnd < styles.Count ? styles[runEnd] : NativeTextStyle.None) == style
+                && LinkAt(semanticSpans, runEnd) == link)
+            {
+                runEnd++;
+            }
+            if (style != NativeTextStyle.None || link is not null)
+            {
+                result.Add(new NativeTextSpan(at, runEnd - at, style, link));
+            }
+            at = runEnd;
+        }
+        return result;
+    }
+
+    private static string? LinkAt(IReadOnlyList<NativeTextSpan> semanticSpans, int position) =>
+        semanticSpans.FirstOrDefault(span => span.Link is not null
+            && span.Start <= position && span.Start + span.Length > position)?.Link;
+
     public static IReadOnlyList<NativeTextSpan> AdjustSemanticSpans(
         IReadOnlyList<NativeTextSpan> spans, string oldText, string newText)
     {
@@ -399,6 +439,48 @@ internal static partial class MarkdownRichText
         }
         return adjusted;
     }
+
+    /// <summary>
+    /// Repositions presentation-only paragraph spans after a native text edit. The Windows
+    /// handler needs this snapshot while it samples RichEdit formatting; otherwise an edit before
+    /// a paragraph makes the old offsets classify a different line on the next presentation pass.
+    /// </summary>
+    public static IReadOnlyList<NativeParagraphSpan> AdjustParagraphSpans(
+        IReadOnlyList<NativeParagraphSpan> spans, string oldText, string newText)
+    {
+        if (spans.Count == 0 || oldText == newText) return spans;
+
+        var prefix = 0;
+        while (prefix < oldText.Length && prefix < newText.Length && oldText[prefix] == newText[prefix]) prefix++;
+        var suffix = 0;
+        while (suffix < oldText.Length - prefix && suffix < newText.Length - prefix
+            && oldText[^(suffix + 1)] == newText[^(suffix + 1)]) suffix++;
+
+        var oldChangeEnd = oldText.Length - suffix;
+        var newChangeEnd = newText.Length - suffix;
+        var delta = newText.Length - oldText.Length;
+        var adjusted = new List<NativeParagraphSpan>(spans.Count);
+
+        foreach (var span in spans)
+        {
+            var start = MapTextOffset(span.Start, prefix, oldChangeEnd, newChangeEnd, delta);
+            // Do not pad an empty span's end before mapping: doing so mapped a blank line's
+            // offset one position past itself, i.e. onto the following paragraph's Start, which
+            // could make the remap treat the edit as inside that next paragraph instead of at
+            // the empty one's own (zero-length) position.
+            var end = MapTextOffset(span.Start + span.Length, prefix, oldChangeEnd, newChangeEnd, delta);
+            if (end >= start)
+            {
+                adjusted.Add(span with { Start = start, Length = end - start });
+            }
+        }
+        return adjusted;
+    }
+
+    private static int MapTextOffset(int position, int prefix, int oldChangeEnd, int newChangeEnd, int delta) =>
+        position <= prefix ? position
+        : position >= oldChangeEnd ? Math.Max(0, position + delta)
+        : newChangeEnd;
 
     public static IReadOnlyList<(int Start, int Length, bool HasNewLine)> GetLines(string text)
     {

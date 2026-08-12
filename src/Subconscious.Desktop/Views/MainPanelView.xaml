@@ -7,7 +7,7 @@
              x:Class="Subconscious.Desktop.Views.MainPanelView"
              x:Name="MainPanelRoot"
              x:DataType="vm:MainViewModel"
-             BackgroundColor="{AppThemeBinding Light={DynamicResource SurfaceColor}, Dark=#09090C}">
+             BackgroundColor="{DynamicResource SurfaceColor}">
 
     <!-- Center panel. Shows the workspace create/edit form or the General Settings form when one
          is open (MainViewModel only ever opens one at a time — see OpenWorkspaceForm /
@@ -24,14 +24,17 @@
 
         <!-- FileEditorView owns the complete active-file experience so Markdown, text, and code
              use one purpose-built surface each rather than a source/preview split. -->
-        <views:FileEditorView IsVisible="{Binding IsFileEditorOpen}"
-                              BindingContext="{Binding FileEditor}" />
+        <!-- Keep the native editor host in a dedicated visibility container. This prevents its
+             platform child from overlapping another main-panel destination during a transition. -->
+        <Grid IsVisible="{Binding IsFileEditorOpen}">
+            <views:FileEditorView BindingContext="{Binding FileEditor}" />
+        </Grid>
 
         <!-- Both forms live in the same responsive shell: the centered content stops growing at
              750px, while the grid's padding leaves a comfortable gutter and lets it shrink with
              a narrow center panel rather than causing horizontal clipping. -->
         <ScrollView IsVisible="{Binding IsWorkspaceFormOpen}" Orientation="Vertical">
-            <Grid x:Name="WorkspaceFormHost" Padding="24,28" HorizontalOptions="Center">
+            <Grid x:Name="WorkspaceFormHost" Padding="24,28,24,0" HorizontalOptions="Center">
                 <VerticalStackLayout x:Name="WorkspaceEditor"
                                      BindingContext="{Binding WorkspaceForm}"
                                      x:DataType="vm:WorkspaceFormViewModel"
@@ -150,7 +153,7 @@
         <!-- General Settings: Picker/Entry are left unstyled so each platform's native control
              chrome shows through. -->
         <ScrollView IsVisible="{Binding IsGeneralSettingsPageOpen}" Orientation="Vertical">
-            <Grid x:Name="SettingsFormHost" Padding="24,28" HorizontalOptions="Center">
+            <Grid x:Name="SettingsFormHost" Padding="24,28,24,0" HorizontalOptions="Center">
                 <VerticalStackLayout BindingContext="{Binding SettingsForm}"
                                      x:DataType="vm:SettingsFormViewModel"
                                      MaximumWidthRequest="750" Spacing="18"
@@ -210,7 +213,7 @@
         <!-- Model configurations are loaded from the engine's encrypted data.enc store. The API
              returns only redacted metadata; API-key input is write-only. -->
         <ScrollView IsVisible="{Binding IsModelsSettingsPageOpen}" Orientation="Vertical">
-            <Grid x:Name="ModelsSettingsHost" Padding="24,28" HorizontalOptions="Center">
+            <Grid x:Name="ModelsSettingsHost" Padding="24,28,24,0" HorizontalOptions="Center">
                 <VerticalStackLayout BindingContext="{Binding ModelSettingsForm}"
                                      x:DataType="vm:ModelSettingsFormViewModel"
                                      MaximumWidthRequest="750" Spacing="18" HorizontalOptions="Fill">
@@ -320,7 +323,7 @@
         <!-- Configured tools are persisted by the engine registry. Names are server-managed and
              therefore deliberately absent from the user-facing editor. -->
         <ScrollView IsVisible="{Binding IsToolsSettingsPageOpen}" Orientation="Vertical">
-            <Grid x:Name="ToolsSettingsHost" Padding="24,28" HorizontalOptions="Center">
+            <Grid x:Name="ToolsSettingsHost" Padding="24,28,24,0" HorizontalOptions="Center">
                 <VerticalStackLayout BindingContext="{Binding ToolSettingsForm}"
                                      x:DataType="vm:ToolSettingsFormViewModel"
                                      MaximumWidthRequest="750" Spacing="18" HorizontalOptions="Fill">
@@ -374,7 +377,7 @@
         <!-- Skills have no Engine registry endpoint yet, so each expansion card remains scoped to
              this Desktop session while keeping its own editable state and validation summary. -->
         <ScrollView IsVisible="{Binding IsSkillsSettingsPageOpen}" Orientation="Vertical">
-            <Grid x:Name="SkillsSettingsHost" Padding="24,28" HorizontalOptions="Center">
+            <Grid x:Name="SkillsSettingsHost" Padding="24,28,24,0" HorizontalOptions="Center">
                 <VerticalStackLayout BindingContext="{Binding SkillSettingsPage}"
                                      x:DataType="vm:SkillSettingsPageViewModel"
                                      MaximumWidthRequest="750" Spacing="18" HorizontalOptions="Fill">
@@ -433,7 +436,7 @@
                 <Label Text="About" FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
             </HorizontalStackLayout>
 
-            <Grid x:Name="AboutSettingsHost" Grid.Row="2" Padding="24,24,24,48"
+            <Grid x:Name="AboutSettingsHost" Grid.Row="2" Padding="24,24,24,0"
                   HorizontalOptions="Center" BindingContext="{Binding AboutSettings}"
                   x:DataType="vm:AboutSettingsViewModel">
                 <VerticalStackLayout MaximumWidthRequest="750" Spacing="0"

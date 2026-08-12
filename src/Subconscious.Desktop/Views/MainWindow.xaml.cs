@@ -7,13 +7,25 @@ namespace Subconscious.Desktop.Views;
 /// including dragging, snap layouts, system menus, and caption buttons.</summary>
 public partial class MainWindow : Window
 {
+    private readonly MainViewModel _viewModel;
     private readonly ThemeService _theme;
     private readonly ChatViewModel _chat;
+
+#if WINDOWS
+    private const int MinimumRestoredWindowWidth = 960;
+    private const int MinimumRestoredWindowHeight = 600;
+
+    private Microsoft.UI.Windowing.AppWindow? _appWindow;
+    private DesktopWindowPlacement? _normalWindowBounds;
+    private bool _desktopStateRestored;
+    private bool _isRestoringWindowPlacement;
+#endif
 
     public MainWindow(MainViewModel viewModel, MainPage page, ThemeService theme)
     {
         InitializeComponent();
 
+        _viewModel = viewModel;
         BindingContext = viewModel;
         _chat = viewModel.Chat;
         // TitleBar content is hosted outside the Window's normal visual tree on WinUI. Set and
@@ -31,13 +43,130 @@ public partial class MainWindow : Window
         // post-creation point; later theme changes keep the native tree in sync.
         ApplyPlatformTheme();
         HandlerChanged += (_, _) => ApplyPlatformTheme();
-        Created += (_, _) =>
-        {
-            ApplyPlatformTheme();
-            UpdateTitleBarStatus();
-        };
+        Created += OnWindowCreated;
+        Destroying += OnWindowDestroying;
+        _viewModel.DesktopStateRestored += OnDesktopStateRestored;
         _theme.Changed += (_, _) => ApplyPlatformTheme();
     }
+
+    private void OnWindowCreated(object? sender, EventArgs e)
+    {
+        ApplyPlatformTheme();
+        UpdateTitleBarStatus();
+
+#if WINDOWS
+        if (Handler?.PlatformView is Microsoft.UI.Xaml.Window nativeWindow)
+        {
+            _appWindow = nativeWindow.AppWindow;
+            _appWindow.Changed += (_, _) => CaptureWindowPlacement();
+            CaptureWindowPlacement();
+            RestoreWindowPlacementIfReady();
+        }
+#endif
+    }
+
+    private void OnDesktopStateRestored(object? sender, EventArgs e)
+    {
+#if WINDOWS
+        _desktopStateRestored = true;
+        RestoreWindowPlacementIfReady();
+#endif
+    }
+
+    private void OnWindowDestroying(object? sender, EventArgs e)
+    {
+#if WINDOWS
+        CaptureWindowPlacement();
+#endif
+        _viewModel.PersistDesktopStateOnExit();
+    }
+
+#if WINDOWS
+    /// <summary>Restores normal bounds before maximizing so Windows retains the right restore size.</summary>
+    private void RestoreWindowPlacementIfReady()
+    {
+        if (!_desktopStateRestored || _appWindow is null || _viewModel.WindowPlacement is not { } placement
+            || !IsRestorable(placement))
+        {
+            return;
+        }
+
+        _normalWindowBounds = placement with { IsMaximized = false };
+        _isRestoringWindowPlacement = true;
+        try
+        {
+            _appWindow.MoveAndResize(new Windows.Graphics.RectInt32(
+                placement.X,
+                placement.Y,
+                placement.Width,
+                placement.Height));
+
+            if (placement.IsMaximized
+                && _appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+            {
+                presenter.Maximize();
+            }
+        }
+        catch (Exception)
+        {
+            // Startup continues with MAUI's default placement if the saved monitor/bounds are unusable.
+        }
+        finally
+        {
+            _isRestoringWindowPlacement = false;
+        }
+    }
+
+    /// <summary>Uses native pixels consistently, preserving normal bounds while the window is maximized.</summary>
+    private void CaptureWindowPlacement()
+    {
+        if (_appWindow is null || _isRestoringWindowPlacement)
+        {
+            return;
+        }
+
+        var isMaximized = _appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter
+        {
+            State: Microsoft.UI.Windowing.OverlappedPresenterState.Maximized,
+        };
+        var position = _appWindow.Position;
+        var size = _appWindow.Size;
+        if (!isMaximized && size.Width >= MinimumRestoredWindowWidth && size.Height >= MinimumRestoredWindowHeight)
+        {
+            _normalWindowBounds = new DesktopWindowPlacement(position.X, position.Y, size.Width, size.Height, false);
+        }
+
+        if (_desktopStateRestored && _normalWindowBounds is { } normalBounds)
+        {
+            _viewModel.UpdateWindowPlacement(normalBounds with { IsMaximized = isMaximized });
+        }
+    }
+
+    /// <summary>Never restore a malformed size or a rectangle wholly outside the available displays.</summary>
+    private static bool IsRestorable(DesktopWindowPlacement placement)
+    {
+        if (placement.Width < MinimumRestoredWindowWidth || placement.Height < MinimumRestoredWindowHeight)
+        {
+            return false;
+        }
+
+        try
+        {
+            var display = Microsoft.UI.Windowing.DisplayArea.GetFromPoint(
+                new Windows.Graphics.PointInt32(placement.X, placement.Y),
+                Microsoft.UI.Windowing.DisplayAreaFallback.Nearest);
+            var workArea = display.WorkArea;
+            return placement.X < (long)workArea.X + workArea.Width
+                && (long)placement.X + placement.Width > workArea.X
+                && placement.Y < (long)workArea.Y + workArea.Height
+                && (long)placement.Y + placement.Height > workArea.Y;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+#endif
 
     private void ApplyPlatformTheme() => PlatformTheme.Apply(_theme.IsDark);
 

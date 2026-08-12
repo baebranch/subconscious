@@ -15,16 +15,27 @@ public sealed class EditorWorkspaceView : ContentView
         BindingMode.TwoWay, propertyChanged: static (view, _, _) => ((EditorWorkspaceView)view).LoadSelectedDocument());
     public static readonly BindableProperty CloseCommandProperty = BindableProperty.Create(
         nameof(CloseCommand), typeof(ICommand), typeof(EditorWorkspaceView));
+    public static readonly BindableProperty SaveCommandProperty = BindableProperty.Create(
+        nameof(SaveCommand), typeof(ICommand), typeof(EditorWorkspaceView));
+    public ICommand? SaveCommand
+    {
+        get => (ICommand?)GetValue(SaveCommandProperty);
+        set => SetValue(SaveCommandProperty, value);
+    }
     public static readonly BindableProperty ThemeProperty = BindableProperty.Create(
         nameof(Theme), typeof(EditorTheme), typeof(EditorWorkspaceView), EditorTheme.Light,
         propertyChanged: static (view, _, _) => ((EditorWorkspaceView)view).ApplyTheme());
 
     private readonly HorizontalStackLayout _tabHost = new() { Spacing = 3 };
-    private readonly Editor _textEditor = new() { FontSize = 13, Placeholder = "Start typing…" };
+    private readonly NativeDocumentEditor _textEditor = new()
+    {
+        Kind = EditorDocumentKind.Text,
+        FontSize = 13,
+        Placeholder = "Start typing…",
+    };
     private readonly CodeEditorView _codeEditor = new();
     private readonly MarkdownEditorView _markdownEditor = new();
     private readonly VerticalStackLayout _documentPlaceholder;
-    private bool _suppressTextChange;
     private bool _updatingDocument;
     private INotifyCollectionChanged? _observableItems;
 
@@ -61,21 +72,24 @@ public sealed class EditorWorkspaceView : ContentView
             },
         };
 
-        var tabs = new ScrollView { Orientation = ScrollOrientation.Horizontal, HeightRequest = 36, Content = _tabHost };
+        var tabs = new ScrollView { Orientation = ScrollOrientation.Horizontal, HeightRequest = 35, Content = _tabHost };
         var surfaces = new Grid();
         surfaces.Children.Add(_textEditor); surfaces.Children.Add(_codeEditor);
         surfaces.Children.Add(_markdownEditor); surfaces.Children.Add(_documentPlaceholder);
         Content = new Grid
         {
             RowDefinitions = { new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Star) },
-            RowSpacing = 8,
+            RowSpacing = 0,
             Children = { tabs, surfaces },
         };
         Grid.SetRow(surfaces, 1);
 
-        _textEditor.TextChanged += OnTextChanged;
+        _textEditor.DocumentTextChanged += OnNativeEditorTextChanged;
         _codeEditor.DocumentTextChanged += OnNativeEditorTextChanged;
         _markdownEditor.DocumentTextChanged += OnNativeEditorTextChanged;
+        _textEditor.SaveRequested += OnSaveRequested;
+        _codeEditor.SaveRequested += OnSaveRequested;
+        _markdownEditor.SaveRequested += OnSaveRequested;
         ApplyTheme();
         LoadSelectedDocument();
     }
@@ -139,21 +153,45 @@ public sealed class EditorWorkspaceView : ContentView
 
     private View CreateTab(IEditorDocument document)
     {
+        var isActive = ReferenceEquals(document, SelectedDocument);
         var title = new Label { Text = document.DisplayName, FontSize = 12, MaxLines = 1,
             LineBreakMode = LineBreakMode.TailTruncation, MaximumWidthRequest = 175, VerticalTextAlignment = TextAlignment.Center };
         var dirty = new Label { Text = "●", FontSize = 8, IsVisible = document.IsDirty,
             TextColor = Theme.Accent, VerticalTextAlignment = TextAlignment.Center };
         var close = new Button { Text = "×", FontSize = 15, Padding = 0, WidthRequest = 22, HeightRequest = 22,
-            MinimumWidthRequest = 22, MinimumHeightRequest = 22, BackgroundColor = Colors.Transparent, TextColor = Theme.MutedText };
+            MinimumWidthRequest = 22, MinimumHeightRequest = 22, BackgroundColor = Colors.Transparent,
+            BorderWidth = 0, TextColor = Theme.MutedText };
+        SemanticProperties.SetDescription(close, $"Close {document.DisplayName}");
+        ToolTipProperties.SetText(close, $"Close {document.DisplayName}");
         close.Clicked += (_, _) =>
         {
             if (CloseCommand?.CanExecute(document) == true) CloseCommand.Execute(document);
         };
-        var content = new HorizontalStackLayout { Spacing = 4, Children = { title, dirty, close } };
+
+        var content = new HorizontalStackLayout
+        {
+            Spacing = 4,
+            Padding = new Thickness(9, 3, 4, 3),
+            Children = { title, dirty, close },
+        };
+        var tabSurface = new Grid
+        {
+            RowDefinitions = { new RowDefinition(isActive ? 3 : 0), new RowDefinition(GridLength.Star) },
+            Children = { new BoxView { Color = Theme.Accent, IsVisible = isActive }, content },
+        };
+        Grid.SetRow(content, 1);
+
+        // The active tab has a theme-accent top bar rather than a selected fill. It intentionally
+        // has no bottom or outer stroke and overlaps the surface by one pixel, making it read as
+        // a continuation of the active document instead of a separate floating button.
         var border = new Border
         {
-            Content = content, Padding = new Thickness(9, 4, 4, 4), StrokeThickness = .5,
-            Stroke = new SolidColorBrush(Theme.Divider), BackgroundColor = ReferenceEquals(document, SelectedDocument) ? Theme.Selection : Theme.Surface,
+            Content = tabSurface,
+            Padding = 0,
+            Margin = isActive ? new Thickness(0, 0, 0, -1) : new Thickness(0),
+            StrokeThickness = isActive ? 0 : .5,
+            Stroke = new SolidColorBrush(isActive ? Colors.Transparent : Theme.Divider),
+            BackgroundColor = Theme.Surface,
             StrokeShape = new RoundRectangle { CornerRadius = 4 },
         };
         border.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(() => SelectedDocument = document) });
@@ -169,10 +207,14 @@ public sealed class EditorWorkspaceView : ContentView
         _markdownEditor.IsVisible = document?.Kind == EditorDocumentKind.Markdown;
         _documentPlaceholder.IsVisible = document?.Kind == EditorDocumentKind.Document;
 
-        _suppressTextChange = true;
-        _textEditor.Text = document?.Kind == EditorDocumentKind.Text ? document.Content : string.Empty;
-        _textEditor.IsReadOnly = document?.IsReadOnly ?? true;
-        _suppressTextChange = false;
+        if (document?.Kind == EditorDocumentKind.Text)
+        {
+            _textEditor.LoadDocument(document, Theme);
+        }
+        else
+        {
+            _textEditor.ClearDocument(Theme);
+        }
 
         if (document?.Kind == EditorDocumentKind.Code) _codeEditor.LoadDocument(document, Theme);
         else _codeEditor.ClearDocument(Theme);
@@ -180,14 +222,14 @@ public sealed class EditorWorkspaceView : ContentView
         else _markdownEditor.ClearDocument(Theme);
     }
 
-    private void OnTextChanged(object? sender, TextChangedEventArgs args)
+    private void OnSaveRequested(object? sender, EventArgs args)
     {
-        var document = SelectedDocument;
-        if (_suppressTextChange || document is not { Kind: EditorDocumentKind.Text, IsReadOnly: false })
+        if (SelectedDocument is null or { IsReadOnly: true }
+            || SaveCommand?.CanExecute(null) != true)
         {
             return;
         }
-        UpdateDocument(document, args.NewTextValue ?? string.Empty);
+        SaveCommand.Execute(null);
     }
 
     private void OnNativeEditorTextChanged(object? sender, EditorTextChangedEventArgs args)
@@ -211,9 +253,7 @@ public sealed class EditorWorkspaceView : ContentView
     private void ApplyTheme()
     {
         BackgroundColor = Theme.Surface;
-        _textEditor.BackgroundColor = Theme.Surface;
-        _textEditor.TextColor = Theme.Text;
-        _textEditor.PlaceholderColor = Theme.MutedText;
+        _textEditor.ApplyTheme(Theme);
         _documentPlaceholder.BackgroundColor = Theme.Surface;
         foreach (var label in _documentPlaceholder.Children.OfType<Label>()) label.TextColor = Theme.Text;
         _codeEditor.ApplyTheme(Theme);

@@ -31,6 +31,11 @@
                         <mi:MauiIcon Grid.Column="0" Icon="{mi:Fluent Icon=ChevronDown24}" IconSize="14"
                                      IconColor="{DynamicResource SecondaryTextColor}" VerticalOptions="Center"
                                      IsVisible="{Binding IsExpanded}" />
+                        <!-- Replaces the collapsed chevron while a directory is loading without
+                             adding or removing a header row, so the tree stays anchored. -->
+                        <ActivityIndicator Grid.Column="0" WidthRequest="14" HeightRequest="14"
+                                           IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                                           Color="{DynamicResource AccentColor}" VerticalOptions="Center" />
                         <mi:MauiIcon Grid.Column="1" Icon="{mi:Fluent Icon=Folder24}" IconSize="16"
                                      IconColor="{DynamicResource SecondaryTextColor}" VerticalOptions="Center"
                                      IsVisible="{Binding IsDirectory}" />
