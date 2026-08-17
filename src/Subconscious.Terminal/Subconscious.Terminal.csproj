@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Subconscious.Terminal</AssemblyName>
+    <RootNamespace>Subconscious.Terminal</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Spectre renders committed transcript blocks; the custom renderer owns live output. -->
+    <PackageReference Include="Spectre.Console" Version="0.57.0" />
+    <ProjectReference Include="..\Subconscious.Client\Subconscious.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Shared brand mark, copied beside the executable for reliable terminal rendering. -->
+    <None Include="..\..\screens\logo.txt" Link="Assets\logo.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
