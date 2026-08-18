@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">net10.0-windows10.0.19041.0</TargetFrameworks>
-    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('osx'))">net10.0-maccatalyst</TargetFrameworks>
+    <!-- The editor contracts are shared with Mobile. The rich native editor handler remains
+         Windows-only until Android/iOS platform handlers are implemented. -->
+    <TargetFrameworks>net10.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
     <RootNamespace>Subconscious.WYSIWYG</RootNamespace>
     <AssemblyName>Subconscious.WYSIWYG</AssemblyName>
     <UseMaui>true</UseMaui>
@@ -17,5 +20,7 @@
   <ItemGroup>
     <Compile Remove="Samples\FileEditor\calculator.cs" />
     <None Include="Samples\FileEditor\calculator.cs" />
+    <!-- The only native handler is WinUI. Do not compile its Microsoft.UI references for phone TFMs. -->
+    <Compile Remove="Platforms\Windows\**\*.cs" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'" />
   </ItemGroup>
 </Project>

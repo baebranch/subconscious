@@ -23,12 +23,14 @@ internal sealed class TerminalApp
     private Workspace? _workspace;
     private ThreadInfo? _thread;
     private ModelChoice? _model;
+    private TerminalTheme _theme = TerminalTheme.Default;
     private SelectionOverlay? _selection;
     private PendingApproval? _approval;
     private string? _activeTurnId;
     private string _status = "Starting…";
     private int _historyIndex;
     private bool _connected;
+    private bool _logoCommitted;
     private bool _running = true;
 
     public TerminalApp(EngineClient client, TerminalSession terminal, bool dev)
@@ -47,7 +49,6 @@ internal sealed class TerminalApp
 
     public async Task<int> RunAsync()
     {
-        _renderer.CommitLogo();
         Render();
         _ = Task.Run(ReadInputLoop);
         if (_terminal.Interactive) _ = Task.Run(WatchSizeAsync);
@@ -77,9 +78,19 @@ internal sealed class TerminalApp
             Render();
             await _client.ConnectAsync(_dev);
             _connected = _client.IsConnected;
-            _status = "Loading workspaces…";
+            _status = "Loading terminal settings…";
             Render();
 
+            var settings = await _client.GetSettingsAsync(client: SettingsClient, cancellationToken: _shutdown.Token);
+            _theme = new TerminalTheme(
+                TerminalTheme.ParseMode(Setting(settings, "themeMode")),
+                TerminalTheme.ParseAccent(Setting(settings, "themeAccent")));
+            _renderer.SetTheme(_theme);
+            _renderer.CommitLogo();
+            _logoCommitted = true;
+
+            _status = "Loading workspaces…";
+            Render();
             _workspaces = (await _client.ListWorkspacesAsync(_shutdown.Token))
                 .OrderBy(workspace => workspace.Name, StringComparer.OrdinalIgnoreCase).ToList();
             if (_workspaces.Count == 0)
@@ -87,7 +98,6 @@ internal sealed class TerminalApp
                 _workspaces.Add(await _client.CreateWorkspaceAsync("Default", cancellationToken: _shutdown.Token));
             }
 
-            var settings = await _client.GetSettingsAsync(client: SettingsClient, cancellationToken: _shutdown.Token);
             var workspaceId = Setting(settings, "activeWorkspace");
             _workspace = _workspaces.FirstOrDefault(item => item.Uuid == workspaceId) ?? _workspaces[0];
 
@@ -109,6 +119,11 @@ internal sealed class TerminalApp
         {
             _connected = false;
             _status = "Connection failed";
+            if (!_logoCommitted)
+            {
+                _renderer.CommitLogo();
+                _logoCommitted = true;
+            }
             _renderer.CommitNotice($"Unable to reach the Subconscious engine: {exception.Message}", true);
         }
     }
@@ -315,6 +330,10 @@ internal sealed class TerminalApp
             await SaveSettingAsync("activeThread", thread.Uuid);
             await CommitHistoryAsync(thread);
         }
+        else if (kind == OverlayKind.Themes)
+        {
+            await ApplyThemeSelectionAsync(id);
+        }
         else if (kind == OverlayKind.Models && _models.FirstOrDefault(item => item.Id == id) is { } model)
         {
             _model = model;
@@ -417,6 +436,9 @@ internal sealed class TerminalApp
             case "/model":
                 await SelectByArgumentAsync(OverlayKind.Models, argument);
                 break;
+            case "/theme":
+                await SelectThemeAsync(argument);
+                break;
             default:
                 _renderer.CommitNotice($"Unknown command '{command}'. Use /help.", true);
                 break;
@@ -443,7 +465,9 @@ internal sealed class TerminalApp
         {
             OverlayKind.Workspaces => _workspaces.Select(item => new SelectionItem(item.Uuid, item.Name)).ToList(),
             OverlayKind.Threads => _threads.Select(item => new SelectionItem(item.Uuid, item.Title ?? "Untitled thread")).ToList(),
-            _ => _models.Select(item => new SelectionItem(item.Id, item.Label)).ToList(),
+            OverlayKind.Models => _models.Select(item => new SelectionItem(item.Id, item.Label)).ToList(),
+            OverlayKind.Themes => ThemeItems(),
+            _ => [],
         };
         if (string.IsNullOrWhiteSpace(argument))
         {
@@ -463,6 +487,111 @@ internal sealed class TerminalApp
             return;
         }
         await ApplySelectionAsync(kind, selected.Id);
+    }
+
+    private async Task SelectThemeAsync(string? argument)
+    {
+        if (string.IsNullOrWhiteSpace(argument))
+        {
+            OpenSelection(OverlayKind.Themes, $"Theme · {_theme.DisplayName}", ThemeItems());
+            return;
+        }
+
+        var parts = argument.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        TerminalThemeMode mode;
+        TerminalAccent accent;
+        TerminalTheme? selected = null;
+
+        if (parts.Length == 1)
+        {
+            if (TerminalTheme.TryParseMode(parts[0], out mode))
+            {
+                selected = _theme with { Mode = mode };
+            }
+            else if (TerminalTheme.TryParseAccent(parts[0], out accent))
+            {
+                selected = _theme with { Accent = accent };
+            }
+        }
+        else if (parts.Length == 2)
+        {
+            if (parts[0].Equals("mode", StringComparison.OrdinalIgnoreCase)
+                && TerminalTheme.TryParseMode(parts[1], out mode))
+            {
+                selected = _theme with { Mode = mode };
+            }
+            else if (parts[0].Equals("accent", StringComparison.OrdinalIgnoreCase)
+                && TerminalTheme.TryParseAccent(parts[1], out accent))
+            {
+                selected = _theme with { Accent = accent };
+            }
+            else if (TerminalTheme.TryParseMode(parts[0], out mode)
+                && TerminalTheme.TryParseAccent(parts[1], out accent))
+            {
+                selected = new TerminalTheme(mode, accent);
+            }
+        }
+
+        if (selected is null)
+        {
+            _renderer.CommitNotice(
+                "Usage: /theme [system|light|dark] [purple|blue|teal|green|yellow|orange|red|pink]",
+                true);
+            return;
+        }
+
+        await SetThemeAsync(selected);
+    }
+
+    private List<SelectionItem> ThemeItems()
+    {
+        var modes = Enum.GetValues<TerminalThemeMode>().Select(mode => new SelectionItem(
+            $"mode:{mode.ToString().ToLowerInvariant()}",
+            $"{(mode == _theme.Mode ? "✓" : " ")} Mode · {mode}"));
+        var accents = Enum.GetValues<TerminalAccent>().Select(accent => new SelectionItem(
+            $"accent:{accent.ToString().ToLowerInvariant()}",
+            $"{(accent == _theme.Accent ? "✓" : " ")} Accent · {accent}"));
+        return modes.Concat(accents).ToList();
+    }
+
+    private async Task ApplyThemeSelectionAsync(string id)
+    {
+        var parts = id.Split(':', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length != 2)
+        {
+            throw new InvalidOperationException($"Invalid theme choice '{id}'.");
+        }
+
+        if (parts[0].Equals("mode", StringComparison.OrdinalIgnoreCase)
+            && TerminalTheme.TryParseMode(parts[1], out var mode))
+        {
+            await SetThemeAsync(_theme with { Mode = mode });
+            return;
+        }
+
+        if (parts[0].Equals("accent", StringComparison.OrdinalIgnoreCase)
+            && TerminalTheme.TryParseAccent(parts[1], out var accent))
+        {
+            await SetThemeAsync(_theme with { Accent = accent });
+            return;
+        }
+
+        throw new InvalidOperationException($"Invalid theme choice '{id}'.");
+    }
+
+    private async Task SetThemeAsync(TerminalTheme theme)
+    {
+        _theme = theme;
+        _renderer.SetTheme(theme);
+        if (_client.IsRestConnected)
+        {
+            await _client.UpdateSettingsAsync([
+                new AppStateSetting { Key = "themeMode", Value = theme.ModeValue, Tag = "ui", Client = SettingsClient },
+                new AppStateSetting { Key = "themeAccent", Value = theme.AccentValue, Tag = "ui", Client = SettingsClient },
+            ], _shutdown.Token);
+        }
+        _status = StatusText();
+        _renderer.CommitNotice($"Theme: {theme.DisplayName}");
     }
 
     private async Task CancelActiveTurnAsync()
@@ -555,7 +684,7 @@ internal sealed class TerminalApp
         var workspace = _workspace?.Name ?? "no workspace";
         var thread = _thread?.Title ?? "new conversation";
         var model = _model?.Label ?? "default model";
-        return $"{connection} · {workspace} · {thread} · {model} · /help";
+        return $"{connection} · {workspace} · {thread} · {model} · {_theme.DisplayName} · /help";
     }
 
     private bool IsActive(string? turnId) =>
@@ -609,21 +738,27 @@ internal sealed class TerminalApp
     private static readonly string[] Commands =
     [
         "/help", "/new", "/threads", "/thread", "/workspaces", "/workspace",
-        "/models", "/model", "/cancel", "/clear", "/status", "/quit",
+        "/models", "/model", "/theme", "/cancel", "/clear", "/status", "/quit", "/exit",
     ];
 
     private const string HelpText = """
-        /new                 Start a draft conversation
-        /threads             Open the thread picker
-        /thread <n|name>     Switch thread
-        /workspaces          Open the workspace picker
-        /workspace <n|name>  Switch workspace
-        /models              Open the model picker
-        /model <n|id>        Select a model
-        /cancel              Cancel the active turn
-        /clear               Clear the visible screen
-        /status              Show current selections
-        /quit                Exit
+        /new                         Start a draft conversation
+        /threads                     Open the thread picker
+        /thread <n|name>             Switch thread
+        /workspaces                  Open the workspace picker
+        /workspace <n|name>          Switch workspace
+        /models                      Open the model picker
+        /model <n|id>                Select a model
+        /theme                       Open the terminal theme picker
+        /theme <mode> [accent]       Set system/light/dark and optional accent
+        /theme mode|accent <value>   Set one terminal theme option
+        /cancel                      Cancel the active turn
+        /clear                       Clear the visible screen
+        /status                      Show current selections
+        /quit, /exit                 Exit
+
+        Accents: purple, blue, teal, green, yellow, orange, red, pink
+        Terminal theme settings are independent from the Desktop theme.
 
         Enter sends · Shift+Enter or Ctrl+Enter inserts a line
         Esc cancels · Ctrl+C clears/cancels/exits · Ctrl+L clears

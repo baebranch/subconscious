@@ -7,28 +7,37 @@ internal sealed class TerminalRenderer
 {
     private readonly TerminalSession _terminal;
     private IReadOnlyList<string> _liveLines = [];
+    private TerminalTheme _theme = TerminalTheme.Default;
     private int _cursorRow;
     private bool _plainStreamOpen;
 
     public TerminalRenderer(TerminalSession terminal) => _terminal = terminal;
+
+    private TerminalPalette Palette => _theme.Palette;
+
+    public void SetTheme(TerminalTheme theme)
+    {
+        ClearLive();
+        _theme = theme;
+    }
 
     public void CommitLogo()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Assets", "logo.txt");
         var logo = File.Exists(path) ? File.ReadAllText(path).TrimEnd() : "SUBCONSCIOUS";
         ClearLive();
-        AnsiConsole.MarkupLine($"[bold purple]{Markup.Escape(Sanitize(logo))}[/]");
-        AnsiConsole.MarkupLine("[grey]A native terminal client for the Subconscious engine[/]");
+        AnsiConsole.MarkupLine($"[{MarkupStyle(Palette.Accent, bold: true)}]{Markup.Escape(Sanitize(logo))}[/]");
+        AnsiConsole.MarkupLine($"[{MarkupStyle(Palette.Muted)}]A native terminal client for the Subconscious engine[/]");
         AnsiConsole.WriteLine();
     }
 
     public void CommitSection(string title, string? subtitle = null)
     {
         ClearLive();
-        AnsiConsole.MarkupLine($"[bold purple]── {Markup.Escape(Sanitize(title))}[/]");
+        AnsiConsole.MarkupLine($"[{MarkupStyle(Palette.Accent, bold: true)}]── {Markup.Escape(Sanitize(title))}[/]");
         if (!string.IsNullOrWhiteSpace(subtitle))
         {
-            AnsiConsole.MarkupLine($"[grey]{Markup.Escape(Sanitize(subtitle))}[/]");
+            AnsiConsole.MarkupLine($"[{MarkupStyle(Palette.Muted)}]{Markup.Escape(Sanitize(subtitle))}[/]");
         }
     }
 
@@ -36,8 +45,12 @@ internal sealed class TerminalRenderer
     {
         content = Sanitize(content).TrimEnd();
         ClearLive();
-        var color = role.Equals("user", StringComparison.OrdinalIgnoreCase) ? "cyan" : "purple";
-        AnsiConsole.MarkupLine($"[bold {color}]{Markup.Escape(role)}[/]");
+        var color = role.Equals("user", StringComparison.OrdinalIgnoreCase)
+            ? Palette.User
+            : role.Equals("assistant", StringComparison.OrdinalIgnoreCase)
+                ? Palette.Assistant
+                : Palette.Accent;
+        AnsiConsole.MarkupLine($"[{MarkupStyle(color, bold: true)}]{Markup.Escape(role)}[/]");
         WriteMarkdown(content);
         AnsiConsole.WriteLine();
     }
@@ -45,14 +58,14 @@ internal sealed class TerminalRenderer
     public void CommitNotice(string text, bool error = false)
     {
         ClearLive();
-        var color = error ? "red" : "grey";
-        AnsiConsole.MarkupLine($"[{color}]◆ {Markup.Escape(Sanitize(text))}[/]");
+        var color = error ? Palette.Error : Palette.Muted;
+        AnsiConsole.MarkupLine($"[{MarkupStyle(color)}]◆ {Markup.Escape(Sanitize(text))}[/]");
     }
 
     public void BeginPlainAssistant()
     {
         if (_terminal.Interactive) return;
-        AnsiConsole.Markup("[bold purple]assistant[/] ");
+        AnsiConsole.Markup($"[{MarkupStyle(Palette.Assistant, bold: true)}]assistant[/] ");
         _plainStreamOpen = true;
     }
 
@@ -88,7 +101,7 @@ internal sealed class TerminalRenderer
             var wrapped = TerminalText.Wrap(Sanitize(view.StreamingText), width - 2);
             foreach (var line in wrapped.TakeLast(streamBudget))
             {
-                lines.Add($"\u001b[35m│\u001b[0m {line}");
+                lines.Add($"{Palette.Stream.Paint("│")} {line}");
             }
         }
 
@@ -96,14 +109,14 @@ internal sealed class TerminalRenderer
         if (view.Approval is not null) AddApproval(lines, view.Approval, width);
 
         var activity = view.Busy ? " ◐" : string.Empty;
-        lines.Add($"\u001b[2m{TrimToWidth(view.Status + activity, width)}\u001b[0m");
+        lines.Add(Palette.Muted.Paint(TrimToWidth(view.Status + activity, width), dim: true));
 
         var composerWidth = Math.Max(1, width - 2);
         var composerLines = TerminalText.Wrap(view.ComposerText, composerWidth);
         var composerStart = lines.Count;
         for (var index = 0; index < composerLines.Count; index++)
         {
-            var prefix = index == 0 ? "\u001b[1;36m❯\u001b[0m " : "  ";
+            var prefix = index == 0 ? $"{Palette.Composer.Paint("❯", bold: true)} " : "  ";
             lines.Add(prefix + composerLines[index]);
         }
 
@@ -172,9 +185,9 @@ internal sealed class TerminalRenderer
         _cursorRow = caretRow;
     }
 
-    private static void AddSelection(List<string> lines, SelectionOverlay overlay, int width)
+    private void AddSelection(List<string> lines, SelectionOverlay overlay, int width)
     {
-        lines.Add($"\u001b[1m{TrimToWidth(overlay.Title, width)}\u001b[0m");
+        lines.Add(Palette.Accent.Paint(TrimToWidth(overlay.Title, width), bold: true));
         if (overlay.Items.Count == 0)
         {
             lines.Add("  (none)");
@@ -190,19 +203,19 @@ internal sealed class TerminalRenderer
         }
     }
 
-    private static void AddApproval(List<string> lines, PendingApproval approval, int width)
+    private void AddApproval(List<string> lines, PendingApproval approval, int width)
     {
         var request = approval.Request;
-        lines.Add("\u001b[1;33mTool approval required\u001b[0m");
+        lines.Add(Palette.Warning.Paint("Tool approval required", bold: true));
         lines.Add(TrimToWidth($"{request.ToolName} · {request.Operation}", width));
-        lines.Add(TrimToWidth(request.Arguments, width));
+        lines.Add(Palette.Code.Paint(TrimToWidth(request.Arguments, width)));
         lines.Add(approval.ApproveSelected
             ? "  [deny]  \u001b[7m approve \u001b[0m"
             : "  \u001b[7m deny \u001b[0m  [approve]");
-        lines.Add("\u001b[2m←/→ choose · Enter confirm · y/n\u001b[0m");
+        lines.Add(Palette.Muted.Paint("←/→ choose · Enter confirm · y/n", dim: true));
     }
 
-    private static void WriteMarkdown(string content)
+    private void WriteMarkdown(string content)
     {
         var inCode = false;
         foreach (var sourceLine in content.Replace("\r\n", "\n").Split('\n'))
@@ -215,17 +228,24 @@ internal sealed class TerminalRenderer
             }
             if (inCode)
             {
-                AnsiConsole.MarkupLine($"[grey]  {Markup.Escape(line)}[/]");
+                AnsiConsole.MarkupLine($"[{MarkupStyle(Palette.Code)}]  {Markup.Escape(line)}[/]");
             }
             else if (line.StartsWith('#'))
             {
-                AnsiConsole.MarkupLine($"[bold]{Markup.Escape(line.TrimStart('#', ' '))}[/]");
+                AnsiConsole.MarkupLine($"[{MarkupStyle(Palette.Accent, bold: true)}]{Markup.Escape(line.TrimStart('#', ' '))}[/]");
             }
             else
             {
                 AnsiConsole.WriteLine(line);
             }
         }
+    }
+
+    private static string MarkupStyle(ThemeColor color, bool bold = false)
+    {
+        var weight = bold ? "bold" : string.Empty;
+        var foreground = color.Markup == "default" ? string.Empty : color.Markup;
+        return string.Join(' ', new[] { weight, foreground }.Where(value => value.Length > 0));
     }
 
     private static string TrimToWidth(string value, int width)

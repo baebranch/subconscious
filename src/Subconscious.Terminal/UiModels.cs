@@ -19,6 +19,7 @@ internal enum OverlayKind
     Workspaces,
     Threads,
     Models,
+    Themes,
 }
 
 internal sealed record SelectionItem(string Id, string Label);
