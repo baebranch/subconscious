@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Subconscious.TUI;
 
 /// <summary>ANSI terminal operations that work on Windows, Linux, and macOS terminals.</summary>
@@ -30,15 +32,60 @@ public static class Terminal
     public static void SetForeground(ConsoleColor color) => Write($"{Escape}{ForegroundCode(color)}m");
     public static void SetBackground(ConsoleColor color) => Write($"{Escape}{BackgroundCode(color)}m");
 
+    private static readonly AsyncLocal<StringBuilder?> FrameBuffer = new();
+
     public static TerminalSession UseAlternateBuffer() => new();
 
-    internal static void Write(string value) => Console.Write(value);
+    /// <summary>Buffers ANSI output until the returned frame is disposed and emits it in one console write.</summary>
+    public static TerminalFrame BeginFrame()
+    {
+        if (FrameBuffer.Value is not null)
+        {
+            throw new InvalidOperationException("Terminal frames cannot be nested.");
+        }
+
+        var buffer = new StringBuilder();
+        FrameBuffer.Value = buffer;
+        return new TerminalFrame(buffer);
+    }
+
+    public static void Write(string value)
+    {
+        var buffer = FrameBuffer.Value;
+        if (buffer is null)
+        {
+            Console.Write(value);
+            return;
+        }
+
+        buffer.Append(value);
+    }
 
     private static int ForegroundCode(ConsoleColor color) => color is >= ConsoleColor.DarkGray
         ? 90 + ((int)color - (int)ConsoleColor.DarkGray) : 30 + (int)color;
 
     private static int BackgroundCode(ConsoleColor color) => color is >= ConsoleColor.DarkGray
         ? 100 + ((int)color - (int)ConsoleColor.DarkGray) : 40 + (int)color;
+
+    public sealed class TerminalFrame : IDisposable
+    {
+        private readonly StringBuilder _buffer;
+        private bool _disposed;
+
+        internal TerminalFrame(StringBuilder buffer) => _buffer = buffer;
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            FrameBuffer.Value = null;
+            Console.Write(_buffer.ToString());
+        }
+    }
 }
 
 public readonly record struct TerminalSize(int Width, int Height);

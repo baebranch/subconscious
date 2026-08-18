@@ -79,11 +79,9 @@ internal sealed class DemoScreen : Widget
         switch (key.Key)
         {
             case ConsoleKey.UpArrow:
-                _scrollOffset = Math.Max(0, _scrollOffset - 1);
-                return true;
+                return ScrollBy(-1);
             case ConsoleKey.DownArrow:
-                _scrollOffset = Math.Min(Messages.Length - 1, _scrollOffset + 1);
-                return true;
+                return ScrollBy(1);
             case ConsoleKey.M:
                 _menuOpen = true;
                 _status = "Menu open — choose an action with ↑↓ and Enter.";
@@ -94,6 +92,18 @@ internal sealed class DemoScreen : Widget
             default:
                 return false;
         }
+    }
+
+    public override bool OnScroll(TerminalScrollEvent scroll)
+    {
+        if (_menuOpen)
+        {
+            return false;
+        }
+
+        var availableLines = Math.Max(1, _contentArea.Height - 2);
+        var delta = scroll.IsPageScroll ? scroll.Delta * availableLines : scroll.Delta;
+        return ScrollBy(delta);
     }
 
     private void RenderTranscript()
@@ -115,6 +125,13 @@ internal sealed class DemoScreen : Widget
         Terminal.SetForeground(ConsoleColor.DarkGray);
         WriteAt(_contentArea.Right - 13, _contentArea.Bottom - 1, $"{_scrollOffset + 1}/{Messages.Length} ↑↓", 12);
         Terminal.Reset();
+    }
+
+    private bool ScrollBy(int delta)
+    {
+        var previousOffset = _scrollOffset;
+        _scrollOffset = Math.Clamp(_scrollOffset + delta, 0, Messages.Length - 1);
+        return _scrollOffset != previousOffset;
     }
 
     private void RenderComposer()

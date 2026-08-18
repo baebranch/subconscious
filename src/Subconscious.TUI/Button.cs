@@ -36,7 +36,7 @@ public sealed class Button : Widget
         Terminal.SetForeground(IsFocused ? ConsoleColor.Black : ConsoleColor.Cyan);
         Terminal.SetBackground(IsFocused ? ConsoleColor.Cyan : ConsoleColor.Black);
         Terminal.MoveTo(Bounds.Left, Bounds.Top);
-        Console.Write(visible.PadRight(Bounds.Width));
+        Terminal.Write(visible.PadRight(Bounds.Width));
         Terminal.Reset();
     }
 }

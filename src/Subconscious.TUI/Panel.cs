@@ -18,23 +18,28 @@ public sealed class Panel : Widget
 
         Terminal.SetForeground(BorderColor);
         Terminal.MoveTo(area.Left, area.Top);
-        Console.Write($"┌{new string('─', area.Width - 2)}┐");
+        Terminal.Write(BuildTopBorder(area.Width));
         for (var row = area.Top + 1; row < area.Bottom; row++)
         {
             Terminal.MoveTo(area.Left, row);
-            Console.Write("│");
-            Terminal.MoveTo(area.Right, row);
-            Console.Write("│");
+            Terminal.Write($"│{new string(' ', area.Width - 2)}│");
         }
 
         Terminal.MoveTo(area.Left, area.Bottom);
-        Console.Write($"└{new string('─', area.Width - 2)}┘");
-        if (!string.IsNullOrWhiteSpace(Title) && area.Width > 6)
+        Terminal.Write($"└{new string('─', area.Width - 2)}┘");
+        Terminal.Reset();
+    }
+
+    private string BuildTopBorder(int width)
+    {
+        var border = $"┌{new string('─', width - 2)}┐".ToCharArray();
+        if (string.IsNullOrWhiteSpace(Title) || width <= 6)
         {
-            Terminal.MoveTo(area.Left + 2, area.Top);
-            Console.Write($" {Title[..Math.Min(Title.Length, area.Width - 6)]} ");
+            return new string(border);
         }
 
-        Terminal.Reset();
+        var visibleTitle = Title[..Math.Min(Title.Length, width - 6)];
+        $" {visibleTitle} ".CopyTo(0, border, 2, visibleTitle.Length + 2);
+        return new string(border);
     }
 }

@@ -11,8 +11,10 @@ public sealed class TerminalEventLoop
         ArgumentNullException.ThrowIfNull(root);
         var previousSize = new TerminalSize(0, 0);
         var redraw = true;
+        var clearScreen = true;
 
         using var session = Terminal.UseAlternateBuffer();
+        var wheelScroll = new NativeWheelScroll();
         while (!cancellationToken.IsCancellationRequested)
         {
             var size = Terminal.Size;
@@ -20,21 +22,37 @@ public sealed class TerminalEventLoop
             {
                 previousSize = size;
                 root.Resize(new UiRect(1, 1, size.Width, size.Height));
+                clearScreen = true;
                 redraw = true;
             }
 
             if (redraw)
             {
-                Terminal.Clear();
-                root.Render();
-                Terminal.Reset();
+                using (Terminal.BeginFrame())
+                {
+                    if (clearScreen)
+                    {
+                        Terminal.Clear();
+                        clearScreen = false;
+                    }
+
+                    root.Render();
+                    Terminal.Reset();
+                }
+
                 redraw = false;
             }
 
-            if (TryReadKey(out var key))
+            if (session.TryReadMouseWheel(out var nativeDelta))
             {
-                root.OnKey(key);
-                redraw = true;
+                if (wheelScroll.TryNormalize(nativeDelta, out var scroll))
+                {
+                    redraw = root.OnScroll(scroll);
+                }
+            }
+            else if (TryReadKey(out var key))
+            {
+                redraw = root.OnKey(key);
                 if (continueAfterKey is not null && !continueAfterKey(key))
                 {
                     break;
