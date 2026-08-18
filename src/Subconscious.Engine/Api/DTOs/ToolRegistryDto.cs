@@ -13,13 +13,15 @@ public sealed record ToolRegistryDto
     public string? ScriptLanguage { get; init; }
     public string? EndpointUrl { get; init; }
     public string? AuthType { get; init; }
+    /// <summary>Whether an encrypted API key is stored for an API-key-authenticated tool.</summary>
+    public bool HasApiKey { get; init; }
     public string? AuthEnvVar { get; init; }
     public required string Status { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
 }
 
-/// <summary>Create or replace the non-secret metadata for a configured tool.</summary>
+/// <summary>Create or replace configured tool metadata and an optional write-only API key.</summary>
 public sealed record UpsertToolRegistryRequest
 {
     public string? Name { get; init; }
@@ -30,6 +32,10 @@ public sealed record UpsertToolRegistryRequest
     public string? ScriptLanguage { get; init; }
     public string? EndpointUrl { get; init; }
     public string? AuthType { get; init; }
+    /// <summary>Write-only encrypted credential. This value is never included in a response.</summary>
+    public string? ApiKey { get; init; }
+    /// <summary>Removes a stored API key when true; ignored when a replacement key is supplied.</summary>
+    public bool ClearApiKey { get; init; }
     public string? AuthEnvVar { get; init; }
     public string? Status { get; init; }
 }

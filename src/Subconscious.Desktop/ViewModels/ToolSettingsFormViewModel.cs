@@ -76,6 +76,7 @@ public sealed partial class ToolSettingsFormViewModel : ViewModelBase
 /// <summary>Card state for one registry entity. Name remains server-owned and is intentionally not editable.</summary>
 public sealed partial class ToolRegistryViewModel : ViewModelBase
 {
+    private const string NoneAuthType = "None";
     private readonly ToolSettingsFormViewModel _owner;
     private string? _uuid;
     private string? _description;
@@ -87,10 +88,11 @@ public sealed partial class ToolRegistryViewModel : ViewModelBase
 
     public IReadOnlyList<string> ToolTypeOptions { get; } = ["script", "mcp", "api"];
     public IReadOnlyList<string> ScriptLanguageOptions { get; } = ["python", "javascript", "typescript"];
-    public IReadOnlyList<string> AuthTypeOptions { get; } = ["", "api_key", "oauth"];
+    public IReadOnlyList<string> AuthTypeOptions { get; } = [NoneAuthType, "api_key", "oauth"];
     public bool IsExisting => _uuid is not null;
     public bool IsScriptTool => ToolType == "script";
     public bool IsEndpointTool => ToolType is "mcp" or "api";
+    public bool IsApiKeyAuth => AuthType == "api_key";
     public string DisplayName => string.IsNullOrWhiteSpace(Alias) ? "New tool" : Alias;
     public string Summary => string.Join(" · ", new[] { ToolType, IsScriptTool ? ScriptPath : EndpointUrl }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
@@ -99,7 +101,9 @@ public sealed partial class ToolRegistryViewModel : ViewModelBase
     [ObservableProperty] private string _scriptPath = string.Empty;
     [ObservableProperty] private string _scriptLanguage = "python";
     [ObservableProperty] private string _endpointUrl = string.Empty;
-    [ObservableProperty] private string _authType = string.Empty;
+    [ObservableProperty] private string _authType = NoneAuthType;
+    [ObservableProperty] private string _apiKey = string.Empty;
+    [ObservableProperty] private bool _hasApiKey;
     [ObservableProperty] private bool _isExpanded;
     [ObservableProperty] private bool _isSaving;
     [ObservableProperty] private string? _errorText;
@@ -136,7 +140,8 @@ public sealed partial class ToolRegistryViewModel : ViewModelBase
                 ScriptPath = IsScriptTool ? NullIfEmpty(ScriptPath) : null,
                 ScriptLanguage = IsScriptTool ? NullIfEmpty(ScriptLanguage) : null,
                 EndpointUrl = IsEndpointTool ? NullIfEmpty(EndpointUrl) : null,
-                AuthType = NullIfEmpty(AuthType),
+                AuthType = AuthType == NoneAuthType ? null : NullIfEmpty(AuthType),
+                ApiKey = IsApiKeyAuth ? NullIfEmpty(ApiKey) : null,
                 Description = _description,
                 AuthEnvVar = _authEnvVar,
                 Status = _status,
@@ -189,7 +194,9 @@ public sealed partial class ToolRegistryViewModel : ViewModelBase
         ScriptPath = tool.ScriptPath ?? string.Empty;
         ScriptLanguage = tool.ScriptLanguage ?? "python";
         EndpointUrl = tool.EndpointUrl ?? string.Empty;
-        AuthType = tool.AuthType ?? string.Empty;
+        AuthType = tool.AuthType ?? NoneAuthType;
+        HasApiKey = tool.HasApiKey;
+        ApiKey = string.Empty;
         OnPropertyChanged(nameof(IsExisting));
     }
 
@@ -203,4 +210,12 @@ public sealed partial class ToolRegistryViewModel : ViewModelBase
     }
     partial void OnScriptPathChanged(string value) => OnPropertyChanged(nameof(Summary));
     partial void OnEndpointUrlChanged(string value) => OnPropertyChanged(nameof(Summary));
+    partial void OnAuthTypeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsApiKeyAuth));
+        if (!IsApiKeyAuth)
+        {
+            ApiKey = string.Empty;
+        }
+    }
 }

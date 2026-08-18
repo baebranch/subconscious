@@ -332,7 +332,7 @@
                         <Button Grid.Column="1" Text="Reload" Command="{Binding LoadCommand}" Style="{StaticResource GhostButton}" />
                         <Button Grid.Column="2" Text="New tool" Command="{Binding AddToolCommand}" Style="{StaticResource AccentButton}" />
                     </Grid>
-                    <Label Text="Configure scripts, MCP servers, and API tools. Secrets are not managed by this app."
+                    <Label Text="Configure scripts, MCP servers, and API tools. API keys are stored encrypted by the local engine and are never returned to this app."
                            Style="{StaticResource MutedLabel}" LineBreakMode="WordWrap" />
                     <Label Text="{Binding ErrorText}" TextColor="{DynamicResource ErrorColor}" FontSize="12"
                            IsVisible="{Binding ErrorText, Converter={StaticResource IsNotEmpty}}" />
@@ -361,7 +361,13 @@
                                                 <VerticalStackLayout Spacing="6"><Label Text="Script Path" Style="{StaticResource FieldLabel}" /><Entry Text="{Binding ScriptPath}" Placeholder="Path to the script" Style="{StaticResource FormEntry}" /></VerticalStackLayout>
                                             </VerticalStackLayout>
                                             <VerticalStackLayout Spacing="6" IsVisible="{Binding IsEndpointTool}"><Label Text="Endpoint URL" Style="{StaticResource FieldLabel}" /><Entry Text="{Binding EndpointUrl}" Placeholder="https://…" Style="{StaticResource FormEntry}" /></VerticalStackLayout>
-                                            <VerticalStackLayout Spacing="6"><Label Text="Authentication" Style="{StaticResource FieldLabel}" /><Picker ItemsSource="{Binding AuthTypeOptions}" SelectedItem="{Binding AuthType}" Title="None" /></VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="6"><Label Text="Authentication" Style="{StaticResource FieldLabel}" /><Picker ItemsSource="{Binding AuthTypeOptions}" SelectedItem="{Binding AuthType}" /></VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="6" IsVisible="{Binding IsApiKeyAuth}">
+                                                <Label Text="API Key" Style="{StaticResource FieldLabel}" />
+                                                <Entry Text="{Binding ApiKey}" IsPassword="True" Placeholder="Enter a replacement API key" Style="{StaticResource FormEntry}" />
+                                                <Label Text="An API key is already saved. Leave this blank to keep it."
+                                                       Style="{StaticResource MutedLabel}" FontSize="12" IsVisible="{Binding HasApiKey}" />
+                                            </VerticalStackLayout>
                                             <Label Text="{Binding ErrorText}" TextColor="{DynamicResource ErrorColor}" FontSize="12" IsVisible="{Binding ErrorText, Converter={StaticResource IsNotEmpty}}" />
                                             <HorizontalStackLayout Spacing="10"><Button Text="Save" Command="{Binding SaveCommand}" Style="{StaticResource AccentButton}" /><Button Text="Delete" Command="{Binding DeleteCommand}" Style="{StaticResource GhostButton}" /></HorizontalStackLayout>
                                         </VerticalStackLayout>

@@ -55,13 +55,30 @@ internal sealed class TerminalApp
         await InitializeAsync();
         Render();
 
+        UiEvent? deferred = null;
         while (_running && !_shutdown.IsCancellationRequested)
         {
-            var next = await _events.Reader.ReadAsync(_shutdown.Token);
-            var coalesce = next is DeltaReceived;
+            var next = deferred ?? await _events.Reader.ReadAsync(_shutdown.Token);
+            deferred = null;
             await ProcessAsync(next);
-            if (coalesce) await Task.Delay(24, _shutdown.Token);
-            while (_events.Reader.TryRead(out var queued)) await ProcessAsync(queued);
+
+            if (next is DeltaReceived)
+            {
+                await Task.Delay(24, _shutdown.Token);
+                while (_events.Reader.TryRead(out var queued))
+                {
+                    if (queued is DeltaReceived)
+                    {
+                        await ProcessAsync(queued);
+                    }
+                    else
+                    {
+                        deferred = queued;
+                        break;
+                    }
+                }
+            }
+
             if (_running) Render();
         }
 
@@ -370,9 +387,12 @@ internal sealed class TerminalApp
         _streaming.Clear();
         _renderer.BeginPlainAssistant();
         _status = "Generating… · Esc cancels";
+        var turnId = EngineClient.CreateTurnId();
+        _activeTurnId = turnId;
         try
         {
-            _activeTurnId = await _client.SendChatAsync(
+            await _client.SendChatAsync(
+                turnId,
                 _thread?.Uuid,
                 content,
                 _thread is null ? _workspace.Uuid : null,
@@ -381,6 +401,7 @@ internal sealed class TerminalApp
         }
         catch (Exception exception)
         {
+            if (string.Equals(_activeTurnId, turnId, StringComparison.Ordinal)) _activeTurnId = null;
             _renderer.EndPlainAssistant();
             _renderer.CommitNotice($"Unable to send: {exception.Message}", true);
             _status = StatusText();

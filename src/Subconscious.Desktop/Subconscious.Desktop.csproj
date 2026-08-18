@@ -89,6 +89,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\Subconscious.Client\Subconscious.Client.csproj" />
 		<ProjectReference Include="..\Subconscious.Chat\Subconscious.Chat.csproj" />
 		<ProjectReference Include="..\Subconscious.Chat.Native\Subconscious.Chat.Native.csproj" />
 		<ProjectReference Include="..\Subconscious.WYSIWYG\Subconscious.WYSIWYG.csproj" />

@@ -557,20 +557,35 @@ public sealed class WebSocketHandler : IAsyncDisposable
     {
         var toolsByName = executableTools.ToDictionary(tool => tool.Name, StringComparer.Ordinal);
         var options = new ChatOptions { Tools = [.. modelTools] };
+        var visibleText = new StringBuilder();
 
         for (var iteration = 0; iteration < 8; iteration++)
         {
-            var response = await chatClient.GetResponseAsync(history, options, cancellationToken);
+            async IAsyncEnumerable<ChatResponseUpdate> StreamUpdates()
+            {
+                await foreach (var update in chatClient
+                    .GetStreamingResponseAsync(history, options, cancellationToken)
+                    .WithCancellation(cancellationToken))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!string.IsNullOrEmpty(update.Text))
+                    {
+                        visibleText.Append(update.Text);
+                        await SendFrameAsync(
+                            "chat.delta",
+                            new { thread_uuid = threadUuid, delta = update.Text },
+                            turnId);
+                    }
+                    yield return update;
+                }
+            }
+
+            var response = await StreamUpdates().ToChatResponseAsync(cancellationToken);
             var calls = response.Messages.SelectMany(message => message.Contents.OfType<FunctionCallContent>()).ToList();
             history.AddRange(response.Messages);
             if (calls.Count == 0)
             {
-                var text = string.Concat(response.Messages.Select(message => message.Text));
-                if (!string.IsNullOrEmpty(text))
-                {
-                    await SendFrameAsync("chat.delta", new { thread_uuid = threadUuid, delta = text }, turnId);
-                }
-                return text;
+                return visibleText.ToString();
             }
 
             // Bedrock requires every tool-use id from this assistant message to be answered by

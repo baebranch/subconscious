@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Subconscious.Engine.Api.DTOs;
+using Subconscious.Engine.Configuration;
 using Subconscious.Engine.Data;
 using Subconscious.Engine.Data.Entities;
 using Subconscious.Engine.Tools;
@@ -12,21 +13,35 @@ public sealed class ToolRegistryService : IToolRegistryService
 {
     private readonly SubconsciousDbContext _context;
     private readonly BaseToolRegistry _baseToolRegistry;
+    private readonly IModelConfigurationStore _credentials;
 
-    public ToolRegistryService(SubconsciousDbContext context, BaseToolRegistry baseToolRegistry)
+    public ToolRegistryService(
+        SubconsciousDbContext context,
+        BaseToolRegistry baseToolRegistry,
+        IModelConfigurationStore credentials)
     {
         _context = context;
         _baseToolRegistry = baseToolRegistry;
+        _credentials = credentials;
     }
 
-    public async Task<List<ToolRegistryDto>> GetAllAsync(CancellationToken cancellationToken = default) =>
-        (await _context.ToolRegistry.AsNoTracking().OrderBy(tool => tool.Alias).ThenBy(tool => tool.Name)
-            .ToListAsync(cancellationToken)).Select(MapToDto).ToList();
+    public async Task<List<ToolRegistryDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var tools = await _context.ToolRegistry.AsNoTracking().OrderBy(tool => tool.Alias).ThenBy(tool => tool.Name)
+            .ToListAsync(cancellationToken);
+        var toolApiKeyIds = await _credentials.GetToolApiKeyIdsAsync(cancellationToken);
+        return tools.Select(tool => MapToDto(tool, toolApiKeyIds.Contains(tool.Uuid))).ToList();
+    }
 
     public async Task<ToolRegistryDto?> GetByUuidAsync(string uuid, CancellationToken cancellationToken = default)
     {
         var tool = await _context.ToolRegistry.AsNoTracking().SingleOrDefaultAsync(tool => tool.Uuid == uuid, cancellationToken);
-        return tool is null ? null : MapToDto(tool);
+        if (tool is null)
+        {
+            return null;
+        }
+        var toolApiKeyIds = await _credentials.GetToolApiKeyIdsAsync(cancellationToken);
+        return MapToDto(tool, toolApiKeyIds.Contains(tool.Uuid));
     }
 
     public async Task<ToolRegistryDto> CreateAsync(UpsertToolRegistryRequest request, CancellationToken cancellationToken = default)
@@ -43,7 +58,7 @@ public sealed class ToolRegistryService : IToolRegistryService
             ScriptPath = request.ScriptPath,
             ScriptLanguage = request.ScriptLanguage,
             EndpointUrl = request.EndpointUrl,
-            AuthType = request.AuthType,
+            AuthType = NormalizeAuthType(request.AuthType),
             AuthEnvVar = request.AuthEnvVar,
             Status = RequiredOrDefault(request.Status, "active", "Status"),
             CreatedAt = DateTime.UtcNow,
@@ -52,7 +67,8 @@ public sealed class ToolRegistryService : IToolRegistryService
 
         _context.ToolRegistry.Add(tool);
         await _context.SaveChangesAsync(cancellationToken);
-        return MapToDto(tool);
+        var hasApiKey = await UpdateApiKeyAsync(tool, request, cancellationToken);
+        return MapToDto(tool, hasApiKey);
     }
 
     public async Task<ToolRegistryDto?> UpdateAsync(string uuid, UpsertToolRegistryRequest request, CancellationToken cancellationToken = default)
@@ -70,13 +86,14 @@ public sealed class ToolRegistryService : IToolRegistryService
         tool.ScriptPath = request.ScriptPath;
         tool.ScriptLanguage = request.ScriptLanguage;
         tool.EndpointUrl = request.EndpointUrl;
-        tool.AuthType = request.AuthType;
+        tool.AuthType = NormalizeAuthType(request.AuthType);
         tool.AuthEnvVar = request.AuthEnvVar;
         tool.Status = RequiredOrDefault(request.Status, tool.Status, "Status");
         tool.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
-        return MapToDto(tool);
+        var hasApiKey = await UpdateApiKeyAsync(tool, request, cancellationToken);
+        return MapToDto(tool, hasApiKey);
     }
 
     public async Task<bool> DeleteAsync(string uuid, CancellationToken cancellationToken = default)
@@ -88,6 +105,7 @@ public sealed class ToolRegistryService : IToolRegistryService
         }
         _context.ToolRegistry.Remove(tool);
         await _context.SaveChangesAsync(cancellationToken);
+        await _credentials.RemoveToolApiKeyAsync(uuid, cancellationToken);
         return true;
     }
 
@@ -107,13 +125,35 @@ public sealed class ToolRegistryService : IToolRegistryService
         return new ToolCatalogDto { Builtin = builtin, Configured = await GetAllAsync(cancellationToken) };
     }
 
-    private static ToolRegistryDto MapToDto(ToolRegistry tool) => new()
+    private async Task<bool> UpdateApiKeyAsync(
+        ToolRegistry tool,
+        UpsertToolRegistryRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(tool.AuthType, "api_key", StringComparison.Ordinal))
+        {
+            await _credentials.RemoveToolApiKeyAsync(tool.Uuid, cancellationToken);
+            return false;
+        }
+
+        return await _credentials.UpdateToolApiKeyAsync(
+            tool.Uuid,
+            Normalize(request.ApiKey),
+            request.ClearApiKey,
+            cancellationToken);
+    }
+
+    private static ToolRegistryDto MapToDto(ToolRegistry tool, bool hasApiKey) => new()
     {
         Id = tool.Id, Uuid = tool.Uuid, Name = tool.Name, Alias = tool.Alias, Description = tool.Description,
         ToolType = tool.ToolType, ScriptPath = tool.ScriptPath, ScriptLanguage = tool.ScriptLanguage,
-        EndpointUrl = tool.EndpointUrl, AuthType = tool.AuthType, AuthEnvVar = tool.AuthEnvVar,
+        EndpointUrl = tool.EndpointUrl, AuthType = tool.AuthType,
+        HasApiKey = string.Equals(tool.AuthType, "api_key", StringComparison.Ordinal) && hasApiKey,
+        AuthEnvVar = tool.AuthEnvVar,
         Status = tool.Status, CreatedAt = tool.CreatedAt, UpdatedAt = tool.UpdatedAt,
     };
+
+    private static string? NormalizeAuthType(string? value) => Normalize(value)?.ToLowerInvariant();
 
     private static string ResolveAlias(UpsertToolRegistryRequest request, ToolRegistry? existing)
     {

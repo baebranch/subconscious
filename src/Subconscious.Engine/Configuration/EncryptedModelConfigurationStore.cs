@@ -6,7 +6,7 @@ using Subconscious.Engine.Api.DTOs;
 
 namespace Subconscious.Engine.Configuration;
 
-/// <summary>Encrypted persistence and CRUD for Python-compatible <c>data.enc</c> model entries.</summary>
+/// <summary>Encrypted persistence for model configurations and write-only configured-tool API keys.</summary>
 public interface IModelConfigurationStore
 {
     Task<IReadOnlyList<ModelConfigurationDto>> ListAsync(CancellationToken cancellationToken = default);
@@ -14,6 +14,9 @@ public interface IModelConfigurationStore
     Task<ModelConfigurationDto> CreateAsync(UpsertModelConfigurationRequest request, CancellationToken cancellationToken = default);
     Task<ModelConfigurationDto?> UpdateAsync(string id, UpsertModelConfigurationRequest request, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default);
+    Task<IReadOnlySet<string>> GetToolApiKeyIdsAsync(CancellationToken cancellationToken = default);
+    Task<bool> UpdateToolApiKeyAsync(string toolUuid, string? apiKey, bool clearApiKey, CancellationToken cancellationToken = default);
+    Task<bool> RemoveToolApiKeyAsync(string toolUuid, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Errors that prevent safely reading or writing encrypted model configuration data.</summary>
@@ -162,6 +165,74 @@ public sealed class EncryptedModelConfigurationStore : IModelConfigurationStore
         }
     }
 
+    public async Task<IReadOnlySet<string>> GetToolApiKeyIdsAsync(CancellationToken cancellationToken = default)
+    {
+        await _writeLock.WaitAsync(cancellationToken);
+        try
+        {
+            var toolApiKeys = (await ReadSecretsAsync(cancellationToken))["tool_api_keys"] as JsonObject;
+            return toolApiKeys is null
+                ? new HashSet<string>(StringComparer.Ordinal)
+                : toolApiKeys
+                    .Where(entry => !string.IsNullOrWhiteSpace(GetString(toolApiKeys, entry.Key)))
+                    .Select(entry => entry.Key)
+                    .ToHashSet(StringComparer.Ordinal);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    public async Task<bool> UpdateToolApiKeyAsync(
+        string toolUuid,
+        string? apiKey,
+        bool clearApiKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(toolUuid))
+        {
+            throw new ArgumentException("Tool UUID is required.", nameof(toolUuid));
+        }
+
+        await _writeLock.WaitAsync(cancellationToken);
+        try
+        {
+            var secrets = await ReadSecretsAsync(cancellationToken);
+            var toolApiKeys = secrets["tool_api_keys"] as JsonObject;
+            var current = toolApiKeys is null ? null : GetString(toolApiKeys, toolUuid);
+            if (apiKey is not null)
+            {
+                toolApiKeys ??= GetOrCreateToolApiKeys(secrets);
+                if (!string.Equals(current, apiKey, StringComparison.Ordinal))
+                {
+                    toolApiKeys[toolUuid] = apiKey;
+                    await WriteSecretsAsync(secrets, cancellationToken);
+                }
+                return !string.IsNullOrWhiteSpace(apiKey);
+            }
+
+            if (!clearApiKey || toolApiKeys is null || !toolApiKeys.Remove(toolUuid))
+            {
+                return !string.IsNullOrWhiteSpace(current);
+            }
+
+            if (toolApiKeys.Count == 0)
+            {
+                secrets.Remove("tool_api_keys");
+            }
+            await WriteSecretsAsync(secrets, cancellationToken);
+            return false;
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    public Task<bool> RemoveToolApiKeyAsync(string toolUuid, CancellationToken cancellationToken = default) =>
+        UpdateToolApiKeyAsync(toolUuid, apiKey: null, clearApiKey: true, cancellationToken: cancellationToken);
+
     private async Task<JsonObject> ReadSecretsAsync(CancellationToken cancellationToken)
     {
         if (!File.Exists(_dataFilePath))
@@ -211,6 +282,18 @@ public sealed class EncryptedModelConfigurationStore : IModelConfigurationStore
         {
             throw new ModelConfigurationStoreException("data.enc could not be written.", exception);
         }
+    }
+
+    private static JsonObject GetOrCreateToolApiKeys(JsonObject secrets)
+    {
+        if (secrets["tool_api_keys"] is JsonObject toolApiKeys)
+        {
+            return toolApiKeys;
+        }
+
+        var created = new JsonObject();
+        secrets["tool_api_keys"] = created;
+        return created;
     }
 
     private static JsonObject GetOrCreateModels(JsonObject secrets)

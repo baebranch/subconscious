@@ -247,6 +247,10 @@ public static class EngineMiddleware
             {
                 return Results.BadRequest(new { error = exception.Message });
             }
+            catch (ModelConfigurationStoreException exception)
+            {
+                return StorageProblem(exception);
+            }
         });
         app.MapPut("/api/v1/tool-registry/{uuid}", async (string uuid, UpsertToolRegistryRequest request, IToolRegistryService svc, CancellationToken ct) =>
         {
@@ -259,9 +263,22 @@ public static class EngineMiddleware
             {
                 return Results.BadRequest(new { error = exception.Message });
             }
+            catch (ModelConfigurationStoreException exception)
+            {
+                return StorageProblem(exception);
+            }
         });
         app.MapDelete("/api/v1/tool-registry/{uuid}", async (string uuid, IToolRegistryService svc, CancellationToken ct) =>
-            await svc.DeleteAsync(uuid, ct) ? Results.NoContent() : Results.NotFound());
+        {
+            try
+            {
+                return await svc.DeleteAsync(uuid, ct) ? Results.NoContent() : Results.NotFound();
+            }
+            catch (ModelConfigurationStoreException exception)
+            {
+                return StorageProblem(exception);
+            }
+        });
     }
 
     private static void MapMessageEndpoints(WebApplication app)
@@ -420,7 +437,7 @@ public static class EngineMiddleware
         Results.Problem(
             detail: exception.Message,
             statusCode: StatusCodes.Status503ServiceUnavailable,
-            title: "Encrypted model configuration is unavailable.");
+            title: "Encrypted credential storage is unavailable.");
 
     private static void MapModelEndpoints(WebApplication app)
     {
