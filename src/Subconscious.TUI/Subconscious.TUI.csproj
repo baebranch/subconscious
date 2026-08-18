@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>Subconscious.TUI</AssemblyName>
+    <RootNamespace>Subconscious.TUI</RootNamespace>
+    <Description>A dependency-free, cross-platform ANSI terminal UI library.</Description>
+  </PropertyGroup>
+</Project>

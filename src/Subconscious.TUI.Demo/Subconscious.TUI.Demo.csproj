@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>Subconscious.TUI.Demo</AssemblyName>
+    <RootNamespace>Subconscious.TUI.Demo</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Subconscious.TUI\Subconscious.TUI.csproj" />
+  </ItemGroup>
+</Project>
