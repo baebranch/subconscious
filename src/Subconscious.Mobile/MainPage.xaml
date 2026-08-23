@@ -3,62 +3,228 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:Subconscious.Mobile"
              xmlns:engine="clr-namespace:Subconscious.Mobile.Engine"
+             xmlns:controls="clr-namespace:Subconscious.Mobile.Controls"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              xmlns:native="clr-namespace:Subconscious.Chat.Native;assembly=Subconscious.Chat.Native"
              x:Class="Subconscious.Mobile.MainPage"
+             x:DataType="local:MobileChatSession"
              Title="Subconscious">
-    <Grid>
-        <Grid x:Name="ChatScreen" RowDefinitions="Auto,*,Auto">
-            <Grid Padding="12,8" ColumnDefinitions="*,Auto">
-                <VerticalStackLayout Spacing="1">
-                    <Label Text="{Binding HeaderTitle}" FontAttributes="Bold" FontSize="18" LineBreakMode="TailTruncation" />
-                    <Label Text="{Binding StatusText}" FontSize="12" TextColor="{StaticResource Gray500}" />
-                </VerticalStackLayout>
-                <Button Grid.Column="1" Text="New" Clicked="OnNewThreadClicked" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBool}}" />
+    <ContentPage.Resources>
+        <!-- Keep this converter in the page that consumes it. Shell instantiates MainPage
+             from a DataTemplate, where the app-level StaticResource was not available. -->
+        <local:InverseBooleanConverter x:Key="InvertedBool" />
+    </ContentPage.Resources>
+    <Grid RowDefinitions="Auto,*">
+        <!-- This title/new-thread row belongs to chat only. Other destinations own their own
+             headings inside the main content host. -->
+        <Grid BackgroundColor="{DynamicResource MobileSurfaceColor}"
+              Padding="12,8" ColumnDefinitions="*,Auto" HeightRequest="52" MinimumHeightRequest="52"
+              IsVisible="{Binding IsChatOpen}">
+            <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+                <Label AutomationId="HeaderTitle" Text="{Binding HeaderTitle}" FontAttributes="Bold"
+                       FontSize="18" LineBreakMode="TailTruncation" />
+                <Label AutomationId="HeaderStatus" Text="{Binding StatusText}" FontSize="12"
+                       TextColor="{DynamicResource MobileSecondaryTextColor}" />
+            </VerticalStackLayout>
+            <Grid Grid.Column="1" WidthRequest="44" HeightRequest="44">
+                <ImageButton AutomationId="HeaderNewConversationButton"
+                             Style="{StaticResource SquareIconButton}"
+                             Clicked="OnNewThreadClicked"
+                             IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBool}}"
+                             SemanticProperties.Description="New thread" />
+                <mi:MauiIcon Icon="{mi:Fluent Add24}" IconSize="20"
+                             IconColor="{DynamicResource MobileAccentColor}"
+                             InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" />
             </Grid>
-            <native:NativeChatTranscriptView Grid.Row="1" ItemsSource="{Binding Messages}"
-                                             EmptyText="Choose a workspace or start a conversation."
-                                             MaximumBubbleWidth="525" />
-            <Border Grid.Row="2" Margin="12" Padding="8" Stroke="{StaticResource Gray300}">
-                <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
-                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4">
-                    <Editor Grid.Row="0" Grid.ColumnSpan="2" Text="{Binding ComposerText, Mode=TwoWay}"
-                            Placeholder="Ask anything…" AutoSize="TextChanges" MaximumHeightRequest="132" />
-                    <Picker Grid.Row="1" ItemsSource="{Binding AvailableModels}" ItemDisplayBinding="{Binding Name}"
-                            SelectedItem="{Binding SelectedModel, Mode=TwoWay}" Title="Model" />
-                    <Button Grid.Row="1" Grid.Column="1" Text="Send" Clicked="OnSendClicked"
-                            IsVisible="{Binding IsBusy, Converter={StaticResource InvertedBool}}" />
-                    <Button Grid.Row="1" Grid.Column="1" Text="Stop" Clicked="OnStopClicked" IsVisible="{Binding IsBusy}" />
-                </Grid>
-            </Border>
         </Grid>
 
-        <Grid x:Name="WorkspacesScreen" IsVisible="False" RowDefinitions="Auto,*" Padding="12">
-            <Label Text="Workspaces" FontAttributes="Bold" FontSize="20" />
-            <CollectionView Grid.Row="1" ItemsSource="{Binding Workspaces}" SelectionMode="Single" SelectionChanged="OnWorkspaceSelected">
-                <CollectionView.EmptyView><Label Text="No workspaces are available from the paired engine." HorizontalOptions="Center" VerticalOptions="Center" /></CollectionView.EmptyView>
-                <CollectionView.ItemTemplate><DataTemplate x:DataType="engine:Workspace"><VerticalStackLayout Padding="8"><Label Text="{Binding Name}" FontAttributes="Bold" /><Label Text="{Binding Description}" FontSize="12" TextColor="{StaticResource Gray500}" /></VerticalStackLayout></DataTemplate></CollectionView.ItemTemplate>
-            </CollectionView>
-        </Grid>
+        <Grid Grid.Row="1">
+            <Grid x:Name="ChatScreen" RowDefinitions="*,Auto" IsVisible="{Binding IsChatOpen}">
+                <native:NativeChatTranscriptView AutomationId="ChatTranscript" ItemsSource="{Binding Messages}"
+                                                 EmptyText="Choose a workspace or start a conversation."
+                                                 MaximumBubbleWidth="525" />
+                <Border Grid.Row="1" Margin="12,0,12,8" Padding="6"
+                        BackgroundColor="{DynamicResource MobileSurfaceColor}"
+                        Stroke="{DynamicResource MobileDividerColor}"
+                        StrokeThickness="0.5">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4">
+                        <controls:ChatComposerEditor AutomationId="ChatComposer" Grid.Row="0" Grid.ColumnSpan="2"
+                                                     Text="{Binding ComposerText, Mode=TwoWay}"
+                                                     Placeholder="Ask anything..." AutoSize="TextChanges"
+                                                     Style="{StaticResource ChatComposerEditor}" />
+                        <controls:ChatModelPicker AutomationId="ModelPicker" Grid.Row="1"
+                                                  Style="{StaticResource ChatModelPicker}"
+                                                  ItemsSource="{Binding AvailableModels}"
+                                                  ItemDisplayBinding="{Binding Name}"
+                                                  SelectedItem="{Binding SelectedModel, Mode=TwoWay}"
+                                                  Title="Model" />
+                        <Grid Grid.Row="1" Grid.Column="1" WidthRequest="44" HeightRequest="44"
+                              IsVisible="{Binding IsBusy, Converter={StaticResource InvertedBool}}">
+                            <ImageButton AutomationId="SendButton"
+                                         Style="{StaticResource SquareIconButton}"
+                                         Clicked="OnSendClicked"
+                                         SemanticProperties.Description="Send message" />
+                            <mi:MauiIcon Icon="{mi:Fluent Send24}" IconSize="20"
+                                         IconColor="{DynamicResource MobileAccentColor}"
+                                         InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Grid>
+                        <Button AutomationId="StopButton" Grid.Row="1" Grid.Column="1" Text="■"
+                                Clicked="OnStopClicked" IsVisible="{Binding IsBusy}"
+                                SemanticProperties.Description="Stop generating" />
+                    </Grid>
+                </Border>
+            </Grid>
 
-        <Grid x:Name="ThreadsScreen" IsVisible="False" RowDefinitions="Auto,*" Padding="12">
-            <Label Text="Threads" FontAttributes="Bold" FontSize="20" />
-            <CollectionView Grid.Row="1" ItemsSource="{Binding Threads}" SelectionMode="Single" SelectionChanged="OnThreadSelected">
-                <CollectionView.EmptyView><Label Text="No threads in this workspace yet." HorizontalOptions="Center" VerticalOptions="Center" /></CollectionView.EmptyView>
-                <CollectionView.ItemTemplate><DataTemplate x:DataType="engine:ThreadInfo"><Label Text="{Binding Title, TargetNullValue='Untitled thread'}" Padding="8" /></DataTemplate></CollectionView.ItemTemplate>
-            </CollectionView>
-        </Grid>
+            <!-- Workspace management is independent of CurrentWorkspace, which remains the
+                 Threads context filter. Saving preserves raw tool policy fields owned by Desktop. -->
+            <ScrollView IsVisible="{Binding IsWorkspaceSettingsOpen}">
+                <VerticalStackLayout Padding="20" Spacing="16" MaximumWidthRequest="750"
+                                     HorizontalOptions="Fill">
+                    <Label Text="{Binding WorkspaceSettingsTitle}" FontSize="20" FontAttributes="Bold" />
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="Name" FontAttributes="Bold" />
+                        <Entry Text="{Binding WorkspaceSettingsName, Mode=TwoWay}" Placeholder="Workspace name" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="Description" FontAttributes="Bold" />
+                        <Editor Text="{Binding WorkspaceSettingsDescription, Mode=TwoWay}"
+                                Placeholder="Optional description" AutoSize="TextChanges" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="Default model" FontAttributes="Bold" />
+                        <Picker ItemsSource="{Binding AvailableModels}" ItemDisplayBinding="{Binding Name}"
+                                SelectedItem="{Binding WorkspaceSettingsDefaultModel, Mode=TwoWay}"
+                                Title="Select a model" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="Workspace path allow list" FontAttributes="Bold" />
+                        <Label Text="Enter one absolute path on the Engine host per line."
+                               FontSize="12" TextColor="{StaticResource Gray500}" />
+                        <Editor Text="{Binding WorkspaceDirectoriesText, Mode=TwoWay}"
+                                Placeholder="C:\Projects\example" AutoSize="TextChanges"
+                                MinimumHeightRequest="90" />
+                    </VerticalStackLayout>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Build knowledge graph" FontAttributes="Bold" />
+                            <Label Text="Enable semantic_graph for this workspace."
+                                   FontSize="12" TextColor="{StaticResource Gray500}" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding WorkspaceBuildKnowledgeGraph}" />
+                    </Grid>
+                    <Label Text="Require approval" FontAttributes="Bold" />
+                    <Grid ColumnDefinitions="*,Auto"><Label Text="Queries" VerticalOptions="Center" /><Switch Grid.Column="1" IsToggled="{Binding WorkspaceRequireApprovalForQueries}" /></Grid>
+                    <Grid ColumnDefinitions="*,Auto"><Label Text="Mutations" VerticalOptions="Center" /><Switch Grid.Column="1" IsToggled="{Binding WorkspaceRequireApprovalForMutations}" /></Grid>
+                    <Label Text="Tool policy remains managed by Desktop; saving here preserves its current value."
+                           FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                    <VerticalStackLayout Spacing="3">
+                        <Label Text="{Binding SelectedWorkspaceForSettings.Uuid, StringFormat='UUID: {0}'}" FontSize="12" />
+                        <Label Text="{Binding SelectedWorkspaceForSettings.CreatedAt, StringFormat='Created: {0:g}'}" FontSize="12" />
+                        <Label Text="{Binding SelectedWorkspaceForSettings.UpdatedAt, StringFormat='Updated: {0:g}'}" FontSize="12" />
+                    </VerticalStackLayout>
+                    <Label Text="{Binding WorkspaceSettingsError}" TextColor="Red" FontSize="12" />
+                    <Label Text="{Binding WorkspaceSettingsStatus}" TextColor="Green" FontSize="12" />
+                    <Button Text="Save workspace" Clicked="OnSaveWorkspaceClicked"
+                            IsEnabled="{Binding IsSavingWorkspace, Converter={StaticResource InvertedBool}}"
+                            HorizontalOptions="Start" />
+                </VerticalStackLayout>
+            </ScrollView>
 
-        <VerticalStackLayout x:Name="FilesScreen" IsVisible="False" Padding="24" Spacing="12">
-            <Label Text="Files" FontAttributes="Bold" FontSize="20" />
-            <Label Text="The shared WYSIWYG contracts are available to Mobile, but its native editor currently has only a Windows handler. File editing will appear here when Android and iOS handlers are implemented." LineBreakMode="WordWrap" />
-        </VerticalStackLayout>
-        <VerticalStackLayout x:Name="SettingsScreen" IsVisible="False" Padding="24" Spacing="12">
-            <Label Text="Settings" FontAttributes="Bold" FontSize="20" />
-            <Label Text="This app connects to the same authenticated engine protocol as Desktop. Android and iOS require a paired-engine discovery/endpoint workflow; local runtime-file discovery only works on Windows and Mac Catalyst." LineBreakMode="WordWrap" />
-        </VerticalStackLayout>
-        <VerticalStackLayout x:Name="AccountScreen" IsVisible="False" Padding="24" Spacing="12">
-            <Label Text="Account" FontAttributes="Bold" FontSize="20" />
-            <Label Text="Account management is provided by the Subconscious engine and will be surfaced here with the mobile pairing flow." LineBreakMode="WordWrap" />
-        </VerticalStackLayout>
+            <VerticalStackLayout IsVisible="{Binding IsFilesOpen}" Padding="24" Spacing="12">
+                <Label Text="Files" FontAttributes="Bold" FontSize="20" />
+                <Label Text="File browsing and editing are not available on Android or iOS yet. Use Desktop for Engine-authorized workspace file editing."
+                       LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+
+            <ScrollView IsVisible="{Binding IsGeneralSettingsOpen}">
+                <VerticalStackLayout Padding="24" Spacing="14" MaximumWidthRequest="750" HorizontalOptions="Fill">
+                    <Label Text="General Settings" FontAttributes="Bold" FontSize="20" />
+                    <Label Text="Mobile appearance" FontAttributes="Bold" />
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="Color" FontAttributes="Bold" />
+                        <Picker ItemsSource="{Binding AppearancePaletteOptions}"
+                                SelectedItem="{Binding SelectedAppearancePalette, Mode=TwoWay}"
+                                Title="Choose a color" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="Lighting mode" FontAttributes="Bold" />
+                        <Picker ItemsSource="{Binding LightingModeOptions}"
+                                SelectedItem="{Binding SelectedLightingMode, Mode=TwoWay}"
+                                Title="Follow system" />
+                    </VerticalStackLayout>
+                    <Label Text="These Mobile preferences are stored on this device and do not affect Desktop or Terminal themes."
+                           FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                    <Label Text="Connection" FontAttributes="Bold" />
+                    <Label Text="{Binding ConnectionDescription}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding StatusText}" FontSize="12" TextColor="{StaticResource Gray500}" />
+                    <Label Text="Desktop-only panel layout and sidebar-position settings do not apply to the phone flyout."
+                           FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <ScrollView IsVisible="{Binding IsModelsSettingsOpen}">
+                <VerticalStackLayout Padding="24" Spacing="12" MaximumWidthRequest="750" HorizontalOptions="Fill">
+                    <Label Text="Models" FontAttributes="Bold" FontSize="20" />
+                    <Label Text="Available models from the connected Engine. Encrypted configuration editing remains on Desktop."
+                           FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding AvailableModels}" Spacing="10">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="engine:ModelInfo">
+                                <Border Padding="12" Stroke="{StaticResource Gray500}" StrokeThickness="0.5">
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label Text="{Binding Name}" FontAttributes="Bold" />
+                                        <Label Text="{Binding Provider}" FontSize="12" TextColor="{StaticResource Gray500}" />
+                                        <Label Text="{Binding Description}" FontSize="12" LineBreakMode="WordWrap" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <VerticalStackLayout IsVisible="{Binding IsToolsSettingsOpen}" Padding="24" Spacing="12">
+                <Label Text="Tools" FontAttributes="Bold" FontSize="20" />
+                <Label Text="Tool registry and encrypted authentication configuration are currently managed by Desktop."
+                       LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout IsVisible="{Binding IsSkillsSettingsOpen}" Padding="24" Spacing="12">
+                <Label Text="Skills" FontAttributes="Bold" FontSize="20" />
+                <Label Text="Engine-backed skill configuration is not available on Mobile yet."
+                       LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout IsVisible="{Binding IsAboutSettingsOpen}" Padding="24" Spacing="14"
+                                 HorizontalOptions="Center" VerticalOptions="Center" MaximumWidthRequest="600">
+                <Label Text="Subconscious" FontAttributes="Bold" FontSize="24" HorizontalOptions="Center" />
+                <Label Text="Subconscious is a distributed agentic AI app that lets agents run across your devices."
+                       HorizontalTextAlignment="Center" LineBreakMode="WordWrap" />
+                <Label Text="{Binding AboutVersion}" TextColor="{StaticResource Gray500}" HorizontalOptions="Center" />
+                <Label Text="© 2026 Subconscious" TextColor="{StaticResource Gray500}" HorizontalOptions="Center" />
+            </VerticalStackLayout>
+
+            <ScrollView IsVisible="{Binding IsAccountOpen}">
+                <VerticalStackLayout Padding="24" Spacing="12" MaximumWidthRequest="750" HorizontalOptions="Fill">
+                    <Label Text="Engine pairing" FontAttributes="Bold" FontSize="20" />
+                    <Label Text="Start the desktop engine with --lan, then paste the Mobile pairing invitation printed in its local console. It grants this phone access to that running engine on the same trusted Wi-Fi network."
+                           LineBreakMode="WordWrap" />
+                    <Label Text="Pairing invitation" FontAttributes="Bold" />
+                    <Entry AutomationId="EnginePairingInvitation" Text="{Binding PairingInvitation, Mode=TwoWay}"
+                           Placeholder="subconscious://pair?host=...&amp;port=...&amp;token=..." />
+                    <Button AutomationId="PairEngineButton" Text="Pair and connect" Clicked="OnPairEngineClicked"
+                            IsEnabled="{Binding IsPairing, Converter={StaticResource InvertedBool}}" HorizontalOptions="Start" />
+                    <Label AutomationId="PairedEngineDescription" Text="{Binding PairedEngineDescription}"
+                           LineBreakMode="WordWrap" />
+                    <Label AutomationId="PairingError" Text="{Binding PairingError}" TextColor="Red"
+                           LineBreakMode="WordWrap" />
+                    <Button AutomationId="ForgetPairedEngineButton" Text="Forget paired engine" Clicked="OnForgetEngineClicked"
+                            IsVisible="{Binding HasPairedEngine}" HorizontalOptions="Start" />
+                    <Label Text="This initial LAN transport uses HTTP for private-network development. Do not pair on an untrusted network; certificate-pinned TLS pairing is the next security milestone."
+                           FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
     </Grid>
 </ContentPage>

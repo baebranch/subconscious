@@ -3,7 +3,11 @@ using Android.Runtime;
 
 namespace Subconscious.Mobile;
 
+#if DEBUG
+[Application(NetworkSecurityConfig = "@xml/network_security_config")]
+#else
 [Application]
+#endif
 public class MainApplication : MauiApplication
 {
 	public MainApplication(IntPtr handle, JniHandleOwnership ownership)

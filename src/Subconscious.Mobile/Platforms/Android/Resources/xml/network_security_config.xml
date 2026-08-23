@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+	<!-- This file is applied only to Debug builds (see MainApplication.cs). The engine's initial
+	     opt-in LAN pairing transport is HTTP, so development builds permit it on a trusted LAN.
+	     Release builds retain Android's default cleartext restriction until certificate-pinned TLS
+	     pairing is implemented. -->
+	<base-config cleartextTrafficPermitted="true" />
+</network-security-config>

@@ -12,7 +12,6 @@ namespace Subconscious.Mobile.Engine;
 public sealed class WorkspaceStore
 {
     private readonly EngineClient _client;
-    private bool _connected;
 
     public ObservableCollection<Workspace> Workspaces { get; } = [];
 
@@ -25,23 +24,39 @@ public sealed class WorkspaceStore
         _client = client;
     }
 
-    /// <summary>Connects to the engine if needed and (re)loads the workspace list. Safe to call
-    /// repeatedly — e.g. once at app startup and again every time the Workspaces page appears —
-    /// since it's just "connect if not already connected, then refresh".</summary>
-    public async Task RefreshAsync(bool dev = false)
+    public void Replace(Workspace workspace)
+    {
+        var index = Workspaces.ToList().FindIndex(candidate => candidate.Uuid == workspace.Uuid);
+        if (index >= 0)
+        {
+            Workspaces[index] = workspace;
+        }
+        else
+        {
+            Workspaces.Add(workspace);
+        }
+    }
+
+    /// <summary>Refreshes the shared list through an already-established Engine client.
+    /// Exceptions are recorded for UI callers rather than crashing an optional refresh gesture.</summary>
+    public Task RefreshAsync() => RefreshCoreAsync(throwOnFailure: false);
+
+    /// <summary>Refreshes after the session has explicitly selected and connected an Engine endpoint.
+    /// This never runs discovery, so Android retains its active local-development or paired-LAN connection.</summary>
+    public Task RefreshConnectedAsync() => RefreshCoreAsync(throwOnFailure: true);
+
+    private async Task RefreshCoreAsync(bool throwOnFailure)
     {
         IsLoading = true;
         ErrorMessage = null;
         try
         {
-            if (!_connected)
+            if (!_client.IsRestConnected)
             {
-                await _client.ConnectAsync(dev);
-                _connected = true;
+                throw new InvalidOperationException("No Subconscious engine is connected.");
             }
 
             var workspaces = await _client.ListWorkspacesAsync();
-
             Workspaces.Clear();
             foreach (var workspace in workspaces)
             {
@@ -50,11 +65,11 @@ public sealed class WorkspaceStore
         }
         catch (Exception ex)
         {
-            // Swallow rather than throw: the startup caller fires this without awaiting, and
-            // WorkspacesPage surfaces ErrorMessage in its UI instead of crashing on a missing
-            // engine (expected on a fresh Android/iOS install with no paired engine yet).
-            _connected = false;
             ErrorMessage = ex.Message;
+            if (throwOnFailure)
+            {
+                throw;
+            }
         }
         finally
         {

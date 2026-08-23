@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using MauiIcons.Fluent;
+using Subconscious.Mobile.Controls;
 using Subconscious.Mobile.Engine;
 using Subconscious.WYSIWYG;
 
@@ -14,6 +15,33 @@ public static class MauiProgram
 			.UseMauiApp<App>()
 			.UseFluentMauiIcons()
 			.UseSubconsciousWysiwyg()
+#if ANDROID
+			// The omnibox Border owns its field outline. Remove Android's default underline only
+			// from the scoped chat controls so normal form Editors and Pickers keep native chrome.
+			.ConfigureMauiHandlers(_ =>
+			{
+				Microsoft.Maui.Handlers.EditorHandler.Mapper.AppendToMapping(
+					nameof(ChatComposerEditor), (handler, view) =>
+					{
+						if (view is ChatComposerEditor)
+						{
+							handler.PlatformView.BackgroundTintList =
+								Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Transparent);
+							handler.PlatformView.SetBackgroundColor(Android.Graphics.Color.Transparent);
+						}
+					});
+				Microsoft.Maui.Handlers.PickerHandler.Mapper.AppendToMapping(
+					nameof(ChatModelPicker), (handler, view) =>
+					{
+						if (view is ChatModelPicker)
+						{
+							handler.PlatformView.BackgroundTintList =
+								Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Transparent);
+							handler.PlatformView.SetBackgroundColor(Android.Graphics.Color.Transparent);
+						}
+					});
+			})
+#endif
 			.ConfigureFonts(fonts =>
 			{
 				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -25,7 +53,9 @@ public static class MauiProgram
 		// (Shell.FlyoutContent's ShellContent doesn't support constructor DI), so it reaches
 		// these through IPlatformApplication.Current.Services rather than a ctor parameter.
 		builder.Services.AddSingleton<EngineClient>();
+		builder.Services.AddSingleton<PairedEngineStore>();
 		builder.Services.AddSingleton<WorkspaceStore>();
+		builder.Services.AddSingleton<MobileAppearancePreferences>();
 		builder.Services.AddSingleton<MobileChatSession>();
 
 #if DEBUG

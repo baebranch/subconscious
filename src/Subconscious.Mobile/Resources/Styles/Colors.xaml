@@ -27,6 +27,22 @@
     <Color x:Key="Gray900">#212121</Color>
     <Color x:Key="Gray950">#141414</Color>
 
+    <!-- Runtime-updated by MobileAppearancePreferences; Desktop and Terminal do not consume these keys. -->
+    <Color x:Key="MobileSurfaceColor">#2C2C2C</Color>
+    <Color x:Key="MobilePrimaryTextColor">#F5F5F5</Color>
+    <Color x:Key="MobileSecondaryTextColor">#C4C4C4</Color>
+    <Color x:Key="MobileDividerColor">#403653</Color>
+    <Color x:Key="MobileAccentColor">#673AB7</Color>
+    <Color x:Key="MobileOnAccentColor">White</Color>
+    <Color x:Key="MobileContextHighlightColor">#403653</Color>
+
+    <!-- Desktop-compatible semantic fallbacks used by the shared native chat transcript. -->
+    <Color x:Key="AccentColor">#673AB7</Color>
+    <Color x:Key="PrimaryTextColor">#F5F5F5</Color>
+    <Color x:Key="SecondaryTextColor">#C4C4C4</Color>
+    <Color x:Key="UserBubbleColor">#332B45</Color>
+    <Color x:Key="AssistantBubbleColor">#333333</Color>
+
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
     <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Secondary}"/>
     <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource Tertiary}"/>

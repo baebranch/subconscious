@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 15 ignores runtime system-bar colors. Keep the platform layers transparent
+         so MainActivity's dynamic decor surface is visible behind them. The splash itself
+         remains white, and MainActivity replaces this initial status icon mode after startup. -->
+    <style name="Subconscious.SplashTheme" parent="Maui.SplashTheme">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
