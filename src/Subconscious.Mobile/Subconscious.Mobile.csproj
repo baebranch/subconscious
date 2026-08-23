@@ -53,16 +53,25 @@
 		<!-- Android emulators access the host's loopback through 10.0.2.2; Debug code opts into its restricted HTTP policy. -->
 	</PropertyGroup>
 
-	<ItemGroup>
-		<!-- App Icon -->
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+	<PropertyGroup>
+		<!-- Maui's Android resizetizer derives the launcher resource name from the input filename,
+		     not its Link metadata. Copy the selected mark to an intermediate appicon.svg so both
+		     configurations generate the manifest's @mipmap/appicon resource. -->
+		<MauiLauncherIconSource Condition="'$(Configuration)' == 'Debug'">$(MSBuildProjectDirectory)\Resources\AppIcon\appicon_dev.svg</MauiLauncherIconSource>
+		<MauiLauncherIconSource Condition="'$(Configuration)' != 'Debug'">$(MSBuildProjectDirectory)\Resources\AppIcon\appicon.svg</MauiLauncherIconSource>
+		<MauiLauncherIconPath>$(MSBuildProjectDirectory)\obj\$(Configuration)\$(TargetFramework)\MauiAppIcon\appicon.svg</MauiLauncherIconPath>
+	</PropertyGroup>
 
-		<!-- Splash Screen -->
-		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+	<ItemGroup>
+		<!-- appicon.svg is the generated resource's stable Android name, not a duplicate source asset. -->
+		<MauiIcon Include="$(MauiLauncherIconPath)" Color="#FFFFFF" />
+
+		<!-- Splash Screen mirrors the corresponding configuration's complete mark. -->
+		<MauiSplashScreen Include="Resources\Splash\appicon_dev.svg" Color="#FFFFFF" BaseSize="128,128" Condition="'$(Configuration)' == 'Debug'" />
+		<MauiSplashScreen Include="Resources\Splash\appicon.svg" Color="#FFFFFF" BaseSize="128,128" Condition="'$(Configuration)' != 'Debug'" />
 
 		<!-- Images -->
 		<MauiImage Include="Resources\Images\*" />
-		<MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />
 		
 		<!-- Custom Fonts -->
 		<MauiFont Include="Resources\Fonts\*" />
@@ -88,5 +97,10 @@
 		     phone file editing stays deliberately unavailable until Android/iOS handlers are implemented. -->
 		<ProjectReference Include="..\Subconscious.WYSIWYG\Subconscious.WYSIWYG.csproj" />
 	</ItemGroup>
+
+	<Target Name="PrepareMauiLauncherIcon" BeforeTargets="ProcessMauiAssets">
+		<MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(MauiLauncherIconPath)'))" />
+		<Copy SourceFiles="$(MauiLauncherIconSource)" DestinationFiles="$(MauiLauncherIconPath)" />
+	</Target>
 
 </Project>

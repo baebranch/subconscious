@@ -9,6 +9,7 @@ public interface IWorkspaceFileService
     Task<WorkspaceFileContentDto> ReadAsync(string workspaceUuid, int rootIndex, string relativePath, CancellationToken cancellationToken = default);
     Task<WorkspaceFileContentDto> WriteAsync(string workspaceUuid, int rootIndex, string relativePath, string? content, CancellationToken cancellationToken = default);
     Task<WorkspaceFileContentDto> CreateAsync(string workspaceUuid, int rootIndex, string relativePath, string? content, CancellationToken cancellationToken = default);
+    Task<WorkspaceFileEntryDto> CreateDirectoryAsync(string workspaceUuid, int rootIndex, string relativePath, CancellationToken cancellationToken = default);
 }
 
 public sealed class WorkspaceFileServiceException : Exception

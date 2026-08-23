@@ -4,9 +4,10 @@ namespace Subconscious.Mobile;
 
 public partial class App : Application
 {
-	public App()
+	public App(MobileAppearancePreferences appearancePreferences)
 	{
 		InitializeComponent();
+		appearancePreferences.Initialize(this);
 	}
 
 	protected override Window CreateWindow(IActivationState? activationState)

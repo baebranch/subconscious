@@ -23,9 +23,14 @@ namespace Subconscious.Engine;
 /// of any kind, whereas the .NET engine always shows a tray icon when available.
 /// </param>
 /// <param name="Port">
-/// Loopback port the local API listens on. <c>0</c> (the default) asks the OS for any
-/// free port, mirroring the Python engine's dynamic-port + <c>runtime.json</c> discovery
-/// model — clients never need a hardcoded port.
+/// API port. <c>0</c> (the default) asks the OS for any free port, mirroring the Python
+/// engine's dynamic-port + <c>runtime.json</c> discovery model — local clients never need a
+/// hardcoded port.
+/// </param>
+/// <param name="LanEnabled">
+/// Explicitly exposes the authenticated API to the current private network. The default remains
+/// loopback-only; callers must opt in because the initial LAN transport is HTTP and intended for
+/// trusted development networks until TLS certificate pairing is available.
 /// </param>
 public sealed record EngineConfig(
     bool Dev = false,
@@ -33,7 +38,8 @@ public sealed record EngineConfig(
     bool Gui = false,
     bool Tui = false,
     bool Headless = false,
-    int Port = 0)
+    int Port = 0,
+    bool LanEnabled = false)
 {
     /// <summary>Per-run node identity. Loaded from / persisted to config.yaml in Python.</summary>
     public string? NodeId { get; set; }

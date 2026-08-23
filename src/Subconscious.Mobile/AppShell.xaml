@@ -4,40 +4,176 @@
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:local="clr-namespace:Subconscious.Mobile"
        xmlns:engine="clr-namespace:Subconscious.Mobile.Engine"
-       FlyoutBackgroundColor="{StaticResource Gray900}"
+       xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
+       FlyoutBehavior="Flyout"
+       FlyoutIcon="{mi:Fluent Icon=Navigation24, IconSize=22, IconColor=#512BD4}"
+       FlyoutBackgroundColor="{DynamicResource MobileSurfaceColor}"
        Title="Subconscious">
     <!-- The phone flyout combines Desktop's narrow sidebar (left) and context panel (right). -->
     <ShellContent Route="Home" ContentTemplate="{DataTemplate local:MainPage}" />
     <Shell.FlyoutContent>
-        <Grid ColumnDefinitions="112,*" BackgroundColor="{StaticResource Gray900}">
-            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto" Padding="8,16" BackgroundColor="{StaticResource Gray950}">
+        <Grid ColumnDefinitions="48,*" BackgroundColor="{DynamicResource MobileSurfaceColor}"
+              x:DataType="local:MobileChatSession">
+            <Grid.Resources>
+                <!-- The flyout is hosted outside the page visual tree, so its transparent action
+                     buttons need an explicit dynamic foreground rather than AppThemeBinding. -->
+                <Style TargetType="Button">
+                    <Setter Property="TextColor" Value="{DynamicResource MobilePrimaryTextColor}" />
+                    <Setter Property="BackgroundColor" Value="Transparent" />
+                    <Setter Property="VisualStateManager.VisualStateGroups">
+                        <VisualStateGroupList>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="{DynamicResource MobileContextHighlightColor}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="{DynamicResource MobileContextHighlightColor}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateGroupList>
+                    </Setter>
+                </Style>
+            </Grid.Resources>
+            <!-- The 48px rail provides room for 40px controls while preserving their 8px padding. -->
+            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto" Padding="2,8"
+                  BackgroundColor="{DynamicResource MobileSurfaceColor}">
                 <VerticalStackLayout Spacing="4">
-                    <Label Text="NAVIGATE" FontSize="10" TextColor="{StaticResource Gray400}" />
-                    <Label Text="Chat" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="chat" /></Label.GestureRecognizers></Label>
-                    <Label Text="Workspaces" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="workspaces" /></Label.GestureRecognizers></Label>
-                    <Label Text="Threads" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="threads" /></Label.GestureRecognizers></Label>
-                    <Label Text="Files" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="files" /></Label.GestureRecognizers></Label>
+                    <Grid WidthRequest="40" HeightRequest="40">
+                        <ImageButton AutomationId="FlyoutWorkspacesButton"
+                                     CommandParameter="{x:Static local:MobileContextSection.Workspaces}"
+                                     Clicked="OnNavigateClicked" WidthRequest="40" HeightRequest="40"
+                                     MinimumWidthRequest="40" MinimumHeightRequest="40" Padding="8"
+                                     BackgroundColor="Transparent"
+                                     SemanticProperties.Description="Workspaces" ToolTipProperties.Text="Workspaces" />
+                        <mi:MauiIcon Icon="{mi:Fluent Folder24}" IconSize="18"
+                                     IconColor="{DynamicResource MobilePrimaryTextColor}"
+                                     InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Grid>
+                    <Grid WidthRequest="40" HeightRequest="40">
+                        <ImageButton AutomationId="FlyoutThreadsButton"
+                                     CommandParameter="{x:Static local:MobileContextSection.Threads}"
+                                     Clicked="OnNavigateClicked" WidthRequest="40" HeightRequest="40"
+                                     MinimumWidthRequest="40" MinimumHeightRequest="40" Padding="8"
+                                     BackgroundColor="Transparent"
+                                     SemanticProperties.Description="Threads" ToolTipProperties.Text="Threads" />
+                        <mi:MauiIcon Icon="{mi:Fluent Chat24}" IconSize="18"
+                                     IconColor="{DynamicResource MobilePrimaryTextColor}"
+                                     InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Grid>
+                    <Grid WidthRequest="40" HeightRequest="40">
+                        <ImageButton AutomationId="FlyoutFilesButton"
+                                     CommandParameter="{x:Static local:MobileContextSection.Files}"
+                                     Clicked="OnNavigateClicked" WidthRequest="40" HeightRequest="40"
+                                     MinimumWidthRequest="40" MinimumHeightRequest="40" Padding="8"
+                                     BackgroundColor="Transparent"
+                                     SemanticProperties.Description="Files" ToolTipProperties.Text="Files" />
+                        <mi:MauiIcon Icon="{mi:Fluent DocumentCopy24}" IconSize="18"
+                                     IconColor="{DynamicResource MobilePrimaryTextColor}"
+                                     InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Grid>
                 </VerticalStackLayout>
                 <VerticalStackLayout Grid.Row="2" Spacing="4">
-                    <Label Text="Settings" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="settings" /></Label.GestureRecognizers></Label>
-                    <Label Text="Account" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="account" /></Label.GestureRecognizers></Label>
+                    <Grid WidthRequest="40" HeightRequest="40">
+                        <ImageButton AutomationId="FlyoutSettingsButton"
+                                     CommandParameter="{x:Static local:MobileContextSection.Settings}"
+                                     Clicked="OnNavigateClicked" WidthRequest="40" HeightRequest="40"
+                                     MinimumWidthRequest="40" MinimumHeightRequest="40" Padding="8"
+                                     BackgroundColor="Transparent"
+                                     SemanticProperties.Description="Settings" ToolTipProperties.Text="Settings" />
+                        <mi:MauiIcon Icon="{mi:Fluent Settings24}" IconSize="18"
+                                     IconColor="{DynamicResource MobilePrimaryTextColor}"
+                                     InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Grid>
+                    <Grid WidthRequest="40" HeightRequest="40">
+                        <ImageButton AutomationId="FlyoutAccountButton"
+                                     CommandParameter="{x:Static local:MobileContextSection.Account}"
+                                     Clicked="OnNavigateClicked" WidthRequest="40" HeightRequest="40"
+                                     MinimumWidthRequest="40" MinimumHeightRequest="40" Padding="8"
+                                     BackgroundColor="Transparent"
+                                     SemanticProperties.Description="Account" ToolTipProperties.Text="Account" />
+                        <mi:MauiIcon Icon="{mi:Fluent Person24}" IconSize="18"
+                                     IconColor="{DynamicResource MobilePrimaryTextColor}"
+                                     InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Grid>
                 </VerticalStackLayout>
             </Grid>
 
-            <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto" Padding="16" RowSpacing="10">
-                <Label Text="CONTEXT" FontSize="10" TextColor="{StaticResource Gray400}" />
-                <Picker Grid.Row="1" Title="Choose workspace" ItemsSource="{Binding Workspaces}"
-                        ItemDisplayBinding="{Binding Name}" SelectedItem="{Binding CurrentWorkspace}"
-                        SelectedIndexChanged="OnWorkspaceChanged" TextColor="White" TitleColor="{StaticResource Gray300}" />
-                <CollectionView Grid.Row="2" ItemsSource="{Binding Threads}" SelectionMode="Single" SelectionChanged="OnThreadSelected">
-                    <CollectionView.EmptyView><Label Text="No threads yet" TextColor="{StaticResource Gray400}" /></CollectionView.EmptyView>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="engine:ThreadInfo">
-                            <Label Text="{Binding Title, TargetNullValue='Untitled thread'}" TextColor="White" Padding="0,8" LineBreakMode="TailTruncation" />
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-                <Button Grid.Row="3" Text="New conversation" Clicked="OnNewConversationClicked" />
+            <!-- Rail clicks only replace this context panel. A context row then chooses what the
+                 main page displays, matching Desktop's sidebar -> context -> main flow. -->
+            <Grid Grid.Column="1" Padding="14,12">
+                <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8" IsVisible="{Binding IsThreadsContext}">
+                    <Label Text="Threads" FontAttributes="Bold" FontSize="16" />
+                    <Picker AutomationId="FlyoutWorkspacePicker" Grid.Row="1" Title="Choose workspace"
+                            ItemsSource="{Binding Workspaces}" ItemDisplayBinding="{Binding Name}"
+                            SelectedItem="{Binding CurrentWorkspace, Mode=OneWay}"
+                            SelectedIndexChanged="OnWorkspaceChanged" />
+                    <Button Grid.Row="2" Text="Open chat" Clicked="OnOpenChatClicked"
+                            BackgroundColor="Transparent" HorizontalOptions="Fill" />
+                    <CollectionView AutomationId="FlyoutThreadsList" Grid.Row="3"
+                                    ItemsSource="{Binding Threads}" SelectionMode="Single"
+                                    SelectionChanged="OnThreadSelected">
+                        <CollectionView.EmptyView>
+                            <Label Text="No threads yet" TextColor="{DynamicResource MobileSecondaryTextColor}" />
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="engine:ThreadInfo">
+                                <Label Text="{Binding Title, TargetNullValue='Untitled thread'}"
+                                       Padding="4,10" LineBreakMode="TailTruncation" />
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Grid>
+
+                <Grid RowDefinitions="Auto,*" RowSpacing="8" IsVisible="{Binding IsWorkspacesContext}">
+                    <Label Text="Workspaces" FontAttributes="Bold" FontSize="16" />
+                    <CollectionView AutomationId="FlyoutWorkspacesList" Grid.Row="1"
+                                    ItemsSource="{Binding Workspaces}" SelectionMode="Single"
+                                    SelectionChanged="OnWorkspaceSettingsSelected">
+                        <CollectionView.EmptyView>
+                            <Label Text="No workspaces available" TextColor="{StaticResource Gray500}" />
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="engine:Workspace">
+                                <VerticalStackLayout Padding="4,9" Spacing="2">
+                                    <Label Text="{Binding Name}" FontAttributes="Bold" />
+                                    <Label Text="{Binding Description}" TextColor="{StaticResource Gray500}"
+                                           FontSize="11" MaxLines="2" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Grid>
+
+                <VerticalStackLayout Spacing="8" IsVisible="{Binding IsFilesContext}">
+                    <Label Text="Files" FontAttributes="Bold" FontSize="16" />
+                    <Button Text="File access" Clicked="OnOpenFilesClicked"
+                            BackgroundColor="Transparent" HorizontalOptions="Fill" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="4" IsVisible="{Binding IsSettingsContext}">
+                    <Label Text="Settings" FontAttributes="Bold" FontSize="16" Margin="0,0,0,4" />
+                    <Button Text="General Settings" CommandParameter="{x:Static local:MobileSettingsPage.General}"
+                            Clicked="OnSettingsSelected" BackgroundColor="Transparent" HorizontalOptions="Fill" />
+                    <Button Text="Models" CommandParameter="{x:Static local:MobileSettingsPage.Models}"
+                            Clicked="OnSettingsSelected" BackgroundColor="Transparent" HorizontalOptions="Fill" />
+                    <Button Text="Tools" CommandParameter="{x:Static local:MobileSettingsPage.Tools}"
+                            Clicked="OnSettingsSelected" BackgroundColor="Transparent" HorizontalOptions="Fill" />
+                    <Button Text="Skills" CommandParameter="{x:Static local:MobileSettingsPage.Skills}"
+                            Clicked="OnSettingsSelected" BackgroundColor="Transparent" HorizontalOptions="Fill" />
+                    <Button Text="About" CommandParameter="{x:Static local:MobileSettingsPage.About}"
+                            Clicked="OnSettingsSelected" BackgroundColor="Transparent" HorizontalOptions="Fill" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="8" IsVisible="{Binding IsAccountContext}">
+                    <Label Text="Account" FontAttributes="Bold" FontSize="16" />
+                    <Button Text="Account details" Clicked="OnOpenAccountClicked"
+                            BackgroundColor="Transparent" HorizontalOptions="Fill" />
+                </VerticalStackLayout>
             </Grid>
         </Grid>
     </Shell.FlyoutContent>

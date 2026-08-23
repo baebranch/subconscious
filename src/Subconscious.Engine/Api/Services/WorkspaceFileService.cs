@@ -13,8 +13,10 @@ public sealed class WorkspaceFileService : IWorkspaceFileService
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".md", ".markdown", ".txt", ".cs", ".csx", ".json", ".xml", ".xaml", ".yml", ".yaml",
-        ".js", ".jsx", ".ts", ".tsx", ".html", ".htm", ".css", ".py", ".ps1", ".sh", ".sql",
+        ".c", ".cc", ".cpp", ".cs", ".csx", ".css", ".fs", ".fsx", ".go", ".h", ".hpp",
+        ".html", ".htm", ".java", ".js", ".jsx", ".json", ".md", ".markdown", ".php", ".ps1",
+        ".py", ".rb", ".rs", ".sh", ".sql", ".toml", ".ts", ".tsx", ".txt", ".xml", ".xaml",
+        ".yml", ".yaml",
     };
 
     private readonly SubconsciousDbContext _context;
@@ -102,6 +104,28 @@ public sealed class WorkspaceFileService : IWorkspaceFileService
         return new WorkspaceFileContentDto { Content = content };
     }
 
+    public async Task<WorkspaceFileEntryDto> CreateDirectoryAsync(
+        string workspaceUuid, int rootIndex, string relativePath, CancellationToken cancellationToken = default)
+    {
+        var root = await GetRootAsync(workspaceUuid, rootIndex, cancellationToken);
+        var directory = ResolveNewDirectory(root, relativePath);
+        try
+        {
+            Directory.CreateDirectory(directory);
+        }
+        catch (IOException) when (File.Exists(directory) || Directory.Exists(directory))
+        {
+            throw Conflict("A file or directory already exists at the requested path.");
+        }
+
+        return new WorkspaceFileEntryDto
+        {
+            Name = Path.GetFileName(directory),
+            RelativePath = ToRelativePath(root, directory),
+            IsDirectory = true,
+        };
+    }
+
     private async Task<string> GetRootAsync(string workspaceUuid, int rootIndex, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(workspaceUuid)) throw BadRequest("Workspace UUID is required.");
@@ -150,6 +174,44 @@ public sealed class WorkspaceFileService : IWorkspaceFileService
             throw BadRequest("The requested file is not a supported text or source file.");
         }
         return file;
+    }
+
+    private static string ResolveNewDirectory(string root, string? relativePath)
+    {
+        if (relativePath is null) throw BadRequest("A workspace-relative directory path is required.");
+        relativePath = relativePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (relativePath.Length == 0) throw BadRequest("The workspace-relative path must not be empty.");
+
+        try
+        {
+            if (Path.IsPathRooted(relativePath) || Path.IsPathFullyQualified(relativePath)
+                || relativePath.IndexOf(Path.VolumeSeparatorChar) >= 0)
+            {
+                throw BadRequest("The path must be workspace-relative.");
+            }
+            var segments = relativePath.Split(['/', '\\'], StringSplitOptions.None);
+            if (segments.Any(segment => segment is "." or ".."))
+            {
+                throw BadRequest("The path must not contain traversal segments.");
+            }
+
+            var directory = Path.GetFullPath(Path.Combine(root, relativePath));
+            var parent = Path.GetDirectoryName(directory);
+            if (string.IsNullOrEmpty(parent)) throw BadRequest("The workspace-relative path is invalid.");
+            parent = VerifyExistingPath(root, parent);
+            EnsureDirectory(parent);
+            EnsureNewTargetIsNotReparsePoint(directory);
+            if (File.Exists(directory) || Directory.Exists(directory))
+            {
+                throw Conflict("A file or directory already exists at the requested path.");
+            }
+            return directory;
+        }
+        catch (WorkspaceFileServiceException) { throw; }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException)
+        {
+            throw BadRequest("The workspace-relative path is invalid.");
+        }
     }
 
     private static string ResolveNewFile(string root, string? relativePath)

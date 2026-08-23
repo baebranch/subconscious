@@ -484,7 +484,16 @@ $RECYCLE.BIN/
 # Subconscious-specific
 # Local engine data directory if ever pointed at the repo during dev testing.
 data/
+# EF Core migration history belongs to source, not runtime engine data.
+!src/Subconscious.Engine/Data/
+!src/Subconscious.Engine/Data/Migrations/
+!src/Subconscious.Engine/Data/Migrations/*.cs
 *.db
 *.db-shm
 *.db-wal
 runtime.json
+
+
+# Agent & IDE
+.kiro/skills/*
+graphify-out/*

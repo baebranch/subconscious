@@ -6,7 +6,7 @@ using Subconscious.Engine.Api.DTOs;
 
 namespace Subconscious.Engine.Configuration;
 
-/// <summary>Encrypted persistence for model configurations and write-only configured-tool API keys.</summary>
+/// <summary>Encrypted persistence for model configurations and write-only configured-tool API-key header JSON.</summary>
 public interface IModelConfigurationStore
 {
     Task<IReadOnlyList<ModelConfigurationDto>> ListAsync(CancellationToken cancellationToken = default);
@@ -14,9 +14,9 @@ public interface IModelConfigurationStore
     Task<ModelConfigurationDto> CreateAsync(UpsertModelConfigurationRequest request, CancellationToken cancellationToken = default);
     Task<ModelConfigurationDto?> UpdateAsync(string id, UpsertModelConfigurationRequest request, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default);
-    Task<IReadOnlySet<string>> GetToolApiKeyIdsAsync(CancellationToken cancellationToken = default);
-    Task<bool> UpdateToolApiKeyAsync(string toolUuid, string? apiKey, bool clearApiKey, CancellationToken cancellationToken = default);
-    Task<bool> RemoveToolApiKeyAsync(string toolUuid, CancellationToken cancellationToken = default);
+    Task<IReadOnlySet<string>> GetToolAuthConfigIdsAsync(CancellationToken cancellationToken = default);
+    Task<bool> UpdateToolAuthConfigAsync(string toolUuid, string? authConfigJson, bool clearAuthConfig, CancellationToken cancellationToken = default);
+    Task<bool> RemoveToolAuthConfigAsync(string toolUuid, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Errors that prevent safely reading or writing encrypted model configuration data.</summary>
@@ -165,18 +165,16 @@ public sealed class EncryptedModelConfigurationStore : IModelConfigurationStore
         }
     }
 
-    public async Task<IReadOnlySet<string>> GetToolApiKeyIdsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlySet<string>> GetToolAuthConfigIdsAsync(CancellationToken cancellationToken = default)
     {
         await _writeLock.WaitAsync(cancellationToken);
         try
         {
-            var toolApiKeys = (await ReadSecretsAsync(cancellationToken))["tool_api_keys"] as JsonObject;
-            return toolApiKeys is null
-                ? new HashSet<string>(StringComparer.Ordinal)
-                : toolApiKeys
-                    .Where(entry => !string.IsNullOrWhiteSpace(GetString(toolApiKeys, entry.Key)))
-                    .Select(entry => entry.Key)
-                    .ToHashSet(StringComparer.Ordinal);
+            var secrets = await ReadSecretsAsync(cancellationToken);
+            return GetStoredToolSecretIds(secrets["tool_auth_configs"] as JsonObject)
+                // Pre-JSON API-key secrets remain configured until a caller replaces or clears them.
+                .Concat(GetStoredToolSecretIds(secrets["tool_api_keys"] as JsonObject))
+                .ToHashSet(StringComparer.Ordinal);
         }
         finally
         {
@@ -184,10 +182,10 @@ public sealed class EncryptedModelConfigurationStore : IModelConfigurationStore
         }
     }
 
-    public async Task<bool> UpdateToolApiKeyAsync(
+    public async Task<bool> UpdateToolAuthConfigAsync(
         string toolUuid,
-        string? apiKey,
-        bool clearApiKey,
+        string? authConfigJson,
+        bool clearAuthConfig,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(toolUuid))
@@ -199,29 +197,47 @@ public sealed class EncryptedModelConfigurationStore : IModelConfigurationStore
         try
         {
             var secrets = await ReadSecretsAsync(cancellationToken);
-            var toolApiKeys = secrets["tool_api_keys"] as JsonObject;
-            var current = toolApiKeys is null ? null : GetString(toolApiKeys, toolUuid);
-            if (apiKey is not null)
+            var authConfigs = secrets["tool_auth_configs"] as JsonObject;
+            var legacyApiKeys = secrets["tool_api_keys"] as JsonObject;
+            var current = authConfigs is null ? null : GetString(authConfigs, toolUuid);
+            var hasLegacyApiKey = legacyApiKeys is not null && !string.IsNullOrWhiteSpace(GetString(legacyApiKeys, toolUuid));
+
+            if (authConfigJson is not null)
             {
-                toolApiKeys ??= GetOrCreateToolApiKeys(secrets);
-                if (!string.Equals(current, apiKey, StringComparison.Ordinal))
+                authConfigs ??= GetOrCreateToolAuthConfigs(secrets);
+                var changed = !string.Equals(current, authConfigJson, StringComparison.Ordinal);
+                authConfigs[toolUuid] = authConfigJson;
+                changed |= legacyApiKeys?.Remove(toolUuid) == true;
+                if (legacyApiKeys?.Count == 0)
                 {
-                    toolApiKeys[toolUuid] = apiKey;
+                    secrets.Remove("tool_api_keys");
+                }
+                if (changed)
+                {
                     await WriteSecretsAsync(secrets, cancellationToken);
                 }
-                return !string.IsNullOrWhiteSpace(apiKey);
+                return true;
             }
 
-            if (!clearApiKey || toolApiKeys is null || !toolApiKeys.Remove(toolUuid))
+            if (!clearAuthConfig)
             {
-                return !string.IsNullOrWhiteSpace(current);
+                return !string.IsNullOrWhiteSpace(current) || hasLegacyApiKey;
             }
 
-            if (toolApiKeys.Count == 0)
+            var removed = authConfigs?.Remove(toolUuid) == true;
+            removed |= legacyApiKeys?.Remove(toolUuid) == true;
+            if (authConfigs?.Count == 0)
+            {
+                secrets.Remove("tool_auth_configs");
+            }
+            if (legacyApiKeys?.Count == 0)
             {
                 secrets.Remove("tool_api_keys");
             }
-            await WriteSecretsAsync(secrets, cancellationToken);
+            if (removed)
+            {
+                await WriteSecretsAsync(secrets, cancellationToken);
+            }
             return false;
         }
         finally
@@ -230,8 +246,8 @@ public sealed class EncryptedModelConfigurationStore : IModelConfigurationStore
         }
     }
 
-    public Task<bool> RemoveToolApiKeyAsync(string toolUuid, CancellationToken cancellationToken = default) =>
-        UpdateToolApiKeyAsync(toolUuid, apiKey: null, clearApiKey: true, cancellationToken: cancellationToken);
+    public Task<bool> RemoveToolAuthConfigAsync(string toolUuid, CancellationToken cancellationToken = default) =>
+        UpdateToolAuthConfigAsync(toolUuid, authConfigJson: null, clearAuthConfig: true, cancellationToken: cancellationToken);
 
     private async Task<JsonObject> ReadSecretsAsync(CancellationToken cancellationToken)
     {
@@ -284,17 +300,24 @@ public sealed class EncryptedModelConfigurationStore : IModelConfigurationStore
         }
     }
 
-    private static JsonObject GetOrCreateToolApiKeys(JsonObject secrets)
+    private static JsonObject GetOrCreateToolAuthConfigs(JsonObject secrets)
     {
-        if (secrets["tool_api_keys"] is JsonObject toolApiKeys)
+        if (secrets["tool_auth_configs"] is JsonObject authConfigs)
         {
-            return toolApiKeys;
+            return authConfigs;
         }
 
         var created = new JsonObject();
-        secrets["tool_api_keys"] = created;
+        secrets["tool_auth_configs"] = created;
         return created;
     }
+
+    private static IEnumerable<string> GetStoredToolSecretIds(JsonObject? secrets) =>
+        secrets is null
+            ? []
+            : secrets
+                .Where(entry => !string.IsNullOrWhiteSpace(GetString(secrets, entry.Key)))
+                .Select(entry => entry.Key);
 
     private static JsonObject GetOrCreateModels(JsonObject secrets)
     {

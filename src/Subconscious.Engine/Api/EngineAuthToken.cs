@@ -3,10 +3,10 @@ using System.Security.Cryptography;
 namespace Subconscious.Engine.Api;
 
 /// <summary>
-/// The bearer token clients must present to use the local API, generated fresh on every
-/// engine start and shared with clients only via the <c>runtime.json</c> discovery file
-/// (never logged, never written anywhere else). Mirrors the Python engine's per-run
-/// token in <c>api/runtime.py</c>.
+/// The bearer token clients must present to use the API. It is generated fresh on every engine
+/// start and shared locally through <c>runtime.json</c>. When the user explicitly starts an
+/// opt-in <c>--lan</c> engine, the CLI also shows a copyable, process-lifetime pairing invitation
+/// on that same local console; it is never advertised on the network.
 /// </summary>
 public sealed record EngineAuthToken(string Value)
 {

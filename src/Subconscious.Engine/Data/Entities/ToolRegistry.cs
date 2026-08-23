@@ -3,8 +3,7 @@ namespace Subconscious.Engine.Data.Entities;
 /// <summary>
 /// Registry of configured tools (scripts, MCP servers, REST/API endpoints).
 /// Tool types: 'script' (Python/JS/TS), 'mcp' (MCP server), 'api' (REST endpoint).
-/// Auth types: None / 'api_key' / 'oauth'
-/// API keys are stored encrypted in the keyring data file (keyed by uuid).
+/// Endpoint API-key headers are stored as encrypted, write-only JSON keyed by UUID.
 /// Status values: 'active', 'disabled', 'error'
 /// </summary>
 public class ToolRegistry
@@ -31,11 +30,12 @@ public class ToolRegistry
     
     // Auth
     /// <summary>
-    /// Auth type: None, 'api_key', 'oauth'
+    /// Authentication type; only <c>api_key</c> is currently supported for endpoint tools.
     /// </summary>
     public string? AuthType { get; set; }
     /// <summary>
-    /// Env var name holding the key at runtime
+    /// Legacy environment-variable metadata retained for compatibility; new header configurations
+    /// are encrypted in the secret store instead.
     /// </summary>
     public string? AuthEnvVar { get; set; }
     

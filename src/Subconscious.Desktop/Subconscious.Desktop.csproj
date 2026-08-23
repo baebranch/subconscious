@@ -57,10 +57,18 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- Use the shared Subconscious mark for the generated Windows taskbar/application icon.
-		     It contains its own white rounded background and black glyph, so it replaces the
-		     previous MAUI foreground/background composition. -->
-		<MauiIcon Include="..\..\Icons\logo.svg" Link="Resources\AppIcon\subconscious_appicon.svg" />
+		<!--
+			Debug builds generate their application/taskbar icon from the development PNG;
+			all other build configurations use the production PNG. A Release executable started
+			with the dev command-line switch changes its live Windows window/taskbar icon at runtime
+			(see MainWindow).
+		-->
+		<MauiIcon Include="Assets\icon_dev.png" Condition="'$(Configuration)' == 'Debug'" />
+		<MauiIcon Include="Assets\icon.png" Condition="'$(Configuration)' != 'Debug'" />
+
+		<!-- The Windows runtime icon switch needs the original ICO files next to the executable. -->
+		<None Update="Assets\favicon.ico" CopyToOutputDirectory="PreserveNewest" />
+		<None Update="Assets\favicon_dev.ico" CopyToOutputDirectory="PreserveNewest" />
 
 		<!-- Splash Screen -->
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#7C6FE0" BaseSize="128,128" />

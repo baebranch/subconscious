@@ -24,10 +24,17 @@ namespace Subconscious.Host.Cli;
 /// </summary>
 public static class EngineTrayCoordinator
 {
-    // Matches the Assets\favicon.ico item in Subconscious.Host.Cli.csproj, which copies
-    // with CopyToOutputDirectory="PreserveNewest" - preserving the "Assets" subfolder
-    // under the build output rather than flattening it to the output root.
-    private const string IconFileName = "Assets/favicon.ico";
+    // Both tray icon assets are copied by Subconscious.Host.Cli.csproj while preserving the
+    // Assets subfolder under the build output.
+    private const string ProductionIconFileName = "Assets/favicon.ico";
+    private const string DevelopmentIconFileName = "Assets/favicon_dev.ico";
+
+    private static bool IsDebugBuild =>
+#if DEBUG
+        true;
+#else
+        false;
+#endif
 
     /// <summary>
     /// Attaches a tray icon to <paramref name="host"/> when the current platform supports
@@ -42,7 +49,10 @@ public static class EngineTrayCoordinator
             return null;
         }
 
-        var iconPath = Path.Combine(AppContext.BaseDirectory, IconFileName);
+        var iconFileName = config.Dev || IsDebugBuild
+            ? DevelopmentIconFileName
+            : ProductionIconFileName;
+        var iconPath = Path.Combine(AppContext.BaseDirectory, iconFileName);
         var menuItems = new List<TrayMenuItem>
         {
             new(

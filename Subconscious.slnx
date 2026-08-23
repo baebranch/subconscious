@@ -3,10 +3,20 @@
     <Project Path="src/Subconscious.Engine/Subconscious.Engine.csproj" />
     <Project Path="src/Subconscious.Mobile/Subconscious.Mobile.csproj" />
     <Project Path="src/Subconscious.Browser/Subconscious.Browser.csproj" />
+    <Project Path="src/Subconscious.Client/Subconscious.Client.csproj" />
     <Project Path="src/Subconscious.Desktop/Subconscious.Desktop.csproj" />
+    <Project Path="src/Subconscious.Chat/Subconscious.Chat.csproj" />
+    <Project Path="src/Subconscious.Chat.Web/Subconscious.Chat.Web.csproj" />
+    <Project Path="src/Subconscious.Chat.Native/Subconscious.Chat.Native.csproj" />
+    <Project Path="src/Subconscious.Chat.Debug/Subconscious.Chat.Debug.csproj" />
     <Project Path="src/Subconscious.Host.Cli/Subconscious.Host.Cli.csproj" />
     <Project Path="src/Subconscious.Desktop.Tray/Subconscious.Desktop.Tray.csproj" />
     <Project Path="src/Subconscious.Tools.Desktop/Subconscious.Tools.Desktop.csproj" />
+    <Project Path="src/Subconscious.Terminal/Subconscious.Terminal.csproj" />
+    <Project Path="src/Subconscious.TUI/Subconscious.TUI.csproj" />
+    <Project Path="src/Subconscious.TUI.Demo/Subconscious.TUI.Demo.csproj" />
+    <Project Path="src/Subconscious.WYSIWYG/Subconscious.WYSIWYG.csproj" />
+    <Project Path="src/Subconscious.WYSIWYG.Debug/Subconscious.WYSIWYG.Debug.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Subconscious.Engine.Tests/Subconscious.Engine.Tests.csproj" />

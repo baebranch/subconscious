@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text;
+using System.Text.Json;
 using Subconscious.Engine.Api.DTOs;
 using Subconscious.Engine.Configuration;
 using Subconscious.Engine.Data;
 using Subconscious.Engine.Data.Entities;
 using Subconscious.Engine.Tools;
-using System.Text;
 
 namespace Subconscious.Engine.Api.Services;
 
@@ -29,8 +30,8 @@ public sealed class ToolRegistryService : IToolRegistryService
     {
         var tools = await _context.ToolRegistry.AsNoTracking().OrderBy(tool => tool.Alias).ThenBy(tool => tool.Name)
             .ToListAsync(cancellationToken);
-        var toolApiKeyIds = await _credentials.GetToolApiKeyIdsAsync(cancellationToken);
-        return tools.Select(tool => MapToDto(tool, toolApiKeyIds.Contains(tool.Uuid))).ToList();
+        var toolAuthConfigIds = await _credentials.GetToolAuthConfigIdsAsync(cancellationToken);
+        return tools.Select(tool => MapToDto(tool, toolAuthConfigIds.Contains(tool.Uuid))).ToList();
     }
 
     public async Task<ToolRegistryDto?> GetByUuidAsync(string uuid, CancellationToken cancellationToken = default)
@@ -40,12 +41,14 @@ public sealed class ToolRegistryService : IToolRegistryService
         {
             return null;
         }
-        var toolApiKeyIds = await _credentials.GetToolApiKeyIdsAsync(cancellationToken);
-        return MapToDto(tool, toolApiKeyIds.Contains(tool.Uuid));
+        var toolAuthConfigIds = await _credentials.GetToolAuthConfigIdsAsync(cancellationToken);
+        return MapToDto(tool, toolAuthConfigIds.Contains(tool.Uuid));
     }
 
     public async Task<ToolRegistryDto> CreateAsync(UpsertToolRegistryRequest request, CancellationToken cancellationToken = default)
     {
+        var toolType = RequiredOrDefault(request.ToolType, "script", "Tool type");
+        ValidateAuthConfig(toolType, request.AuthType, request.AuthConfigJson);
         var uuid = Guid.NewGuid().ToString();
         var alias = ResolveAlias(request, null);
         var tool = new ToolRegistry
@@ -54,12 +57,12 @@ public sealed class ToolRegistryService : IToolRegistryService
             Name = Normalize(request.Name) ?? SafeName(alias, uuid),
             Alias = alias,
             Description = request.Description,
-            ToolType = RequiredOrDefault(request.ToolType, "script", "Tool type"),
+            ToolType = toolType,
             ScriptPath = request.ScriptPath,
             ScriptLanguage = request.ScriptLanguage,
             EndpointUrl = request.EndpointUrl,
             AuthType = NormalizeAuthType(request.AuthType),
-            AuthEnvVar = request.AuthEnvVar,
+            AuthEnvVar = null,
             Status = RequiredOrDefault(request.Status, "active", "Status"),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
@@ -67,8 +70,8 @@ public sealed class ToolRegistryService : IToolRegistryService
 
         _context.ToolRegistry.Add(tool);
         await _context.SaveChangesAsync(cancellationToken);
-        var hasApiKey = await UpdateApiKeyAsync(tool, request, cancellationToken);
-        return MapToDto(tool, hasApiKey);
+        var hasAuthConfig = await UpdateAuthConfigAsync(tool, request, cancellationToken);
+        return MapToDto(tool, hasAuthConfig);
     }
 
     public async Task<ToolRegistryDto?> UpdateAsync(string uuid, UpsertToolRegistryRequest request, CancellationToken cancellationToken = default)
@@ -79,21 +82,23 @@ public sealed class ToolRegistryService : IToolRegistryService
             return null;
         }
 
+        var toolType = RequiredOrDefault(request.ToolType, tool.ToolType, "Tool type");
+        ValidateAuthConfig(toolType, request.AuthType, request.AuthConfigJson);
         tool.Name = Normalize(request.Name) ?? tool.Name;
         tool.Alias = ResolveAlias(request, tool);
         tool.Description = request.Description;
-        tool.ToolType = RequiredOrDefault(request.ToolType, tool.ToolType, "Tool type");
+        tool.ToolType = toolType;
         tool.ScriptPath = request.ScriptPath;
         tool.ScriptLanguage = request.ScriptLanguage;
         tool.EndpointUrl = request.EndpointUrl;
         tool.AuthType = NormalizeAuthType(request.AuthType);
-        tool.AuthEnvVar = request.AuthEnvVar;
+        tool.AuthEnvVar = null;
         tool.Status = RequiredOrDefault(request.Status, tool.Status, "Status");
         tool.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
-        var hasApiKey = await UpdateApiKeyAsync(tool, request, cancellationToken);
-        return MapToDto(tool, hasApiKey);
+        var hasAuthConfig = await UpdateAuthConfigAsync(tool, request, cancellationToken);
+        return MapToDto(tool, hasAuthConfig);
     }
 
     public async Task<bool> DeleteAsync(string uuid, CancellationToken cancellationToken = default)
@@ -105,7 +110,7 @@ public sealed class ToolRegistryService : IToolRegistryService
         }
         _context.ToolRegistry.Remove(tool);
         await _context.SaveChangesAsync(cancellationToken);
-        await _credentials.RemoveToolApiKeyAsync(uuid, cancellationToken);
+        await _credentials.RemoveToolAuthConfigAsync(uuid, cancellationToken);
         return true;
     }
 
@@ -125,35 +130,98 @@ public sealed class ToolRegistryService : IToolRegistryService
         return new ToolCatalogDto { Builtin = builtin, Configured = await GetAllAsync(cancellationToken) };
     }
 
-    private async Task<bool> UpdateApiKeyAsync(
+    private async Task<bool> UpdateAuthConfigAsync(
         ToolRegistry tool,
         UpsertToolRegistryRequest request,
         CancellationToken cancellationToken)
     {
         if (!string.Equals(tool.AuthType, "api_key", StringComparison.Ordinal))
         {
-            await _credentials.RemoveToolApiKeyAsync(tool.Uuid, cancellationToken);
+            await _credentials.RemoveToolAuthConfigAsync(tool.Uuid, cancellationToken);
             return false;
         }
 
-        return await _credentials.UpdateToolApiKeyAsync(
+        return await _credentials.UpdateToolAuthConfigAsync(
             tool.Uuid,
-            Normalize(request.ApiKey),
-            request.ClearApiKey,
+            Normalize(request.AuthConfigJson),
+            request.ClearAuthConfig,
             cancellationToken);
     }
 
-    private static ToolRegistryDto MapToDto(ToolRegistry tool, bool hasApiKey) => new()
+    private static ToolRegistryDto MapToDto(ToolRegistry tool, bool hasAuthConfig) => new()
     {
         Id = tool.Id, Uuid = tool.Uuid, Name = tool.Name, Alias = tool.Alias, Description = tool.Description,
         ToolType = tool.ToolType, ScriptPath = tool.ScriptPath, ScriptLanguage = tool.ScriptLanguage,
-        EndpointUrl = tool.EndpointUrl, AuthType = tool.AuthType,
-        HasApiKey = string.Equals(tool.AuthType, "api_key", StringComparison.Ordinal) && hasApiKey,
-        AuthEnvVar = tool.AuthEnvVar,
+        EndpointUrl = tool.EndpointUrl,
+        AuthType = tool.AuthType ?? (hasAuthConfig ? "api_key" : null),
+        HasAuthConfig = hasAuthConfig,
         Status = tool.Status, CreatedAt = tool.CreatedAt, UpdatedAt = tool.UpdatedAt,
     };
 
-    private static string? NormalizeAuthType(string? value) => Normalize(value)?.ToLowerInvariant();
+    private static void ValidateAuthConfig(string toolType, string? authType, string? authConfigJson)
+    {
+        var normalizedAuthType = NormalizeAuthType(authType);
+        if (string.Equals(normalizedAuthType, "api_key", StringComparison.Ordinal)
+            && !IsEndpointToolType(toolType))
+        {
+            throw new ArgumentException("API key authentication is supported only for API and MCP endpoint tools.");
+        }
+
+        var normalizedConfig = Normalize(authConfigJson);
+        if (normalizedConfig is null)
+        {
+            return;
+        }
+        if (!string.Equals(normalizedAuthType, "api_key", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("API key headers require the api_key authentication type.");
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(normalizedConfig);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                throw new ArgumentException("API key headers must be a non-empty JSON object with valid, unique HTTP header names and non-empty string values.");
+            }
+
+            var headers = document.RootElement.EnumerateObject().ToList();
+            if (headers.Count == 0
+                || headers.Select(header => header.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != headers.Count
+                || !headers.All(header =>
+                    IsValidHeaderName(header.Name)
+                    && header.Value.ValueKind == JsonValueKind.String
+                    && !string.IsNullOrWhiteSpace(header.Value.GetString())
+                    && !ContainsLineBreak(header.Value.GetString()!)))
+            {
+                throw new ArgumentException("API key headers must be a non-empty JSON object with valid, unique HTTP header names and non-empty string values.");
+            }
+        }
+        catch (JsonException exception)
+        {
+            throw new ArgumentException("API key headers must be valid JSON.", exception);
+        }
+    }
+
+    private static bool IsEndpointToolType(string toolType) =>
+        string.Equals(toolType, "api", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(toolType, "mcp", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsValidHeaderName(string value) =>
+        value.Length > 0 && value.All(character =>
+            char.IsAsciiLetterOrDigit(character) || "!#$%&'*+-.^_`|~".Contains(character));
+
+    private static bool ContainsLineBreak(string value) => value.Contains('\r') || value.Contains('\n');
+
+    private static string? NormalizeAuthType(string? value)
+    {
+        var normalized = Normalize(value)?.ToLowerInvariant();
+        return normalized switch
+        {
+            null or "api_key" => normalized,
+            _ => throw new ArgumentException("Only api_key authentication is supported for configured tools."),
+        };
+    }
 
     private static string ResolveAlias(UpsertToolRegistryRequest request, ToolRegistry? existing)
     {

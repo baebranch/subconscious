@@ -152,6 +152,17 @@ public static class EngineMiddleware
             catch (IOException exception) { return WorkspaceFileIoFailure(exception); }
         });
 
+        app.MapPost("/api/v1/workspaces/{uuid}/files/directory", async (string uuid, int rootIndex, string? path, IWorkspaceFileService svc, CancellationToken ct) =>
+        {
+            try
+            {
+                return (IResult)Results.Ok(await svc.CreateDirectoryAsync(uuid, rootIndex, path ?? string.Empty, ct));
+            }
+            catch (WorkspaceFileServiceException exception) { return WorkspaceFileFailure(exception); }
+            catch (UnauthorizedAccessException) { return WorkspaceFileForbidden("Access to the workspace path was denied."); }
+            catch (IOException exception) { return WorkspaceFileIoFailure(exception); }
+        });
+
         app.MapPut("/api/v1/workspaces/{uuid}/files/content", async (string uuid, int rootIndex, string? path, WriteWorkspaceFileRequest request, IWorkspaceFileService svc, CancellationToken ct) =>
         {
             try
@@ -441,18 +452,33 @@ public static class EngineMiddleware
 
     private static void MapModelEndpoints(WebApplication app)
     {
-        // This catalog keeps the credential-free Echo model available for development chat. User
-        // model settings are exposed through /model-configurations so secrets cannot leak into
-        // callers that only need chat model metadata.
-        app.MapGet("/api/v1/models", () => Results.Ok(new[]
+        // The chat model catalog deliberately projects only redacted configuration metadata;
+        // API keys never leave the encrypted model-configuration store.
+        app.MapGet("/api/v1/models", async (IModelConfigurationStore store, CancellationToken ct) =>
         {
-            new ModelDto
+            try
             {
-                Id = "echo",
-                Name = "Echo (dev)",
-                Provider = "subconscious",
-                Description = "Echoes the last user message back; no credentials required.",
-            },
-        }));
+                var configuredModels = (await store.ListAsync(ct))
+                    .Select(model => new ModelDto
+                    {
+                        Id = model.Id,
+                        Name = string.IsNullOrWhiteSpace(model.Alias) ? model.Model : model.Alias,
+                        Provider = model.Provider,
+                        Description = string.IsNullOrWhiteSpace(model.Alias) ? null : model.Model,
+                    });
+                var echo = new ModelDto
+                {
+                    Id = "echo",
+                    Name = "Echo (dev)",
+                    Provider = "subconscious",
+                    Description = "Echoes the last user message back; no credentials required.",
+                };
+                return (IResult)Results.Ok(configuredModels.Append(echo));
+            }
+            catch (ModelConfigurationStoreException exception)
+            {
+                return StorageProblem(exception);
+            }
+        });
     }
 }

@@ -38,6 +38,11 @@ public static class Program
             Description = "Run without the desktop GUI window. The system tray icon " +
                            "(on platforms that support one) is still shown."
         };
+        var lanOption = new Option<bool>("--lan")
+        {
+            Description = "Expose the authenticated API to the private LAN and print a mobile pairing invitation. " +
+                          "Use only on a trusted network; LAN TLS pairing is not available yet."
+        };
 
         var rootCommand = new RootCommand("Subconscious: A Distributed Agentic Engine")
         {
@@ -52,7 +57,8 @@ public static class Program
         {
             devOption,
             noApiOption,
-            headlessOption
+            headlessOption,
+            lanOption
         };
         engineCommand.SetAction(async parseResult =>
         {
@@ -61,7 +67,8 @@ public static class Program
                 Api: !parseResult.GetValue(noApiOption),
                 Gui: false,
                 Tui: false,
-                Headless: parseResult.GetValue(headlessOption));
+                Headless: parseResult.GetValue(headlessOption),
+                LanEnabled: parseResult.GetValue(lanOption));
             await RunEngineAsync(config);
         });
 
@@ -123,7 +130,18 @@ public static class Program
         Console.WriteLine($"Data directory: {config.DataDirectory}");
 
         await EngineHost.StartEngineAsync(app, config);
-        Console.WriteLine($"Local API listening on 127.0.0.1 (see runtime.json in the data directory for the port/token).");
+        if (config.LanEnabled)
+        {
+            Console.WriteLine("LAN API enabled. Share a pairing invitation only with a trusted device; it grants API access while this engine is running.");
+            foreach (var invitation in EngineHost.GetLanPairingInvitations(app, config))
+            {
+                Console.WriteLine($"Mobile pairing invitation: {invitation}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Local API listening on 127.0.0.1 (see runtime.json in the data directory for the port/token).");
+        }
 
         using var tray = EngineTrayCoordinator.AttachIfSupported(app, config);
         if (tray is not null)

@@ -3,11 +3,11 @@ using Microsoft.AspNetCore.Http;
 namespace Subconscious.Engine.Api;
 
 /// <summary>
-/// Enforces the loopback bearer-token contract described in translation.md/discovery.ts:
-/// every request under <c>/api/v1</c> except <c>/api/v1/health</c> must present the token
-/// from <c>runtime.json</c> either as <c>Authorization: Bearer &lt;token&gt;</c> (REST) or a
-/// <c>?token=</c> query parameter (the WebSocket upgrade request, which cannot set headers
-/// from a browser/desktop WebSocket client).
+/// Enforces the bearer-token contract described in translation.md/discovery.ts: every request
+/// under <c>/api/v1</c> except <c>/api/v1/health</c> must present the token from
+/// <c>runtime.json</c> through an <c>Authorization: Bearer</c> header. The legacy
+/// <c>?token=</c> query parameter remains accepted for existing WebSocket clients, but new
+/// clients use the header so credentials are not embedded in URLs.
 /// </summary>
 public sealed class BearerTokenMiddleware
 {

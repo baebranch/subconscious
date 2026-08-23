@@ -7,15 +7,20 @@ namespace Subconscious.Mobile.Engine;
 /// Locates a running Subconscious engine reachable from this device. Structurally mirrors
 /// <c>Subconscious.Desktop.Engine.EngineDiscovery</c> (read <c>runtime.json</c> from the
 /// well-known data directory, probe <c>/api/v1/health</c>), which is meaningful on the
-/// Windows/MacCatalyst mobile targets that share a filesystem with a desktop-hosted engine.
-/// On sandboxed Android/iOS there is no local engine process to discover this way — those
-/// targets have no access to another app's <c>runtime.json</c> — so discovery there will
-/// simply find nothing and the caller should fall back to a configured host/port (not yet
-/// implemented; tracked as a follow-up once remote/paired-engine access is designed).
+/// Windows/MacCatalyst builds can read the desktop-hosted engine's <c>runtime.json</c> from
+/// the well-known data directory. Sandbox Android/iOS builds cannot do that; however, an
+/// Android emulator Debug build can reach a host-local development engine through the
+/// emulator's <c>10.0.2.2</c> alias.
 /// </summary>
 public static class EngineDiscovery
 {
     private const string RuntimeFileName = "runtime.json";
+    // EngineHost pins these values for --dev so a local debug client can recover even when a
+    // debugger stops the engine before it writes (or after it removes) runtime.json. Android's
+    // emulator forwards 10.0.2.2 to its development host's loopback interface.
+    private static string DevelopmentHost => OperatingSystem.IsAndroid() ? "10.0.2.2" : "127.0.0.1";
+    private const int DevelopmentPort = 55681;
+    private const string DevelopmentToken = "subconscious-dev-token";
     private static readonly HttpClient HealthClient = new() { Timeout = TimeSpan.FromSeconds(2) };
 
     /// <summary>The data directory the engine reads/writes for the given dev mode, mirroring
@@ -53,6 +58,15 @@ public static class EngineDiscovery
         var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(5));
         do
         {
+            // A Debug client must prefer its deterministic local endpoint (10.0.2.2 on an
+            // Android emulator) before considering runtime-file or LAN-reachable candidates.
+            // Non-development builds deliberately skip this local probe.
+            var development = await FindDevelopmentEngineAsync(preferDev);
+            if (development is not null)
+            {
+                return development;
+            }
+
             var existing = await FindRunningEngineAsync(preferDev);
             if (existing is not null)
             {
@@ -83,6 +97,24 @@ public static class EngineDiscovery
             }
         }
         return null;
+    }
+
+    private static async Task<RuntimeInfo?> FindDevelopmentEngineAsync(bool preferDev)
+    {
+        if (!preferDev)
+        {
+            return null;
+        }
+
+        var info = new RuntimeInfo
+        {
+            Host = DevelopmentHost,
+            Port = DevelopmentPort,
+            Token = DevelopmentToken,
+            Pid = 0,
+            Version = "development",
+        };
+        return await IsReachableAsync(info) ? info : null;
     }
 
     private static RuntimeInfo? ReadRuntimeInfo(string dataDirectory)

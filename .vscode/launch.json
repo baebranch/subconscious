@@ -11,7 +11,24 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Subconscious Engine (Dev)",
+      "name": "Mobile (Dev)",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "dotnet",
+      "args": [
+        "watch",
+        "run",
+        "--project",
+        "Subconscious.Mobile/Subconscious.Mobile.csproj",
+        "--framework",
+        "net10.0-android"
+      ],
+      "cwd": "${workspaceFolder}/Src",
+      "stopAtEntry": false,
+      // "preLaunchTask": "build-mobile"
+    },
+    {
+      "name": "Engine (Dev)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build-engine-host-windows",
@@ -22,18 +39,18 @@
       "stopAtEntry": false
     },
     {
-      "name": "Subconscious Engine (Dev, headless)",
+      "name": "Engine (Dev, headless)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build-engine-host-windows",
       "program": "${workspaceFolder}/src/Subconscious.Host.Cli/bin/Debug/net10.0-windows/subconscious.dll",
-      "args": ["engine", "--dev", "--headless"],
+      "args": ["engine", "--dev", "--headless", "--lan"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "stopAtEntry": false
     },
     {
-      "name": "Subconscious Engine (Dev, no API)",
+      "name": "Engine (Dev, no API)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build-engine-host-windows",
@@ -44,14 +61,98 @@
       "stopAtEntry": false
     },
     {
-      "name": "Subconscious Desktop (Dev)",
+      "name": "Desktop (Dev)",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build-desktop",
-      "program": "${workspaceFolder}/src/Subconscious.Desktop/bin/Debug/net10.0/Subconscious.Desktop.dll",
-      "args": ["--dev"],
+      "program": "dotnet",
+      "args": [
+        "watch",
+        "run",
+        "--project",
+        "src/Subconscious.Desktop/Subconscious.Desktop.csproj",
+        "--framework",
+        "net10.0-windows10.0.19041.0",
+        "--",
+        "--dev"
+      ],
       "cwd": "${workspaceFolder}",
-      "console": "internalConsole",
+      "preLaunchTask": "build-desktop",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Terminal (Dev, native scrollback)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-terminal",
+      "program": "${workspaceFolder}/artifacts/terminal-debug/Debug/net10.0/Subconscious.Terminal.exe",
+      // External Run Command: .\artifacts\terminal-debug\Debug\net10.0\Subconscious.Terminal.exe
+      // Force native scrollback; Terminal.Gui remains available only through an explicit --gui launch.
+      "args": ["--dev", "--ansi"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PATH": "${workspaceFolder}\\src\\Subconscious.Host.Cli\\bin\\Debug\\net10.0-windows;${env:PATH}"
+      },
+      "console": "externalTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "stopAtEntry": false
+    },
+    {
+      "name": "WYSIWYG Debug (Standalone)",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "src/Subconscious.WYSIWYG.Debug/Subconscious.WYSIWYG.Debug.csproj",
+        "--framework",
+        "net10.0-windows10.0.19041.0"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Chat Web (Placeholder Messages)",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--no-build",
+        "--project",
+        "src/Subconscious.Chat.Debug/Subconscious.Chat.Debug.csproj",
+        "--framework",
+        "net10.0-windows10.0.19041.0",
+        "--",
+        "--renderer",
+        "web"
+      ],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "build-chat-debug",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Chat Native (Placeholder Messages)",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--no-build",
+        "--project",
+        "src/Subconscious.Chat.Debug/Subconscious.Chat.Debug.csproj",
+        "--framework",
+        "net10.0-windows10.0.19041.0",
+        "--",
+        "--renderer",
+        "native"
+      ],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "build-chat-debug",
+      "console": "integratedTerminal",
       "stopAtEntry": false
     },
     {
@@ -62,10 +163,10 @@
   ],
   "compounds": [
     {
-      "name": "Subconscious Engine + Desktop (Dev)",
+      "name": "Engine + Desktop (Dev)",
       "configurations": [
-        "Subconscious Engine (Dev, headless)",
-        "Subconscious Desktop (Dev)"
+        "Engine (Dev, headless)",
+        "Desktop (Dev)"
       ],
       "stopAll": true
     }

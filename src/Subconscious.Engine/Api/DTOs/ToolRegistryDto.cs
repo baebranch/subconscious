@@ -12,16 +12,16 @@ public sealed record ToolRegistryDto
     public string? ScriptPath { get; init; }
     public string? ScriptLanguage { get; init; }
     public string? EndpointUrl { get; init; }
+    /// <summary>The selected authentication method. The current supported value is <c>api_key</c>.</summary>
     public string? AuthType { get; init; }
-    /// <summary>Whether an encrypted API key is stored for an API-key-authenticated tool.</summary>
-    public bool HasApiKey { get; init; }
-    public string? AuthEnvVar { get; init; }
+    /// <summary>Whether an encrypted JSON API-key header configuration is stored for this tool.</summary>
+    public bool HasAuthConfig { get; init; }
     public required string Status { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
 }
 
-/// <summary>Create or replace configured tool metadata and an optional write-only API key.</summary>
+/// <summary>Create or replace configured-tool metadata and an optional write-only JSON authentication configuration.</summary>
 public sealed record UpsertToolRegistryRequest
 {
     public string? Name { get; init; }
@@ -31,12 +31,12 @@ public sealed record UpsertToolRegistryRequest
     public string? ScriptPath { get; init; }
     public string? ScriptLanguage { get; init; }
     public string? EndpointUrl { get; init; }
+    /// <summary>The selected authentication method. Only <c>api_key</c> accepts a credential header.</summary>
     public string? AuthType { get; init; }
-    /// <summary>Write-only encrypted credential. This value is never included in a response.</summary>
-    public string? ApiKey { get; init; }
-    /// <summary>Removes a stored API key when true; ignored when a replacement key is supplied.</summary>
-    public bool ClearApiKey { get; init; }
-    public string? AuthEnvVar { get; init; }
+    /// <summary>Write-only JSON object that maps HTTP header names to API-key values. It is never included in a response.</summary>
+    public string? AuthConfigJson { get; init; }
+    /// <summary>Removes a saved JSON authentication configuration when true; ignored when a replacement is supplied.</summary>
+    public bool ClearAuthConfig { get; init; }
     public string? Status { get; init; }
 }
 

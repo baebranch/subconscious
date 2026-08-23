@@ -18,6 +18,17 @@ public static class MauiProgram
     /// Windows, so the command line is read here instead of an entry point.</summary>
     public static bool DevMode { get; private set; }
 
+    /// <summary>True for Debug builds and runtime <c>--dev</c> launches, which should expose
+    /// development-only visual indicators.</summary>
+    public static bool ShowDevelopmentIndicators => DevMode || IsDebugBuild;
+
+    private static bool IsDebugBuild =>
+#if DEBUG
+        true;
+#else
+        false;
+#endif
+
     public static MauiApp CreateMauiApp()
     {
         DevMode = Environment.GetCommandLineArgs().Contains("--dev");

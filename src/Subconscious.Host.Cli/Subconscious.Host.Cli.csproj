@@ -26,10 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Tray icon asset (docs/icon.png + favicon.ico equivalent from assets/ in the
+    <!-- Tray icon assets (docs/icon.png + favicon.ico equivalent from assets/ in the
          Python app). Copied next to the built executable so a relative lookup from
-         AppContext.BaseDirectory always finds it regardless of working directory. -->
+         AppContext.BaseDirectory always finds them regardless of working directory. -->
     <None Include="Assets\favicon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\favicon_dev.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

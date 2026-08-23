@@ -44,12 +44,20 @@ public static class EngineHost
         });
         builder.Logging.SetMinimumLevel(config.Dev ? LogLevel.Debug : LogLevel.Information);
 
-        // Loopback-only binding. Development has a stable endpoint for debuggers and REST
-        // clients; regular runs keep an explicitly requested port or the OS-assigned port 0.
+        // Loopback remains the safe default. LAN access is an explicit, authenticated opt-in;
+        // its port is still dynamic unless the caller requested one, so paired clients must use
+        // the invitation printed by the CLI rather than assume a fixed production port.
         var listenPort = config.Dev ? DevelopmentPort : config.Port;
         builder.WebHost.UseKestrel(kestrel =>
         {
-            kestrel.Listen(System.Net.IPAddress.Loopback, listenPort);
+            if (config.LanEnabled)
+            {
+                kestrel.ListenAnyIP(listenPort);
+            }
+            else
+            {
+                kestrel.Listen(System.Net.IPAddress.Loopback, listenPort);
+            }
         });
         // Suppress the ASP.NET Core startup banner lines ("Now listening on...",
         // "Application started...") that would otherwise print regardless of the
@@ -115,6 +123,40 @@ public static class EngineHost
 
     /// <summary>Remove the discovery file; safe to call even if the engine never fully started.</summary>
     public static void StopEngine(EngineConfig config) => RuntimeInfoWriter.Delete(config.DataDirectory);
+
+    /// <summary>
+    /// Produces copyable, short-lived mobile invitations for an explicitly LAN-enabled engine.
+    /// The bearer token is intentionally never advertised over the network; the local console is
+    /// a user-mediated transfer channel and the token expires when this engine process exits.
+    /// </summary>
+    public static IReadOnlyList<string> GetLanPairingInvitations(WebApplication app, EngineConfig config)
+    {
+        if (!config.LanEnabled)
+        {
+            return [];
+        }
+
+        var port = GetBoundPort(app);
+        var token = app.Services.GetRequiredService<EngineAuthToken>().Value;
+        var name = Uri.EscapeDataString(Environment.MachineName);
+        var hosts = System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName())
+            .Where(address => address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
+                !System.Net.IPAddress.IsLoopback(address) && IsPrivateIpv4(address))
+            .Select(address => address.ToString())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return hosts.Select(host =>
+            $"subconscious://pair?host={host}&port={port}&token={Uri.EscapeDataString(token)}&name={name}").ToArray();
+    }
+
+    private static bool IsPrivateIpv4(System.Net.IPAddress address)
+    {
+        var bytes = address.GetAddressBytes();
+        return bytes[0] == 10 ||
+            (bytes[0] == 172 && bytes[1] is >= 16 and <= 31) ||
+            (bytes[0] == 192 && bytes[1] == 168);
+    }
 
     private static int GetBoundPort(WebApplication app)
     {
