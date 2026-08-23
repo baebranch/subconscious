@@ -1,95 +1,44 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<Shell
-  x:Class="Subconscious.Mobile.AppShell"
-  xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-  xmlns:local="clr-namespace:Subconscious.Mobile"
-  xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
-  FlyoutBackgroundColor="{StaticResource Gray900}"
-  Title="Subconscious.Mobile">
+<?xml version="1.0" encoding="UTF-8"?>
+<Shell x:Class="Subconscious.Mobile.AppShell"
+       xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:local="clr-namespace:Subconscious.Mobile"
+       xmlns:engine="clr-namespace:Subconscious.Mobile.Engine"
+       FlyoutBackgroundColor="{StaticResource Gray900}"
+       Title="Subconscious">
+    <!-- The phone flyout combines Desktop's narrow sidebar (left) and context panel (right). -->
+    <ShellContent Route="Home" ContentTemplate="{DataTemplate local:MainPage}" />
+    <Shell.FlyoutContent>
+        <Grid ColumnDefinitions="112,*" BackgroundColor="{StaticResource Gray900}">
+            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto" Padding="8,16" BackgroundColor="{StaticResource Gray950}">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="NAVIGATE" FontSize="10" TextColor="{StaticResource Gray400}" />
+                    <Label Text="Chat" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="chat" /></Label.GestureRecognizers></Label>
+                    <Label Text="Workspaces" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="workspaces" /></Label.GestureRecognizers></Label>
+                    <Label Text="Threads" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="threads" /></Label.GestureRecognizers></Label>
+                    <Label Text="Files" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="files" /></Label.GestureRecognizers></Label>
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Row="2" Spacing="4">
+                    <Label Text="Settings" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="settings" /></Label.GestureRecognizers></Label>
+                    <Label Text="Account" TextColor="White" Padding="8,12"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnNavigateTapped" CommandParameter="account" /></Label.GestureRecognizers></Label>
+                </VerticalStackLayout>
+            </Grid>
 
-  <!-- These FlyoutItem/ShellContent declarations still exist purely to register
-       routes with Shell (required for GoToAsync navigation) — their default
-       auto-rendered list entries are NOT shown, because Shell.FlyoutContent below
-       replaces the entire built-in flyout list with our own layout. Each needs
-       its own Route since Shell throws if two ShellContent objects share one
-       ("A route named 'X' is already in the route collection") — the original
-       had all four pointing at "MainPage" plus a duplicate "Threads" entry. 
-       https://fluenticons.co/
-       -->
-  <FlyoutItem Title="Threads" Icon="{mi:Fluent Icon=Chat24}">
-    <ShellContent Title="Threads" ContentTemplate="{DataTemplate local:MainPage}" Route="ThreadsPage" />
-  </FlyoutItem>
-  <FlyoutItem Title="Workspaces" Icon="{mi:Fluent Icon=AppFolder24}">
-    <ShellContent Title="Workspaces" ContentTemplate="{DataTemplate local:WorkspacesPage}" Route="WorkspacesPage" />
-  </FlyoutItem>
-  <FlyoutItem Title="Threads List" Icon="{mi:Fluent Icon=AppsList24}">
-    <ShellContent Title="Threads List" ContentTemplate="{DataTemplate local:MainPage}" Route="ThreadsListPage" />
-  </FlyoutItem>
-  <FlyoutItem Title="Settings" Icon="{mi:Fluent Icon=Settings24}">
-    <ShellContent Title="Settings" ContentTemplate="{DataTemplate local:MainPage}" Route="SettingsPage" />
-  </FlyoutItem>
-  <FlyoutItem Title="Account" Icon="{mi:Fluent Icon=Person24}">
-    <ShellContent Title="Account" ContentTemplate="{DataTemplate local:MainPage}" Route="AccountPage" />
-  </FlyoutItem>
-
-  <!-- Custom flyout layout: one Grid with two rows. Row 0 ("*") holds Threads /
-       Threads List and expands to fill all available vertical space; Row 1
-       ("Auto") holds the Settings / Account grid sized to its content and
-       pinned immediately below — visually "at the bottom" since nothing
-       pushes it further down. -->
-  <Shell.FlyoutContent>
-    <Grid RowDefinitions="*,Auto" Padding="0,16">
-
-      <VerticalStackLayout Grid.Row="0" VerticalOptions="Start" Spacing="4" Padding="8,0">
-
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Padding="8,10">
-          <Grid.GestureRecognizers>
-            <TapGestureRecognizer Tapped="OnThreadsTapped" />
-          </Grid.GestureRecognizers>
-          <mi:MauiIcon Grid.Column="0" Icon="{mi:Fluent Icon=Chat24}" IconSize="20" IconColor="White" />
-          <Label Grid.Column="1" Text="Threads" TextColor="White" VerticalOptions="Center" />
+            <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto" Padding="16" RowSpacing="10">
+                <Label Text="CONTEXT" FontSize="10" TextColor="{StaticResource Gray400}" />
+                <Picker Grid.Row="1" Title="Choose workspace" ItemsSource="{Binding Workspaces}"
+                        ItemDisplayBinding="{Binding Name}" SelectedItem="{Binding CurrentWorkspace}"
+                        SelectedIndexChanged="OnWorkspaceChanged" TextColor="White" TitleColor="{StaticResource Gray300}" />
+                <CollectionView Grid.Row="2" ItemsSource="{Binding Threads}" SelectionMode="Single" SelectionChanged="OnThreadSelected">
+                    <CollectionView.EmptyView><Label Text="No threads yet" TextColor="{StaticResource Gray400}" /></CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="engine:ThreadInfo">
+                            <Label Text="{Binding Title, TargetNullValue='Untitled thread'}" TextColor="White" Padding="0,8" LineBreakMode="TailTruncation" />
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+                <Button Grid.Row="3" Text="New conversation" Clicked="OnNewConversationClicked" />
+            </Grid>
         </Grid>
-
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Padding="8,10">
-          <Grid.GestureRecognizers>
-            <TapGestureRecognizer Tapped="OnWorkspacesTapped" />
-          </Grid.GestureRecognizers>
-          <mi:MauiIcon Grid.Column="0" Icon="{mi:Fluent Icon=AppFolder24}" IconSize="20" IconColor="White" />
-          <Label Grid.Column="1" Text="Workspaces" TextColor="White" VerticalOptions="Center" />
-        </Grid>
-
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Padding="8,10">
-          <Grid.GestureRecognizers>
-            <TapGestureRecognizer Tapped="OnThreadsListTapped" />
-          </Grid.GestureRecognizers>
-          <mi:MauiIcon Grid.Column="0" Icon="{mi:Fluent Icon=AppsList24}" IconSize="20" IconColor="White" />
-          <Label Grid.Column="1" Text="Threads List" TextColor="White" VerticalOptions="Center" />
-        </Grid>
-
-      </VerticalStackLayout>
-
-      <Grid Grid.Row="1" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="4" Padding="16,12">
-
-        <Grid Grid.Row="0" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*" ColumnSpacing="12">
-          <Grid.GestureRecognizers>
-            <TapGestureRecognizer Tapped="OnSettingsTapped" />
-          </Grid.GestureRecognizers>
-          <mi:MauiIcon Grid.Column="0" Icon="{mi:Fluent Icon=Settings24}" IconSize="20" IconColor="White" />
-          <Label Grid.Column="1" Text="Settings" TextColor="White" VerticalOptions="Center" />
-        </Grid>
-
-        <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*" ColumnSpacing="12">
-          <Grid.GestureRecognizers>
-            <TapGestureRecognizer Tapped="OnAccountTapped" />
-          </Grid.GestureRecognizers>
-          <mi:MauiIcon Grid.Column="0" Icon="{mi:Fluent Icon=Person24}" IconSize="20" IconColor="White" />
-          <Label Grid.Column="1" Text="Account" TextColor="White" VerticalOptions="Center" />
-        </Grid>
-
-      </Grid>
-
-    </Grid>
-  </Shell.FlyoutContent>
-
+    </Shell.FlyoutContent>
 </Shell>

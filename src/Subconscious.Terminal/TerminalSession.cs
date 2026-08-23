@@ -95,23 +95,33 @@ internal sealed class TerminalSession : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        if (Interactive)
+        try
         {
-            try
+            if (Interactive)
             {
-                Console.Out.Write("\u001b[0m\u001b[?25h");
-                Console.Out.Flush();
+                try
+                {
+                    // Backstop the inner TUI session if setup or teardown failed partway through.
+                    Console.Out.Write("\u001b[0m\u001b[?25h\u001b[?1049l\u001b[?1007r");
+                    Console.Out.Flush();
+                }
+                catch (Exception exception) when (exception is IOException or InvalidOperationException)
+                {
+                    // The host detached or disposed its terminal before process shutdown.
+                }
             }
-            catch (IOException)
-            {
-                // The host detached its terminal before process shutdown.
-            }
-            TryRestoreConsoleState();
         }
-
-        if (_restoreOutputMode && OperatingSystem.IsWindows())
+        finally
         {
-            SetConsoleMode(_outputHandle, _originalOutputMode);
+            if (Interactive)
+            {
+                TryRestoreConsoleState();
+            }
+
+            if (_restoreOutputMode && OperatingSystem.IsWindows())
+            {
+                SetConsoleMode(_outputHandle, _originalOutputMode);
+            }
         }
     }
 

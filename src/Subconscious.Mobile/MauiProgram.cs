@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using MauiIcons.Fluent;
 using Subconscious.Mobile.Engine;
+using Subconscious.WYSIWYG;
 
 namespace Subconscious.Mobile;
 
@@ -12,6 +13,7 @@ public static class MauiProgram
 		builder
 			.UseMauiApp<App>()
 			.UseFluentMauiIcons()
+			.UseSubconsciousWysiwyg()
 			.ConfigureFonts(fonts =>
 			{
 				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -24,6 +26,7 @@ public static class MauiProgram
 		// these through IPlatformApplication.Current.Services rather than a ctor parameter.
 		builder.Services.AddSingleton<EngineClient>();
 		builder.Services.AddSingleton<WorkspaceStore>();
+		builder.Services.AddSingleton<MobileChatSession>();
 
 #if DEBUG
 		builder.Logging.AddDebug();

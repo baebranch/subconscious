@@ -1,114 +1,64 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-  xmlns:local="clr-namespace:Subconscious.Mobile"
-  x:Class="Subconscious.Mobile.MainPage"
-  Title="Chat">
-
-    <Grid RowDefinitions="*,Auto">
-
-        <!-- Message list. Bound to the Messages collection exposed by MainPage itself
-             (BindingContext is set to "this" in the code-behind) so no separate
-             view model is needed for this dummy slice. -->
-        <CollectionView x:Name="MessagesView"
-                        Grid.Row="0"
-                        ItemsSource="{Binding Messages}"
-                        Margin="12,12,12,0"
-                        VerticalOptions="Fill">
-            <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="local:ChatMessage">
-                    <Grid Padding="0,4">
-                        <Border Padding="12,8"
-                                MaximumWidthRequest="280"
-                                StrokeThickness="0">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="8" />
-                            </Border.StrokeShape>
-                            <Border.Triggers>
-                                <DataTrigger TargetType="Border" Binding="{Binding IsFromUser}" Value="True">
-                                    <Setter Property="BackgroundColor" Value="#512BD4" />
-                                    <Setter Property="HorizontalOptions" Value="End" />
-                                </DataTrigger>
-                                <DataTrigger TargetType="Border" Binding="{Binding IsFromUser}" Value="False">
-                                    <Setter Property="BackgroundColor" Value="#E6E6EA" />
-                                    <Setter Property="HorizontalOptions" Value="Start" />
-                                </DataTrigger>
-                            </Border.Triggers>
-                            <Label Text="{Binding Text}" FontSize="15">
-                                <Label.Triggers>
-                                    <DataTrigger TargetType="Label" Binding="{Binding IsFromUser}" Value="True">
-                                        <Setter Property="TextColor" Value="White" />
-                                    </DataTrigger>
-                                    <DataTrigger TargetType="Label" Binding="{Binding IsFromUser}" Value="False">
-                                        <Setter Property="TextColor" Value="Black" />
-                                    </DataTrigger>
-                                </Label.Triggers>
-                            </Label>
-                        </Border>
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
-
-        <!-- Input row: one rounded "pill" holding the multi-line editor and an
-             overlaid send icon, so it reads as a single control even though it's
-             really an Editor + a tappable icon sitting next to it in a Grid. -->
-        <Border Grid.Row="1"
-                Margin="12"
-                Padding="10,4,4,4"
-                StrokeThickness="1"
-                Stroke="#D0D0D6"
-                BackgroundColor="White">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="8" />
-            </Border.StrokeShape>
-
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
-
-                <!-- Multi-line input. AutoSize grows the control with the text;
-                     MaximumHeightRequest caps growth at roughly 5 lines, after which
-                     the native text view scrolls internally on its own. There's no
-                     "MaxLines" property on Editor (unlike Android's native TextView),
-                     so this cap is an estimated pixel height, not an exact line count —
-                     retune it if FontSize changes. -->
-                <Editor x:Name="MessageEditor"
-                        Grid.Column="0"
-                        Placeholder="Type a message..."
-                        FontSize="16"
-                        AutoSize="TextChanges"
-                        MinimumHeightRequest="40"
-                        MaximumHeightRequest="132"
-                        BackgroundColor="Transparent"
-                        VerticalOptions="Center" />
-
-                <!-- Send "button": Button can't host arbitrary content (no built-in
-                     vector icon support), so this is a small circular Border with a
-                     triangle Path drawn by hand, tapped via a GestureRecognizer
-                     instead of a real Button click. -->
-                <Border Grid.Column="1"
-                        WidthRequest="36"
-                        HeightRequest="36"
-                        Padding="0"
-                        Margin="0,0,0,2"
-                        BackgroundColor="#512BD4"
-                        VerticalOptions="End">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="18" />
-                    </Border.StrokeShape>
-                    <Border.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnSendClicked" />
-                    </Border.GestureRecognizers>
-                    <Path Data="M0,0 L12,6 L0,12 Z"
-                          Fill="White"
-                          WidthRequest="12"
-                          HeightRequest="12"
-                          HorizontalOptions="Center"
-                          VerticalOptions="Center" />
-                </Border>
-
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Subconscious.Mobile"
+             xmlns:engine="clr-namespace:Subconscious.Mobile.Engine"
+             xmlns:native="clr-namespace:Subconscious.Chat.Native;assembly=Subconscious.Chat.Native"
+             x:Class="Subconscious.Mobile.MainPage"
+             Title="Subconscious">
+    <Grid>
+        <Grid x:Name="ChatScreen" RowDefinitions="Auto,*,Auto">
+            <Grid Padding="12,8" ColumnDefinitions="*,Auto">
+                <VerticalStackLayout Spacing="1">
+                    <Label Text="{Binding HeaderTitle}" FontAttributes="Bold" FontSize="18" LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding StatusText}" FontSize="12" TextColor="{StaticResource Gray500}" />
+                </VerticalStackLayout>
+                <Button Grid.Column="1" Text="New" Clicked="OnNewThreadClicked" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBool}}" />
             </Grid>
-        </Border>
+            <native:NativeChatTranscriptView Grid.Row="1" ItemsSource="{Binding Messages}"
+                                             EmptyText="Choose a workspace or start a conversation."
+                                             MaximumBubbleWidth="525" />
+            <Border Grid.Row="2" Margin="12" Padding="8" Stroke="{StaticResource Gray300}">
+                <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4">
+                    <Editor Grid.Row="0" Grid.ColumnSpan="2" Text="{Binding ComposerText, Mode=TwoWay}"
+                            Placeholder="Ask anything…" AutoSize="TextChanges" MaximumHeightRequest="132" />
+                    <Picker Grid.Row="1" ItemsSource="{Binding AvailableModels}" ItemDisplayBinding="{Binding Name}"
+                            SelectedItem="{Binding SelectedModel, Mode=TwoWay}" Title="Model" />
+                    <Button Grid.Row="1" Grid.Column="1" Text="Send" Clicked="OnSendClicked"
+                            IsVisible="{Binding IsBusy, Converter={StaticResource InvertedBool}}" />
+                    <Button Grid.Row="1" Grid.Column="1" Text="Stop" Clicked="OnStopClicked" IsVisible="{Binding IsBusy}" />
+                </Grid>
+            </Border>
+        </Grid>
 
+        <Grid x:Name="WorkspacesScreen" IsVisible="False" RowDefinitions="Auto,*" Padding="12">
+            <Label Text="Workspaces" FontAttributes="Bold" FontSize="20" />
+            <CollectionView Grid.Row="1" ItemsSource="{Binding Workspaces}" SelectionMode="Single" SelectionChanged="OnWorkspaceSelected">
+                <CollectionView.EmptyView><Label Text="No workspaces are available from the paired engine." HorizontalOptions="Center" VerticalOptions="Center" /></CollectionView.EmptyView>
+                <CollectionView.ItemTemplate><DataTemplate x:DataType="engine:Workspace"><VerticalStackLayout Padding="8"><Label Text="{Binding Name}" FontAttributes="Bold" /><Label Text="{Binding Description}" FontSize="12" TextColor="{StaticResource Gray500}" /></VerticalStackLayout></DataTemplate></CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+
+        <Grid x:Name="ThreadsScreen" IsVisible="False" RowDefinitions="Auto,*" Padding="12">
+            <Label Text="Threads" FontAttributes="Bold" FontSize="20" />
+            <CollectionView Grid.Row="1" ItemsSource="{Binding Threads}" SelectionMode="Single" SelectionChanged="OnThreadSelected">
+                <CollectionView.EmptyView><Label Text="No threads in this workspace yet." HorizontalOptions="Center" VerticalOptions="Center" /></CollectionView.EmptyView>
+                <CollectionView.ItemTemplate><DataTemplate x:DataType="engine:ThreadInfo"><Label Text="{Binding Title, TargetNullValue='Untitled thread'}" Padding="8" /></DataTemplate></CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+
+        <VerticalStackLayout x:Name="FilesScreen" IsVisible="False" Padding="24" Spacing="12">
+            <Label Text="Files" FontAttributes="Bold" FontSize="20" />
+            <Label Text="The shared WYSIWYG contracts are available to Mobile, but its native editor currently has only a Windows handler. File editing will appear here when Android and iOS handlers are implemented." LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
+        <VerticalStackLayout x:Name="SettingsScreen" IsVisible="False" Padding="24" Spacing="12">
+            <Label Text="Settings" FontAttributes="Bold" FontSize="20" />
+            <Label Text="This app connects to the same authenticated engine protocol as Desktop. Android and iOS require a paired-engine discovery/endpoint workflow; local runtime-file discovery only works on Windows and Mac Catalyst." LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
+        <VerticalStackLayout x:Name="AccountScreen" IsVisible="False" Padding="24" Spacing="12">
+            <Label Text="Account" FontAttributes="Bold" FontSize="20" />
+            <Label Text="Account management is provided by the Subconscious engine and will be surfaced here with the mobile pairing flow." LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
     </Grid>
-
 </ContentPage>

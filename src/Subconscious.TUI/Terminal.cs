@@ -16,6 +16,21 @@ public static class Terminal
         }
     }
 
+    internal static void EnterInteractiveSession()
+    {
+        // Save and suppress alternate-scroll mode so wheel input is not translated into Up/Down
+        // keys while the application owns the alternate screen.
+        Console.Out.Write("\u001b[?1007s\u001b[?1007l\u001b[?1049h\u001b[H\u001b[?25l");
+        Console.Out.Flush();
+    }
+
+    internal static void ExitInteractiveSession()
+    {
+        // Return to the normal screen and restore the alternate-scroll state saved on entry.
+        Console.Out.Write("\u001b[0m\u001b[?25h\u001b[?1049l\u001b[?1007r");
+        Console.Out.Flush();
+    }
+
     public static void EnterAlternateBuffer() => Write("\u001b[?1049h\u001b[H");
     public static void ExitAlternateBuffer() => Write("\u001b[?1049l");
     public static void HideCursor() => Write("\u001b[?25l");
@@ -31,6 +46,11 @@ public static class Terminal
 
     public static void SetForeground(ConsoleColor color) => Write($"{Escape}{ForegroundCode(color)}m");
     public static void SetBackground(ConsoleColor color) => Write($"{Escape}{BackgroundCode(color)}m");
+    public static void SetForegroundRgb(byte red, byte green, byte blue) => Write($"{Escape}38;2;{red};{green};{blue}m");
+    public static void SetDefaultForeground() => Write($"{Escape}39m");
+    public static void SetBold() => Write($"{Escape}1m");
+    public static void SetDim() => Write($"{Escape}2m");
+    public static void SetInverse() => Write($"{Escape}7m");
 
     private static readonly AsyncLocal<StringBuilder?> FrameBuffer = new();
 

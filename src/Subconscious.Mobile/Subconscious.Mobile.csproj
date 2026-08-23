@@ -47,6 +47,12 @@
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+		<!-- Match EngineHost's deterministic development endpoint for local Windows/MacCatalyst debugging. -->
+		<DefineConstants>$(DefineConstants);SUBCONSCIOUS_LOCAL_ENGINE</DefineConstants>
+		<!-- Android emulators access the host's loopback through 10.0.2.2; Debug code opts into its restricted HTTP policy. -->
+	</PropertyGroup>
+
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
@@ -66,10 +72,21 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- Keep Mobile's package set aligned with Desktop where the UI uses shared chat rendering. -->
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
 		<PackageReference Include="AathifMahir.Maui.MauiIcons.Fluent" Version="6.0.0" />
+		<PackageReference Include="Markdig" Version="0.40.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Shared, UI-neutral transcript contracts and the retained native transcript host used by Desktop. -->
+		<ProjectReference Include="..\Subconscious.Chat\Subconscious.Chat.csproj" />
+		<ProjectReference Include="..\Subconscious.Chat.Native\Subconscious.Chat.Native.csproj" />
+		<!-- Referenced for the shared editor contracts. It currently provides a Windows native handler;
+		     phone file editing stays deliberately unavailable until Android/iOS handlers are implemented. -->
+		<ProjectReference Include="..\Subconscious.WYSIWYG\Subconscious.WYSIWYG.csproj" />
 	</ItemGroup>
 
 </Project>

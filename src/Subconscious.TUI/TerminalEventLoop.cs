@@ -3,7 +3,12 @@ namespace Subconscious.TUI;
 /// <summary>Polls terminal input and size, redraws the root widget, and restores the screen on exit.</summary>
 public sealed class TerminalEventLoop
 {
+    private int _invalidationRequested = 1;
+
     public TimeSpan IdleDelay { get; init; } = TimeSpan.FromMilliseconds(40);
+
+    /// <summary>Requests a redraw from any thread, for example after streamed application state changes.</summary>
+    public void Invalidate() => Interlocked.Exchange(ref _invalidationRequested, 1);
 
     /// <param name="continueAfterKey">Return false to leave the loop after processing a key.</param>
     public void Run(Widget root, Func<ConsoleKeyInfo, bool>? continueAfterKey = null, CancellationToken cancellationToken = default)
@@ -17,6 +22,11 @@ public sealed class TerminalEventLoop
         var wheelScroll = new NativeWheelScroll();
         while (!cancellationToken.IsCancellationRequested)
         {
+            if (Interlocked.Exchange(ref _invalidationRequested, 0) == 1)
+            {
+                redraw = true;
+            }
+
             var size = Terminal.Size;
             if (size != previousSize)
             {

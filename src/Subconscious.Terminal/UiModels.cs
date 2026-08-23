@@ -12,7 +12,6 @@ internal sealed record TurnCompleted(ChatDoneEventArgs Value) : UiEvent;
 internal sealed record TurnFailed(ChatErrorEventArgs Value) : UiEvent;
 internal sealed record TurnCancelled(ChatCancelledEventArgs Value) : UiEvent;
 internal sealed record ApprovalRequested(ToolApprovalRequestEventArgs Value) : UiEvent;
-internal sealed record TerminalResized(int Width, int Height) : UiEvent;
 
 internal enum OverlayKind
 {
@@ -40,6 +39,22 @@ internal sealed class SelectionOverlay
     public SelectionItem? Selected => Items.Count == 0 ? null : Items[SelectedIndex];
 }
 
+internal enum SidebarMode
+{
+    Workspaces,
+    Threads,
+    Settings,
+}
+
+internal sealed record SidebarItem(OverlayKind Kind, string Id, string Label, bool IsActive = false);
+
+internal sealed record SidebarView(
+    bool IsVisible,
+    bool IsFocused,
+    SidebarMode Mode,
+    int SelectedIndex,
+    IReadOnlyList<SidebarItem> Items);
+
 internal sealed record ModelChoice(string Id, string Label);
 internal sealed record PendingApproval(ToolApprovalRequestEventArgs Request, bool ApproveSelected = false);
 
@@ -50,4 +65,5 @@ internal sealed record TerminalView(
     int ComposerCaret,
     bool Busy,
     SelectionOverlay? Selection,
-    PendingApproval? Approval);
+    PendingApproval? Approval,
+    SidebarView Sidebar);

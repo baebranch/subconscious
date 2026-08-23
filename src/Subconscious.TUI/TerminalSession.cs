@@ -8,9 +8,19 @@ public sealed class TerminalSession : IDisposable
 
     public TerminalSession()
     {
-        _mouseInput = WindowsConsoleMouseInput.TryEnable();
-        Terminal.EnterAlternateBuffer();
-        Terminal.HideCursor();
+        WindowsConsoleMouseInput? mouseInput = null;
+        try
+        {
+            mouseInput = WindowsConsoleMouseInput.TryEnable();
+            Terminal.EnterInteractiveSession();
+            _mouseInput = mouseInput;
+        }
+        catch
+        {
+            TryRestoreTerminal();
+            mouseInput?.Dispose();
+            throw;
+        }
     }
 
     internal bool TryReadMouseWheel(out int delta) =>
@@ -24,10 +34,26 @@ public sealed class TerminalSession : IDisposable
         }
 
         _disposed = true;
-        _mouseInput?.Dispose();
-        Terminal.Reset();
-        Terminal.ShowCursor();
-        Terminal.ExitAlternateBuffer();
+        try
+        {
+            TryRestoreTerminal();
+        }
+        finally
+        {
+            _mouseInput?.Dispose();
+        }
+    }
+
+    private static void TryRestoreTerminal()
+    {
+        try
+        {
+            Terminal.ExitInteractiveSession();
+        }
+        catch (Exception exception) when (exception is IOException or InvalidOperationException)
+        {
+            // The host may have detached or disposed its terminal during shutdown.
+        }
     }
 
     private static bool ReturnNoWheel(out int delta)

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Threading.Channels;
 using Subconscious.Desktop.Engine;
+using Subconscious.TUI;
 
 namespace Subconscious.Terminal;
 
@@ -10,6 +11,8 @@ internal sealed class TerminalApp
     private readonly EngineClient _client;
     private readonly TerminalSession _terminal;
     private readonly TerminalRenderer _renderer;
+    private readonly TerminalEventLoop? _eventLoop;
+    private Task? _eventLoopTask;
     private readonly bool _dev;
     private readonly Channel<UiEvent> _events = Channel.CreateUnbounded<UiEvent>(
         new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
@@ -28,6 +31,10 @@ internal sealed class TerminalApp
     private PendingApproval? _approval;
     private string? _activeTurnId;
     private string _status = "Starting…";
+    private SidebarMode _sidebarMode = SidebarMode.Workspaces;
+    private bool _sidebarVisible = true;
+    private bool _sidebarFocused;
+    private int _sidebarSelectedIndex;
     private int _historyIndex;
     private bool _connected;
     private bool _logoCommitted;
@@ -38,6 +45,7 @@ internal sealed class TerminalApp
         _client = client;
         _terminal = terminal;
         _renderer = new TerminalRenderer(terminal);
+        _eventLoop = terminal.Interactive ? new TerminalEventLoop() : null;
         _dev = dev;
         _client.ConnectionStatusChanged += (_, value) => Publish(new ConnectionChanged(value));
         _client.ChatDelta += (_, value) => Publish(new DeltaReceived(value));
@@ -50,41 +58,91 @@ internal sealed class TerminalApp
     public async Task<int> RunAsync()
     {
         Render();
-        _ = Task.Run(ReadInputLoop);
-        if (_terminal.Interactive) _ = Task.Run(WatchSizeAsync);
-        await InitializeAsync();
-        Render();
-
-        UiEvent? deferred = null;
-        while (_running && !_shutdown.IsCancellationRequested)
+        if (_terminal.Interactive)
         {
-            var next = deferred ?? await _events.Reader.ReadAsync(_shutdown.Token);
-            deferred = null;
-            await ProcessAsync(next);
-
-            if (next is DeltaReceived)
-            {
-                await Task.Delay(24, _shutdown.Token);
-                while (_events.Reader.TryRead(out var queued))
+            _eventLoopTask = Task.Run(() => _eventLoop!.Run(
+                _renderer,
+                key =>
                 {
-                    if (queued is DeltaReceived)
-                    {
-                        await ProcessAsync(queued);
-                    }
-                    else
-                    {
-                        deferred = queued;
-                        break;
-                    }
-                }
-            }
-
-            if (_running) Render();
+                    Publish(new KeyPressed(key));
+                    return !_shutdown.IsCancellationRequested;
+                },
+                _shutdown.Token));
+        }
+        else
+        {
+            _ = Task.Run(ReadInputLoop);
         }
 
-        _shutdown.Cancel();
-        _renderer.ClearLive();
-        return 0;
+        try
+        {
+            await InitializeAsync();
+            Render();
+
+            UiEvent? deferred = null;
+            while (_running && !_shutdown.IsCancellationRequested)
+            {
+                var next = deferred ?? await ReadNextEventAsync();
+                deferred = null;
+                await ProcessAsync(next);
+
+                if (next is DeltaReceived)
+                {
+                    await Task.Delay(24, _shutdown.Token);
+                    while (_events.Reader.TryRead(out var queued))
+                    {
+                        if (queued is DeltaReceived)
+                        {
+                            await ProcessAsync(queued);
+                        }
+                        else
+                        {
+                            deferred = queued;
+                            break;
+                        }
+                    }
+                }
+
+                if (_running) Render();
+            }
+
+            if (_eventLoopTask?.IsFaulted == true)
+            {
+                await _eventLoopTask;
+            }
+
+            return 0;
+        }
+        finally
+        {
+            _shutdown.Cancel();
+            _eventLoop?.Invalidate();
+            if (_eventLoopTask is not null)
+            {
+                try { await _eventLoopTask; }
+                catch (OperationCanceledException) { }
+                catch { /* Preserve any application exception already being unwound. */ }
+            }
+            _renderer.ClearLive();
+        }
+    }
+
+    private async Task<UiEvent> ReadNextEventAsync()
+    {
+        var readTask = _events.Reader.ReadAsync(_shutdown.Token).AsTask();
+        if (_eventLoopTask is null)
+        {
+            return await readTask;
+        }
+
+        var completed = await Task.WhenAny(readTask, _eventLoopTask);
+        if (completed == readTask)
+        {
+            return await readTask;
+        }
+
+        await _eventLoopTask;
+        throw new InvalidOperationException("The terminal event loop stopped unexpectedly.");
     }
 
     private async Task InitializeAsync()
@@ -202,8 +260,6 @@ internal sealed class TerminalApp
                 _approval = new PendingApproval(approval.Value);
                 _status = $"Approval required · {approval.Value.ToolName}";
                 break;
-            case TerminalResized:
-                break;
         }
     }
 
@@ -234,6 +290,32 @@ internal sealed class TerminalApp
             _renderer.CommitLogo();
             return;
         }
+        if (control && key.Key == ConsoleKey.B)
+        {
+            _sidebarVisible = !_sidebarVisible;
+            _sidebarFocused = _sidebarVisible;
+            return;
+        }
+        if (control && key.Key is ConsoleKey.D1 or ConsoleKey.NumPad1)
+        {
+            OpenSidebar(SidebarMode.Workspaces);
+            return;
+        }
+        if (control && key.Key is ConsoleKey.D2 or ConsoleKey.NumPad2)
+        {
+            OpenSidebar(SidebarMode.Threads);
+            return;
+        }
+        if (control && key.Key is ConsoleKey.D3 or ConsoleKey.NumPad3)
+        {
+            OpenSidebar(SidebarMode.Settings);
+            return;
+        }
+        if (_sidebarFocused)
+        {
+            await HandleSidebarKeyAsync(key);
+            return;
+        }
         if (key.Key == ConsoleKey.Escape && _activeTurnId is not null)
         {
             await CancelActiveTurnAsync();
@@ -258,6 +340,47 @@ internal sealed class TerminalApp
         var action = _composer.Apply(key);
         if (action == ComposerAction.Submit) await SubmitAsync(_composer.Take());
         else if (action == ComposerAction.Changed) _historyIndex = _history.Count;
+    }
+
+    private async Task HandleSidebarKeyAsync(ConsoleKeyInfo key)
+    {
+        if (key.Key is ConsoleKey.Escape or ConsoleKey.Tab)
+        {
+            _sidebarFocused = false;
+            return;
+        }
+        if (key.Key is ConsoleKey.LeftArrow or ConsoleKey.RightArrow)
+        {
+            var modes = Enum.GetValues<SidebarMode>();
+            var direction = key.Key == ConsoleKey.LeftArrow ? -1 : 1;
+            var index = ((int)_sidebarMode + direction + modes.Length) % modes.Length;
+            OpenSidebar(modes[index]);
+            return;
+        }
+
+        var items = SidebarItems();
+        if (items.Count == 0) return;
+        if (key.Key == ConsoleKey.UpArrow)
+        {
+            _sidebarSelectedIndex = (_sidebarSelectedIndex - 1 + items.Count) % items.Count;
+        }
+        else if (key.Key == ConsoleKey.DownArrow)
+        {
+            _sidebarSelectedIndex = (_sidebarSelectedIndex + 1) % items.Count;
+        }
+        else if (key.Key == ConsoleKey.Enter)
+        {
+            var selected = items[Math.Clamp(_sidebarSelectedIndex, 0, items.Count - 1)];
+            try
+            {
+                await ApplySelectionAsync(selected.Kind, selected.Id);
+            }
+            catch (Exception exception)
+            {
+                _status = $"Unable to apply setting: {exception.Message}";
+                _renderer.CommitNotice(_status, true);
+            }
+        }
     }
 
     private async Task HandleApprovalKeyAsync(ConsoleKeyInfo key)
@@ -471,7 +594,12 @@ internal sealed class TerminalApp
         var items = source.ToList();
         if (_terminal.Interactive)
         {
-            _selection = new SelectionOverlay(kind, title, items);
+            OpenSidebar(kind switch
+            {
+                OverlayKind.Workspaces => SidebarMode.Workspaces,
+                OverlayKind.Threads => SidebarMode.Threads,
+                _ => SidebarMode.Settings,
+            }, kind);
             return;
         }
         var listing = items.Count == 0
@@ -479,6 +607,34 @@ internal sealed class TerminalApp
             : string.Join('\n', items.Select((item, index) => $"{index + 1}. {item.Label}"));
         _renderer.CommitMessage(title.ToLowerInvariant(), listing);
     }
+
+    private void OpenSidebar(SidebarMode mode, OverlayKind? preferredKind = null)
+    {
+        _sidebarMode = mode;
+        _sidebarVisible = true;
+        _sidebarFocused = true;
+        var items = SidebarItems();
+        var activeIndex = items.FindIndex(item => item.IsActive && (preferredKind is null || item.Kind == preferredKind));
+        if (activeIndex < 0 && preferredKind is not null)
+        {
+            activeIndex = items.FindIndex(item => item.Kind == preferredKind);
+        }
+        _sidebarSelectedIndex = Math.Max(0, activeIndex);
+    }
+
+    private List<SidebarItem> SidebarItems() => _sidebarMode switch
+    {
+        SidebarMode.Workspaces => _workspaces.Select(item => new SidebarItem(
+            OverlayKind.Workspaces, item.Uuid, item.Name, item.Uuid == _workspace?.Uuid)).ToList(),
+        SidebarMode.Threads => _threads.Select(item => new SidebarItem(
+            OverlayKind.Threads, item.Uuid, item.Title ?? "Untitled thread", item.Uuid == _thread?.Uuid)).ToList(),
+        SidebarMode.Settings => _models.Select(item => new SidebarItem(
+                OverlayKind.Models, item.Id, $"Model · {item.Label}", item.Id == _model?.Id))
+            .Concat(ThemeItems().Select(item => new SidebarItem(
+                OverlayKind.Themes, item.Id, item.Label, item.Label.TrimStart().StartsWith('✓'))))
+            .ToList(),
+        _ => [],
+    };
 
     private async Task SelectByArgumentAsync(OverlayKind kind, string? argument)
     {
@@ -690,14 +846,28 @@ internal sealed class TerminalApp
         ], _shutdown.Token);
     }
 
-    private void Render() => _renderer.Render(new TerminalView(
-        _status,
-        _streaming.ToString(),
-        _composer.Text,
-        _composer.Caret,
-        _activeTurnId is not null,
-        _selection,
-        _approval));
+    private void Render()
+    {
+        var sidebarItems = SidebarItems();
+        _sidebarSelectedIndex = sidebarItems.Count == 0
+            ? 0
+            : Math.Clamp(_sidebarSelectedIndex, 0, sidebarItems.Count - 1);
+        _renderer.UpdateView(new TerminalView(
+            _status,
+            _streaming.ToString(),
+            _composer.Text,
+            _composer.Caret,
+            _activeTurnId is not null,
+            _selection,
+            _approval,
+            new SidebarView(
+                _sidebarVisible,
+                _sidebarFocused,
+                _sidebarMode,
+                _sidebarSelectedIndex,
+                sidebarItems)));
+        _eventLoop?.Invalidate();
+    }
 
     private string StatusText()
     {
@@ -737,22 +907,6 @@ internal sealed class TerminalApp
         }
     }
 
-    private async Task WatchSizeAsync()
-    {
-        var width = _terminal.Width;
-        var height = _terminal.Height;
-        while (!_shutdown.IsCancellationRequested)
-        {
-            await Task.Delay(150, _shutdown.Token);
-            var nextWidth = _terminal.Width;
-            var nextHeight = _terminal.Height;
-            if (nextWidth == width && nextHeight == height) continue;
-            width = nextWidth;
-            height = nextHeight;
-            Publish(new TerminalResized(width, height));
-        }
-    }
-
     private static string? Setting(IEnumerable<AppStateSetting> settings, string key) =>
         settings.LastOrDefault(item => item.Key == key)?.Value is { Length: > 0 } value ? value : null;
 
@@ -784,5 +938,8 @@ internal sealed class TerminalApp
         Enter sends · Shift+Enter or Ctrl+Enter inserts a line
         Esc cancels · Ctrl+C clears/cancels/exits · Ctrl+L clears
         Up/Down recalls history · Tab completes slash commands
+        Ctrl+B toggles the sidebar · Ctrl+1/2/3 opens Workspaces/Threads/Settings
+        Sidebar: ↑↓ select · ←→ switch section · Enter apply · Esc return to composer
+        Transcript: mouse wheel scrolls using the native OS preference
         """;
 }

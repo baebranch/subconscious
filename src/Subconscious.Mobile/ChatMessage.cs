@@ -1,18 +1,34 @@
+using System.ComponentModel;
+using System.Windows.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
+using Subconscious.Chat;
+
 namespace Subconscious.Mobile;
 
-/// <summary>
-/// A single chat bubble. Immutable — once a message is sent or received it doesn't change.
-/// </summary>
-public sealed class ChatMessage
+/// <summary>Phone-friendly adapter for the shared native chat transcript.</summary>
+public sealed partial class ChatMessage : ObservableObject, IChatTranscriptMessage
 {
-	public string Text { get; }
+    public ChatMessage(string role, string content, DateTime? createdAt = null)
+    {
+        Role = role;
+        CreatedAt = createdAt ?? DateTime.UtcNow;
+        _content = content;
+    }
 
-	/// <summary>True if this bubble was typed by the user (right-aligned); false for the bot's replies (left-aligned).</summary>
-	public bool IsFromUser { get; }
+    public string Role { get; }
+    public DateTime CreatedAt { get; }
+    public string Timestamp => CreatedAt.ToLocalTime().ToString("g");
+    public bool IsUser => string.Equals(Role, "user", StringComparison.OrdinalIgnoreCase);
+    public bool IsTool => string.Equals(Role, "tool", StringComparison.OrdinalIgnoreCase);
+    public string ToolInput => Content;
+    public string ToolOutput => string.Empty;
+    public string ToolTitle => "Tool message";
+    public bool IsToolExpanded => false;
+    public string ToolExpansionGlyph => string.Empty;
+    public ICommand ToggleToolExpandedCommand { get; } = new Command(() => { });
 
-	public ChatMessage(string text, bool isFromUser)
-	{
-		Text = text;
-		IsFromUser = isFromUser;
-	}
+    [ObservableProperty]
+    private string _content;
+
+    public void AppendDelta(string delta) => Content += delta;
 }

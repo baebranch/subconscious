@@ -7,9 +7,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Spectre renders committed transcript blocks; the custom renderer owns live output. -->
-    <PackageReference Include="Spectre.Console" Version="0.57.0" />
+    <ProjectReference Include="..\Subconscious.TUI\Subconscious.TUI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TerminalIsolatedBuild)' != 'true'">
     <ProjectReference Include="..\Subconscious.Client\Subconscious.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TerminalIsolatedBuild)' == 'true'">
+    <!-- Compile the shared client into this assembly so the isolated task uses current source
+         without evaluating or building the Client project, which may be in use by another app. -->
+    <Compile Include="..\Subconscious.Client\*.cs" LinkBase="Client" />
   </ItemGroup>
 
   <ItemGroup>

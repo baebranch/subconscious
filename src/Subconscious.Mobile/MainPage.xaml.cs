@@ -1,58 +1,69 @@
-﻿using System.Collections.ObjectModel;
+﻿using Subconscious.Mobile.Engine;
 
 namespace Subconscious.Mobile;
 
+[QueryProperty(nameof(Section), "section")]
 public partial class MainPage : ContentPage
 {
-	/// <summary>Backs the CollectionView in MainPage.xaml. ObservableCollection raises
-	/// CollectionChanged itself, so the UI updates on Add without any extra plumbing.</summary>
-	public ObservableCollection<ChatMessage> Messages { get; } = new();
+    private readonly MobileChatSession _session;
+    private string _section = "chat";
 
-	public MainPage()
-	{
-		InitializeComponent();
+    public MainPage()
+    {
+        InitializeComponent();
+        _session = IPlatformApplication.Current?.Services.GetService<MobileChatSession>()
+            ?? throw new InvalidOperationException("MobileChatSession is not registered.");
+        BindingContext = _session;
+        ApplySection();
+    }
 
-		// MainPage acts as its own (minimal) view model for this dummy slice —
-		// no separate class needed just to expose one collection.
-		BindingContext = this;
+    public string Section
+    {
+        get => _section;
+        set
+        {
+            _section = string.IsNullOrWhiteSpace(value) ? "chat" : Uri.UnescapeDataString(value).ToLowerInvariant();
+            ApplySection();
+        }
+    }
 
-		Messages.Add(new ChatMessage("Hey! Ask me anything and I'll echo it back for now.", isFromUser: false));
-	}
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await _session.InitializeAsync();
+    }
 
-	private async void OnSendClicked(object? sender, EventArgs e)
-	{
-		var text = MessageEditor.Text?.Trim();
-		if (string.IsNullOrEmpty(text))
-		{
-			return;
-		}
+    private void ApplySection()
+    {
+        if (ChatScreen is null) return;
+        ChatScreen.IsVisible = _section is "chat" or "home";
+        WorkspacesScreen.IsVisible = _section == "workspaces";
+        ThreadsScreen.IsVisible = _section == "threads";
+        FilesScreen.IsVisible = _section == "files";
+        SettingsScreen.IsVisible = _section == "settings";
+        AccountScreen.IsVisible = _section == "account";
+        Title = _section switch { "workspaces" => "Workspaces", "threads" => "Threads", "files" => "Files", "settings" => "Settings", "account" => "Account", _ => "Chat" };
+    }
 
-		MessageEditor.Text = string.Empty;
+    private async void OnWorkspaceSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.CurrentSelection.FirstOrDefault() is Workspace workspace)
+        {
+            await _session.SelectWorkspaceAsync(workspace);
+            await Shell.Current.GoToAsync("//Home?section=chat");
+        }
+    }
 
-		Messages.Add(new ChatMessage(text, isFromUser: true));
-		ScrollToLatest();
+    private async void OnThreadSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.CurrentSelection.FirstOrDefault() is ThreadInfo thread)
+        {
+            await _session.SelectThreadAsync(thread);
+            await Shell.Current.GoToAsync("//Home?section=chat");
+        }
+    }
 
-		var reply = await EchoAsync(text);
-
-		Messages.Add(new ChatMessage(reply, isFromUser: false));
-		ScrollToLatest();
-	}
-
-	/// <summary>
-	/// Placeholder "bot" response. Swap this out for a real call into Subconscious.Engine
-	/// once the mobile client is wired up to it — the rest of the chat UI won't need to change.
-	/// </summary>
-	private static async Task<string> EchoAsync(string message)
-	{
-		await Task.Delay(300); // small delay so it reads like a real round trip
-		return $"Echo: {message}";
-	}
-
-	private void ScrollToLatest()
-	{
-		if (Messages.Count > 0)
-		{
-			MessagesView.ScrollTo(Messages[^1], position: ScrollToPosition.End, animate: true);
-		}
-	}
+    private async void OnSendClicked(object? sender, EventArgs e) => await _session.SendAsync();
+    private void OnStopClicked(object? sender, EventArgs e) => _session.Stop();
+    private void OnNewThreadClicked(object? sender, EventArgs e) => _session.StartNewThread();
 }

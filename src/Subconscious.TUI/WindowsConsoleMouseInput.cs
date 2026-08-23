@@ -74,7 +74,14 @@ internal sealed class WindowsConsoleMouseInput : IDisposable
         }
 
         _disposed = true;
-        SetConsoleMode(_inputHandle, _originalMode);
+        try
+        {
+            SetConsoleMode(_inputHandle, _originalMode);
+        }
+        catch
+        {
+            // Terminal output restoration must still proceed if the host detached the console.
+        }
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]
